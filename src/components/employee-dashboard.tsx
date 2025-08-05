@@ -169,7 +169,7 @@ export default function EmployeeDashboard() {
         if (scheduleSettings.clockOutTime) {
             const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
             const clockOutStartTime = outHours * 60 + outMinutes;
-            setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime);
+             setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime);
         } else {
              // If clock out time is not set, allow clocking out if they are clocked in
             setIsClockOutAllowed(status === 'in');
@@ -384,72 +384,10 @@ export default function EmployeeDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8">
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-8">
-          <Card className="shadow-lg rounded-xl">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                <Camera className="text-primary" />
-                Otentikasi Wajah
-              </CardTitle>
-              <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-6">
-              <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
-                 <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                 <canvas ref={canvasRef} className="hidden"></canvas>
-                 {hasCameraPermission === null ? (
-                   <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
-                      <Loader2 className="h-6 w-6 animate-spin mr-2"/>
-                      Meminta izin kamera...
-                   </div>
-                 ) : !hasCameraPermission && (
-                  <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
-                    <Alert variant="destructive" className="w-auto">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
-                      <AlertDescription>
-                        Mohon izinkan akses kamera di pengaturan browser Anda.
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                )}
-              </div>
-               {cameras.length > 1 && hasCameraPermission && (
-                  <div className="w-full space-y-2">
-                    <Label htmlFor="cameraSelect">Pilih Kamera</Label>
-                    <Select value={selectedCamera} onValueChange={setSelectedCamera}>
-                      <SelectTrigger id="cameraSelect">
-                        <SelectValue placeholder="Pilih kamera..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cameras.map(camera => (
-                          <SelectItem key={camera.deviceId} value={camera.deviceId}>
-                            {camera.label || `Kamera ${cameras.indexOf(camera) + 1}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-              <div className="flex gap-4 w-full flex-col sm:flex-row">
-                <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission || !isClockInAllowed}>
-                  {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
-                  Absen Masuk
-                </Button>
-                <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission || !isClockOutAllowed}>
-                   {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
-                  Absen Keluar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-8">
-          <Card className="shadow-lg rounded-xl">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
+      
+      <div className="grid gap-4 md:grid-cols-2 items-center">
+         <Card className="shadow-lg rounded-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Clock /> Waktu Saat Ini</CardTitle>
             </CardHeader>
@@ -458,10 +396,9 @@ export default function EmployeeDashboard() {
               <p className="text-muted-foreground">{date || '...'}</p>
             </CardContent>
           </Card>
-
-          <Dialog>
+           <Dialog>
              <DialogTrigger asChild>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full h-full text-lg">
                     <History className="mr-2" /> Lihat Riwayat Absensi
                 </Button>
             </DialogTrigger>
@@ -521,9 +458,68 @@ export default function EmployeeDashboard() {
                 </div>
             </DialogContent>
           </Dialog>
-        </div>
       </div>
+
+      <Card className="shadow-lg rounded-xl">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+            <Camera className="text-primary" />
+            Otentikasi Wajah
+          </CardTitle>
+          <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-6">
+          <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
+              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+              <canvas ref={canvasRef} className="hidden"></canvas>
+              {hasCameraPermission === null ? (
+                <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2"/>
+                    Meminta izin kamera...
+                </div>
+              ) : !hasCameraPermission && (
+              <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                <Alert variant="destructive" className="w-auto">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
+                  <AlertDescription>
+                    Mohon izinkan akses kamera di pengaturan browser Anda.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+          </div>
+            {cameras.length > 1 && hasCameraPermission && (
+              <div className="w-full space-y-2">
+                <Label htmlFor="cameraSelect">Pilih Kamera</Label>
+                <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                  <SelectTrigger id="cameraSelect">
+                    <SelectValue placeholder="Pilih kamera..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cameras.map(camera => (
+                      <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                        {camera.label || `Kamera ${cameras.indexOf(camera) + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+          <div className="flex gap-4 w-full flex-col sm:flex-row">
+            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission || !isClockInAllowed}>
+              {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
+              Absen Masuk
+            </Button>
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission || !isClockOutAllowed}>
+                {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
+              Absen Keluar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
-

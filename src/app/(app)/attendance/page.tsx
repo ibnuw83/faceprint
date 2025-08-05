@@ -32,6 +32,7 @@ import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 
 type AttendanceRecord = {

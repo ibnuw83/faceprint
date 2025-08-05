@@ -57,7 +57,6 @@ function Header() {
           { href: '/employees', label: 'Karyawan', icon: Users },
           { href: '/departments', label: 'Departemen', icon: Building2 },
           { href: '/leaves', label: 'Cuti & Izin', icon: FileText },
-          { href: '/settings', label: 'Pengaturan', icon: Settings },
         ]
       : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
 
@@ -152,6 +151,14 @@ function Header() {
                           <span>Profil Saya</span>
                         </Link>
                 </DropdownMenuItem>
+                {user?.role === 'admin' && (
+                    <DropdownMenuItem asChild>
+                        <Link href="/settings" className="cursor-pointer">
+                            <Settings className="mr-2 h-4 w-4" />
+                            <span>Pengaturan</span>
+                        </Link>
+                    </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />

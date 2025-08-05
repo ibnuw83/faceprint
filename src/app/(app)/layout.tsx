@@ -71,6 +71,7 @@ function Header() {
             href={item.href}
             className={cn(
               'transition-colors hover:text-foreground',
+               item.label === 'Cuti & Izin' && 'whitespace-nowrap',
               pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
                 ? 'text-foreground font-semibold'
                 : ''

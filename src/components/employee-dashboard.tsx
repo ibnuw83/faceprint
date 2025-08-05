@@ -144,31 +144,38 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     const updateTimeChecks = () => {
        const now = new Date();
+      
       if (scheduleSettings) {
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
         
+        // Clock In Logic
         if (scheduleSettings.clockInTime) {
             const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
             const clockInStartTime = inHours * 60 + inMinutes;
             const clockInEndTime = clockInStartTime + (4 * 60); // 4 hour window
             setIsClockInAllowed(currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime);
         } else {
-            setIsClockInAllowed(true);
+            setIsClockInAllowed(true); // Always allow if not set
         }
         
+        // Clock Out Logic
         if (scheduleSettings.clockOutTime) {
             const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
             const clockOutStartTime = outHours * 60 + outMinutes;
-             setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime);
+            setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime && status === 'in');
         } else {
+             // If no time is set, allow clocking out anytime as long as the user is clocked in
             setIsClockOutAllowed(status === 'in');
         }
-
+      } else {
+         // Default behavior if no settings are loaded
+         setIsClockInAllowed(true);
+         setIsClockOutAllowed(status === 'in');
       }
     };
     
     updateTimeChecks();
-    const timerId = setInterval(updateTimeChecks, 60000); // Check every minute is enough
+    const timerId = setInterval(updateTimeChecks, 60000); // Check every minute
 
     return () => clearInterval(timerId);
   }, [scheduleSettings, status]);
@@ -496,7 +503,7 @@ export default function EmployeeDashboard() {
               {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk
             </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission || !isClockOutAllowed}>
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={isProcessing || !hasCameraPermission || !isClockOutAllowed}>
                 {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
               Absen Keluar
             </Button>

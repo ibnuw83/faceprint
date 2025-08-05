@@ -72,38 +72,30 @@ export default function EmployeeDashboard() {
   const [isClockOutAllowed, setIsClockOutAllowed] = useState(false);
 
 
-  const fetchAttendanceHistory = useCallback(async (currentUser: User) => {
-    if (!currentUser?.employeeId) return;
+  const fetchAttendanceHistory = useCallback(async (employeeId: string) => {
     setLoadingHistory(true);
     try {
       const q = query(
         collection(db, 'attendance'),
-        where('employeeId', '==', currentUser.employeeId),
+        where('employeeId', '==', employeeId),
         orderBy('createdAt', 'desc'),
-        limit(10) // Get the last 10 records for performance
+        limit(10) 
       );
       const querySnapshot = await getDocs(q);
-      const history = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
 
       setAttendanceHistory(history);
       
       if (history.length > 0) {
         const lastRecord = history[0];
-        // Check if the last record is for today to determine current status
         if (lastRecord.date === new Date().toLocaleDateString('id-ID')) {
-            if (lastRecord.status === 'Clocked In') {
-                setStatus('in');
-            } else {
-                setStatus('out'); // Clocked out today
-            }
+            setStatus(lastRecord.status === 'Clocked In' ? 'in' : 'out');
         } else {
-            setStatus(null); // Last record was from a previous day
+            setStatus(null);
         }
       } else {
-        setStatus(null); // No history at all
+        setStatus(null);
       }
-
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
       if ((error as any).code === 'failed-precondition') {
@@ -125,7 +117,6 @@ export default function EmployeeDashboard() {
     }
   }, [toast]);
   
-  // Fetch initial data (history & settings)
   useEffect(() => {
     const fetchInitialData = async () => {
         try {
@@ -138,8 +129,10 @@ export default function EmployeeDashboard() {
             console.error("Error fetching schedule settings:", error);
         }
 
-        if(user){
-            await fetchAttendanceHistory(user);
+        if(user?.employeeId){
+            await fetchAttendanceHistory(user.employeeId);
+        } else {
+            setLoadingHistory(false);
         }
     }
     
@@ -364,7 +357,9 @@ export default function EmployeeDashboard() {
       });
 
       // 7. Refresh history
-      await fetchAttendanceHistory(user);
+      if (user.employeeId) {
+        await fetchAttendanceHistory(user.employeeId);
+      }
 
     } catch (error: any) {
       toast({

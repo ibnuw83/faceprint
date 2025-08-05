@@ -133,15 +133,29 @@ export default function EmployeeDashboard() {
 
       // Check schedule
       if (scheduleSettings) {
-        const currentTime = now.getHours() * 60 + now.getMinutes();
+        const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
+        const fourHoursInMinutes = 4 * 60;
         
-        const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
-        const clockInStartTime = inHours * 60 + inMinutes;
-        setIsClockInAllowed(currentTime >= clockInStartTime);
+        // Clock In Window
+        if (scheduleSettings.clockInTime) {
+            const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
+            const clockInStartTime = inHours * 60 + inMinutes;
+            const clockInEndTime = clockInStartTime + fourHoursInMinutes;
+            setIsClockInAllowed(currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes < clockInEndTime);
+        } else {
+            setIsClockInAllowed(true); // Default to allowed if not set
+        }
+        
+        // Clock Out Window
+        if (scheduleSettings.clockOutTime) {
+            const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
+            const clockOutStartTime = outHours * 60 + outMinutes;
+            const clockOutEndTime = clockOutStartTime + fourHoursInMinutes;
+            setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime && currentTimeInMinutes < clockOutEndTime);
+        } else {
+            setIsClockOutAllowed(false); // Default to not allowed if not set
+        }
 
-        const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
-        const clockOutStartTime = outHours * 60 + outMinutes;
-        setIsClockOutAllowed(currentTime >= clockOutStartTime);
       }
     };
     updateDateTime();

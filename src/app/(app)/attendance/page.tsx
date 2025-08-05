@@ -32,7 +32,7 @@ import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+
 
 type AttendanceRecord = {
   id: string;
@@ -43,11 +43,6 @@ type AttendanceRecord = {
   status: 'Clocked In' | 'Clocked Out';
   createdAt: Timestamp;
 };
-
-// Extend jsPDF with autoTable method
-interface jsPDFWithAutoTable extends jsPDF {
-  autoTable: (options: any) => jsPDFWithAutoTable;
-}
 
 export default function AttendancePage() {
   const { user } = useAuth();
@@ -117,7 +112,7 @@ export default function AttendancePage() {
       return;
     }
     
-    const doc = new jsPDF() as jsPDFWithAutoTable;
+    const doc = new jsPDF();
     
     const title = 'Laporan Absensi';
     const dateRange = date?.from ? `${format(date.from, 'd MMMM yyyy', { locale: localeID })} - ${format(date.to || date.from, 'd MMMM yyyy', { locale: localeID })}` : 'Semua Waktu';
@@ -127,17 +122,25 @@ export default function AttendancePage() {
     doc.text(title, 14, 22);
     doc.setFontSize(11);
     doc.text(`Periode: ${dateRange}`, 14, 30);
-    
-    doc.autoTable({
-        startY: 35,
-        head: [['Nama Karyawan', 'ID Karyawan', 'Tanggal', 'Waktu', 'Status']],
-        body: filteredAttendanceRecords.map(record => [
+
+    const tableColumn = ["Nama Karyawan", "ID Karyawan", "Tanggal", "Waktu", "Status"];
+    const tableRows: (string[])[] = [];
+
+    filteredAttendanceRecords.forEach(record => {
+        const ticketData = [
             record.employeeName,
             record.employeeId,
             record.date,
             record.time,
             statusLocale[record.status] || record.status
-        ]),
+        ];
+        tableRows.push(ticketData);
+    });
+
+    (doc as any).autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 35,
         theme: 'grid',
         headStyles: { fillColor: [41, 128, 185], textColor: 255 }
     });

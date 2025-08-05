@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -45,9 +46,20 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      // Fallback logic: if role is missing, infer from email. This prevents accidental lockouts.
       const role = userData.role || (fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
       
+      let locationSettings = null;
+      if (userData.locationSettings && 
+          userData.locationSettings.latitude != null && 
+          userData.locationSettings.longitude != null && 
+          userData.locationSettings.radius != null) {
+          locationSettings = {
+              latitude: Number(userData.locationSettings.latitude),
+              longitude: Number(userData.locationSettings.longitude),
+              radius: Number(userData.locationSettings.radius),
+          };
+      }
+
       return {
         uid: fbUser.uid,
         name: userData.name || fbUser.displayName,
@@ -55,22 +67,20 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
         lastLocation: userData.lastLocation || null,
-        locationSettings: userData.locationSettings,
+        locationSettings: locationSettings,
         faceprint: userData.faceprint || null,
         department: userData.department || null,
         employeeId: userData.employeeId || null,
       };
     }
      console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user.`);
-    // This can happen for a brand new user right after registration before the doc is created.
-    // Let's create a default user object based on registration info.
     const role = fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
     return {
       uid: fbUser.uid,
       name: fbUser.displayName,
       email: fbUser.email,
       role: role,
-      isProfileComplete: role === 'admin', // Admins are complete by default
+      isProfileComplete: role === 'admin',
       faceprint: null,
     };
   } catch (error) {
@@ -96,22 +106,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // This listener handles auth state changes (login/logout)
     const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
       setFirebaseUser(fbUser);
       if (!fbUser) {
-          // User is logged out
           setUser(null);
           setLoading(false);
       }
-      // If user is logged in, the other useEffect will handle data fetching.
     });
 
     return () => unsubscribeAuth();
   }, []);
 
   useEffect(() => {
-    // This listener handles real-time updates to the logged-in user's data
     if (firebaseUser) {
         setLoading(true);
         const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -122,7 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const role = userData.role || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
                 
                 let locationSettings = null;
-                // THIS IS THE CRITICAL FIX: Ensure data types are correct upon reading from Firestore.
                 if (userData.locationSettings && 
                     userData.locationSettings.latitude != null && 
                     userData.locationSettings.longitude != null && 
@@ -147,8 +152,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     employeeId: userData.employeeId || null,
                 });
             } else {
-                // This might happen right after registration, before the doc is created.
-                // We'll rely on the initial fetch or redirect.
                 setUser(null);
             }
             setLoading(false);
@@ -159,7 +162,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return () => unsubscribeUser();
     } else {
-        // No user logged in.
         setLoading(false);
     }
 }, [firebaseUser]);
@@ -215,3 +217,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
+
+    

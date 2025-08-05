@@ -156,9 +156,9 @@ export default function EmployeesPage() {
 
         // Only update location if all three fields are provided
         if (latStr && lngStr && radiusStr) {
-            const lat = parseFloat(latStr);
-            const lng = parseFloat(lngStr);
-            const radius = parseInt(radiusStr, 10);
+            const lat = Number(latStr);
+            const lng = Number(lngStr);
+            const radius = Number(radiusStr);
 
             if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
                 toast({ title: 'Input Lokasi Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka yang valid.', variant: 'destructive' });
@@ -349,3 +349,5 @@ export default function EmployeesPage() {
     </div>
   );
 }
+
+    

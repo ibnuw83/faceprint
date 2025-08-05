@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -67,9 +68,10 @@ export default function EmployeeDashboard() {
   const [loadingHistory, setLoadingHistory] = useState(true);
 
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
-  const [locationSettings, setLocationSettings] = useState<LocationSettings>(null);
-  const [isClockInAllowed, setIsClockInAllowed] = useState(true);
-  const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
+  const [effectiveLocationSettings, setEffectiveLocationSettings] = useState<LocationSettings>(null);
+  
+  const [isClockInAllowed, setIsClockInAllowed] = useState(false);
+  const [isClockOutAllowed, setIsClockOutAllowed] = useState(false);
 
   const fetchAttendanceHistory = useCallback(async (employeeId: string) => {
     setLoadingHistory(true);
@@ -109,7 +111,6 @@ export default function EmployeeDashboard() {
 
   // Effect for fetching initial data and setting up listeners
   useEffect(() => {
-    // Listener for real-time schedule settings updates
     const scheduleRef = doc(db, 'settings', 'schedule');
     const unsubscribeSchedule = onSnapshot(scheduleRef, (doc) => {
         if (doc.exists() && doc.data()) {
@@ -120,42 +121,41 @@ export default function EmployeeDashboard() {
     }, (error) => {
         console.error("Error listening to schedule settings:", error);
     });
-    
-    // Logic for location settings (priority: user-specific > global)
-    const setupLocationSettings = async () => {
-        if (user && user.locationSettings) {
-            setLocationSettings(user.locationSettings);
+
+    const setupLocationAndHistory = async () => {
+        if (!user) return;
+        
+        // 1. Determine location settings (user > global)
+        if (user.locationSettings) {
+            setEffectiveLocationSettings(user.locationSettings);
         } else {
-            // Fallback to global settings
             const globalLocationRef = doc(db, 'settings', 'location');
             const docSnap = await getDoc(globalLocationRef);
             if (docSnap.exists() && docSnap.data()) {
                 const data = docSnap.data();
-                 if (data.latitude && data.longitude && data.radius) {
-                    setLocationSettings({
+                 if (data.latitude != null && data.longitude != null && data.radius != null) {
+                    setEffectiveLocationSettings({
                         latitude: Number(data.latitude),
                         longitude: Number(data.longitude),
                         radius: Number(data.radius),
                     });
                 } else {
-                    setLocationSettings(null);
+                    setEffectiveLocationSettings(null);
                 }
             } else {
-                setLocationSettings(null);
+                setEffectiveLocationSettings(null);
             }
         }
-    }
 
-    if (user) {
-        setupLocationSettings();
+        // 2. Fetch attendance history
         if (user.employeeId) {
             fetchAttendanceHistory(user.employeeId);
         } else {
             setLoadingHistory(false);
         }
-    } else {
-        setLoadingHistory(false);
-    }
+    };
+
+    setupLocationAndHistory();
     
     return () => unsubscribeSchedule();
 
@@ -168,7 +168,6 @@ export default function EmployeeDashboard() {
         const now = new Date();
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
 
-        // Default to allowed, then restrict if settings exist
         let clockInAllowed = true;
         let clockOutAllowed = true;
 
@@ -303,7 +302,6 @@ export default function EmployeeDashboard() {
     setIsProcessing(true);
 
     try {
-      // 1. Capture image from video
       const video = videoRef.current;
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
@@ -314,7 +312,6 @@ export default function EmployeeDashboard() {
       
       toast({ title: 'Memverifikasi Wajah...', description: 'Mohon tunggu, AI sedang memproses gambar Anda.' });
 
-      // 2. Verify face with AI
       const verificationResult = await verifyFaces({
         registeredFace: user.faceprint,
         captureToVerify: captureToVerify,
@@ -326,26 +323,24 @@ export default function EmployeeDashboard() {
       
        toast({ title: 'Wajah Terverifikasi!', description: 'Sekarang memeriksa lokasi Anda.' });
       
-      // 3. Get user's current location & check distance if settings exist
       const currentLocation = await getLocation();
 
-      if(locationSettings) {
+      if(effectiveLocationSettings) {
           const distance = calculateDistance(
             currentLocation.latitude,
             currentLocation.longitude,
-            locationSettings.latitude,
-            locationSettings.longitude
+            effectiveLocationSettings.latitude,
+            effectiveLocationSettings.longitude
           );
 
-          if (distance > locationSettings.radius) {
-            throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${locationSettings.radius} meter untuk absen.`);
+          if (distance > effectiveLocationSettings.radius) {
+            throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${effectiveLocationSettings.radius} meter untuk absen.`);
           }
       } else {
            toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
       
       const now = new Date();
-      // 4. Add record to 'attendance' collection
       await addDoc(collection(db, 'attendance'), {
         employeeId: user.employeeId,
         employeeName: user.name,
@@ -356,7 +351,6 @@ export default function EmployeeDashboard() {
         createdAt: Timestamp.fromDate(now),
       });
 
-      // 5. Update user's last location
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
       await checkUserStatus();
@@ -366,7 +360,6 @@ export default function EmployeeDashboard() {
         description: `Kehadiran Anda di [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,
       });
 
-      // 6. Refresh history
       if (user.employeeId) {
         await fetchAttendanceHistory(user.employeeId);
       }
@@ -517,3 +510,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    

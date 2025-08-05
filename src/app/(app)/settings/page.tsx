@@ -242,9 +242,9 @@ export default function SettingsPage() {
       let updateData = {};
 
       if (allFieldsFilled) {
-        const lat = parseFloat(latStr);
-        const lng = parseFloat(lngStr);
-        const rad = parseInt(radiusStr, 10);
+        const lat = Number(latStr);
+        const lng = Number(lngStr);
+        const rad = Number(radiusStr);
         if (isNaN(lat) || isNaN(lng) || isNaN(rad)) {
             toast({ title: 'Input Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka.', variant: 'destructive' });
             setIsSavingLocation(false);
@@ -502,3 +502,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    

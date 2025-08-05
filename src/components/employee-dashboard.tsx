@@ -157,7 +157,7 @@ export default function EmployeeDashboard() {
       if (scheduleSettings) {
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
         
-        // Clock In Logic
+        // Clock In Logic: Active for 4 hours from the start time.
         if (scheduleSettings.clockInTime) {
             const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
             const clockInStartTime = inHours * 60 + inMinutes;
@@ -167,7 +167,7 @@ export default function EmployeeDashboard() {
             setIsClockInAllowed(true); // Always allow if not set
         }
         
-        // Clock Out Logic
+        // Clock Out Logic: Active from the start time until clocked out.
         if (scheduleSettings.clockOutTime) {
             const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
             const clockOutStartTime = outHours * 60 + outMinutes;
@@ -512,7 +512,7 @@ export default function EmployeeDashboard() {
               {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk
             </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={isProcessing || !hasCameraPermission || !isClockOutAllowed}>
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission || !isClockOutAllowed}>
                 {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
               Absen Keluar
             </Button>

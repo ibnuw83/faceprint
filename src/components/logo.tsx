@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Camera } from 'lucide-react';
@@ -12,14 +13,14 @@ type LogoProps = {
 };
 
 export function Logo({ className, showTitle = true }: LogoProps) {
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appName, setAppName] = useState('VisageID');
 
   useEffect(() => {
     const loadData = () => {
-      const storedLogo = localStorage.getItem('app-logo');
+      const storedLogo = localStorage.getItem('app-logo-url');
       const storedName = localStorage.getItem('app-name');
-      setLogoSrc(storedLogo);
+      setLogoUrl(storedLogo);
       if (storedName) {
           setAppName(storedName);
       }
@@ -41,8 +42,8 @@ export function Logo({ className, showTitle = true }: LogoProps) {
       className={cn('flex items-center gap-2 group', className)}
     >
       <div className="bg-white p-2 rounded-lg transition-transform group-hover:scale-110 flex items-center justify-center h-10 w-10">
-        {logoSrc ? (
-            <Image src={logoSrc} alt="App Logo" width={24} height={24} className="h-6 w-6 object-contain" />
+        {logoUrl ? (
+            <Image src={logoUrl} alt="App Logo" width={24} height={24} className="h-6 w-6 object-contain" unoptimized />
         ) : (
             <Camera className="h-6 w-6 text-primary" />
         )}

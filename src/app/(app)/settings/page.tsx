@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw, Megaphone } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw, Megaphone, Save } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -66,12 +66,14 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
   const [primaryColor, setPrimaryColor] = useState('#3F51B5');
   const [backgroundColor, setBackgroundColor] = useState('#F5F5F5');
   const [accentColor, setAccentColor] = useState('#009688');
-  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  
+  const [logoUrl, setLogoUrl] = useState('');
+  const [isSavingLogo, setIsSavingLogo] = useState(false);
+
   const [appName, setAppName] = useState('VisageID');
   const [isSavingName, setIsSavingName] = useState(false);
   
@@ -91,7 +93,7 @@ export default function SettingsPage() {
   const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
 
 
-  // Apply theme and logo from localStorage on initial load
+  // Apply theme and settings from localStorage/Firestore on initial load
   useEffect(() => {
     const applyTheme = () => {
       const storedPrimary = localStorage.getItem('theme-primary');
@@ -115,14 +117,11 @@ export default function SettingsPage() {
       }
     };
     
-    const loadLogo = () => {
-        const storedLogo = localStorage.getItem('app-logo');
+    const loadSettingsFromStorage = () => {
+        const storedLogo = localStorage.getItem('app-logo-url');
         if (storedLogo) {
-            setLogoSrc(storedLogo);
+            setLogoUrl(storedLogo);
         }
-    }
-    
-    const loadAppName = () => {
         const storedName = localStorage.getItem('app-name');
         if (storedName) {
             setAppName(storedName);
@@ -130,7 +129,7 @@ export default function SettingsPage() {
         }
     }
 
-    const fetchSettings = async () => {
+    const fetchSettingsFromDb = async () => {
         const locationRef = doc(db, 'settings', 'location');
         const locationSnap = await getDoc(locationRef);
         if (locationSnap.exists()) {
@@ -156,9 +155,8 @@ export default function SettingsPage() {
     }
 
     applyTheme();
-    loadLogo();
-    loadAppName();
-    fetchSettings();
+    loadSettingsFromStorage();
+    fetchSettingsFromDb();
   }, []);
 
   const handleColorChange = (colorType: 'primary' | 'background' | 'accent', value: string) => {
@@ -193,30 +191,21 @@ export default function SettingsPage() {
     toast({ title: 'Tema Direset', description: 'Warna telah dikembalikan ke pengaturan awal.' });
   }
 
-  const handleLogoUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        localStorage.setItem('app-logo', base64String);
-        setLogoSrc(base64String);
-        toast({ title: 'Logo Diperbarui', description: 'Logo baru telah disimpan.' });
-        window.dispatchEvent(new Event('storage'));
-      };
-      reader.readAsDataURL(file);
-    }
+  const saveLogo = () => {
+    setIsSavingLogo(true);
+    localStorage.setItem('app-logo-url', logoUrl);
+    window.dispatchEvent(new Event('storage'));
+     setTimeout(() => {
+        toast({ title: 'Logo Disimpan', description: 'URL logo telah diperbarui.' });
+        setIsSavingLogo(false);
+    }, 500)
   };
   
   const removeLogo = () => {
-    localStorage.removeItem('app-logo');
-    setLogoSrc(null);
-    toast({ title: 'Logo Dihapus', description: 'Logo kustom telah dihapus.' });
+    localStorage.removeItem('app-logo-url');
+    setLogoUrl('');
     window.dispatchEvent(new Event('storage'));
+    toast({ title: 'Logo Dihapus', description: 'Logo kustom telah dihapus.' });
   }
 
   const handleAppNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -466,29 +455,37 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-4 p-4 border rounded-lg">
              <h3 className="font-semibold text-lg">Logo Aplikasi</h3>
-              <Input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/png, image/jpeg, image/svg+xml"
-              />
-             <div className="flex items-end gap-4">
-                 <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center border overflow-hidden">
-                  {logoSrc ? (
-                    <Image src={logoSrc} alt="Logo Preview" width={96} height={96} className="object-contain" />
-                  ) : (
-                    <p className="text-muted-foreground text-sm text-center px-2">Logo Saat Ini</p>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={handleLogoUploadClick}><Upload className="mr-2"/> Unggah Logo Baru</Button>
-                  {logoSrc && (
-                    <Button variant="destructive" onClick={removeLogo}><Trash2 className="mr-2"/> Hapus Logo</Button>
-                  )}
-                </div>
+              <div className="flex items-start gap-4">
+                  <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center border overflow-hidden shrink-0">
+                    {logoUrl ? (
+                      <Image src={logoUrl} alt="Logo Preview" width={96} height={96} className="object-contain" unoptimized />
+                    ) : (
+                      <p className="text-muted-foreground text-sm text-center px-2">Logo Saat Ini</p>
+                    )}
+                  </div>
+                  <div className='w-full space-y-2'>
+                    <Label htmlFor="logoUrl">URL Logo</Label>
+                    <Input
+                        id="logoUrl"
+                        placeholder="https://example.com/logo.png"
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        disabled={isSavingLogo}
+                    />
+                     <div className="flex flex-wrap gap-2">
+                      <Button onClick={saveLogo} disabled={isSavingLogo || !logoUrl}>
+                        {isSavingLogo ? <Loader2 className="mr-2 animate-spin"/> : <Save />}
+                        Simpan Logo
+                      </Button>
+                      {logoUrl && (
+                        <Button variant="destructive" onClick={removeLogo} disabled={isSavingLogo}>
+                            <Trash2/> Hapus Logo
+                        </Button>
+                      )}
+                    </div>
+                  </div>
              </div>
-              <p className="text-xs text-muted-foreground">Unggah file SVG, PNG, atau JPG. Ukuran yang disarankan: 200x200 piksel.</p>
+              <p className="text-xs text-muted-foreground">Masukkan URL gambar (SVG, PNG, JPG). Pastikan domain gambar diizinkan di next.config.ts.</p>
           </div>
           
           <div className="space-y-4 p-4 border rounded-lg">

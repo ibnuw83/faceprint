@@ -109,6 +109,8 @@ export default function EmployeesPage() {
   }, [authUser, fetchUsers]);
 
   const handleDeleteUser = async (userId: string) => {
+    // A confirmation dialog is better than confirm() for UI consistency,
+    // but for simplicity, we use confirm() here.
     if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini? Tindakan ini tidak dapat diurungkan.')) {
       return;
     }
@@ -148,25 +150,28 @@ export default function EmployeesPage() {
           employeeId: editEmployeeId,
         };
 
-        const lat = editLat.trim();
-        const lng = editLng.trim();
-        const radius = editRadius.trim();
+        const latStr = editLat.trim();
+        const lngStr = editLng.trim();
+        const radiusStr = editRadius.trim();
 
-        if (lat && lng && radius) {
-            const parsedLat = parseFloat(lat);
-            const parsedLng = parseFloat(lng);
-            const parsedRadius = parseInt(radius, 10);
-            if (isNaN(parsedLat) || isNaN(parsedLng) || isNaN(parsedRadius)) {
+        // Only update location if all three fields are provided
+        if (latStr && lngStr && radiusStr) {
+            const lat = parseFloat(latStr);
+            const lng = parseFloat(lngStr);
+            const radius = parseInt(radiusStr, 10);
+
+            if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
                 toast({ title: 'Input Lokasi Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka yang valid.', variant: 'destructive' });
                 setIsSaving(false);
                 return;
             }
              updateData.locationSettings = {
-                latitude: parsedLat,
-                longitude: parsedLng,
-                radius: parsedRadius,
+                latitude: lat,
+                longitude: lng,
+                radius: radius,
             };
-        } else if (lat || lng || radius) {
+        } else if (latStr || lngStr || radiusStr) {
+            // If some but not all fields are filled, show an error
             toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, semua field (Latitude, Longitude, Radius) harus diisi.', variant: 'destructive' });
             setIsSaving(false);
             return;
@@ -179,8 +184,8 @@ export default function EmployeesPage() {
         await updateDoc(userRef, updateData);
 
         toast({ title: 'Pengaturan Disimpan', description: `Data untuk ${editingUser.name} telah diperbarui.` });
-        await fetchUsers();
-        setIsDialogOpen(false);
+        await fetchUsers(); // Refresh the list
+        setIsDialogOpen(false); // Close dialog
 
       } catch (error) {
         console.error("Error saving user settings:", error);

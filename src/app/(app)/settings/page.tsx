@@ -130,9 +130,9 @@ export default function SettingsPage() {
         const locationSnap = await getDoc(locationRef);
         if (locationSnap.exists()) {
             const data = locationSnap.data();
-            setOfficeLat(data.latitude || '');
-            setOfficeLng(data.longitude || '');
-            setAttendanceRadius(data.radius || '');
+            setOfficeLat(data.latitude?.toString() || '');
+            setOfficeLng(data.longitude?.toString() || '');
+            setAttendanceRadius(data.radius?.toString() || '');
         }
 
         const scheduleRef = doc(db, 'settings', 'schedule');
@@ -232,6 +232,7 @@ export default function SettingsPage() {
 
         if (isNaN(lat) || isNaN(lng) || isNaN(rad)) {
             toast({ title: 'Input Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka.', variant: 'destructive' });
+            setIsSavingLocation(false);
             return;
         }
 

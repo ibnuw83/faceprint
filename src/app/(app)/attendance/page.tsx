@@ -121,8 +121,10 @@ export default function AttendancePage() {
         return recordDate >= from && recordDate <= to;
     });
 
+    // Sort records by time to process them chronologically
+    const sortedRecords = filteredRecords.sort((a,b) => a.createdAt.toMillis() - b.createdAt.toMillis());
 
-    filteredRecords.forEach(record => {
+    sortedRecords.forEach(record => {
         const key = `${record.employeeId}-${record.date}`;
         if (!summaries[key]) {
             summaries[key] = {
@@ -141,8 +143,8 @@ export default function AttendancePage() {
         const recordTime = record.createdAt.toDate();
 
         if (record.status === 'Clocked In') {
-            const currentClockIn = summary.clockInTime ? new Date(`${summary.dayDate.toDateString()} ${summary.clockInTime}`) : null;
-            if (!currentClockIn || recordTime < currentClockIn) {
+            // Only set the first clock in
+            if (summary.clockInTime === null) {
                 summary.clockInTime = record.time;
 
                 if (scheduleSettings?.clockInTime) {
@@ -161,10 +163,8 @@ export default function AttendancePage() {
         }
 
         if (record.status === 'Clocked Out') {
-            const currentClockOut = summary.clockOutTime ? new Date(`${summary.dayDate.toDateString()} ${summary.clockOutTime}`) : null;
-            if (!currentClockOut || recordTime > currentClockOut) {
-                summary.clockOutTime = record.time;
-            }
+            // Always update with the latest clock out
+            summary.clockOutTime = record.time;
         }
     });
     

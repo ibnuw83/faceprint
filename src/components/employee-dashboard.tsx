@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Clock, UserCheck, UserX, MapPin, Loader2, AlertTriangle, History } from 'lucide-react';
 import { useAuth, User } from '@/hooks/use-auth';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy, limit, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from './ui/skeleton';
+import { calculateDistance } from '@/lib/location';
 
 type Location = {
   latitude: number;
@@ -27,6 +28,12 @@ type AttendanceRecord = {
   time: string;
   status: 'Clocked In' | 'Clocked Out';
 };
+
+type LocationSettings = {
+    latitude: number;
+    longitude: number;
+    radius: number;
+}
 
 export default function EmployeeDashboard() {
   const { toast } = useToast();
@@ -199,8 +206,29 @@ export default function EmployeeDashboard() {
     }
     setIsProcessing(true);
     try {
+      // 1. Get location settings from admin
+      const settingsRef = doc(db, 'settings', 'location');
+      const settingsSnap = await getDoc(settingsRef);
+      if (!settingsSnap.exists()) {
+        throw new Error('Pengaturan lokasi absensi belum diatur oleh admin.');
+      }
+      const locationSettings = settingsSnap.data() as LocationSettings;
+      
+      // 2. Get user's current location
       const currentLocation = await getLocation();
       setLocation(currentLocation);
+
+      // 3. Calculate distance and check if within radius
+      const distance = calculateDistance(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        locationSettings.latitude,
+        locationSettings.longitude
+      );
+
+      if (distance > locationSettings.radius) {
+        throw new Error(`Anda berada ${distance.toFixed(0)} meter dari kantor. Anda harus berada dalam radius ${locationSettings.radius} meter untuk absen.`);
+      }
       
       const now = new Date();
       // Add record to 'attendance' collection
@@ -433,5 +461,3 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
-
-    

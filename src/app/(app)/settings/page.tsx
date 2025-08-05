@@ -7,10 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2, Text, Clock } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 // Function to convert HSL string to object
 const hslStringToObj = (hslStr: string | null) => {
@@ -71,6 +73,13 @@ export default function SettingsPage() {
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [appName, setAppName] = useState('VisageID');
   const [isSavingName, setIsSavingName] = useState(false);
+  
+  // Location settings
+  const [officeLat, setOfficeLat] = useState('');
+  const [officeLng, setOfficeLng] = useState('');
+  const [attendanceRadius, setAttendanceRadius] = useState('');
+  const [isSavingLocation, setIsSavingLocation] = useState(false);
+
 
   // Apply theme and logo from localStorage on initial load
   useEffect(() => {
@@ -111,9 +120,21 @@ export default function SettingsPage() {
         }
     }
 
+    const fetchLocationSettings = async () => {
+        const settingsRef = doc(db, 'settings', 'location');
+        const docSnap = await getDoc(settingsRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            setOfficeLat(data.latitude || '');
+            setOfficeLng(data.longitude || '');
+            setAttendanceRadius(data.radius || '');
+        }
+    }
+
     applyTheme();
     loadLogo();
     loadAppName();
+    fetchLocationSettings();
   }, []);
 
   const handleColorChange = (colorType: 'primary' | 'background' | 'accent', value: string) => {
@@ -188,6 +209,33 @@ export default function SettingsPage() {
         setIsSavingName(false);
     }, 500)
   };
+  
+  const saveLocationSettings = async () => {
+    setIsSavingLocation(true);
+    try {
+        const lat = parseFloat(officeLat);
+        const lng = parseFloat(officeLng);
+        const rad = parseInt(attendanceRadius, 10);
+
+        if (isNaN(lat) || isNaN(lng) || isNaN(rad)) {
+            toast({ title: 'Input Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka.', variant: 'destructive' });
+            return;
+        }
+
+        const settingsRef = doc(db, 'settings', 'location');
+        await setDoc(settingsRef, {
+            latitude: lat,
+            longitude: lng,
+            radius: rad,
+        });
+        toast({ title: 'Pengaturan Lokasi Disimpan', description: 'Pengaturan lokasi absensi telah berhasil diperbarui.'});
+    } catch (error) {
+        console.error('Error saving location settings:', error);
+        toast({ title: 'Gagal Menyimpan', description: 'Terjadi kesalahan saat menyimpan pengaturan lokasi.', variant: 'destructive'});
+    } finally {
+        setIsSavingLocation(false);
+    }
+  }
 
 
   useEffect(() => {
@@ -210,7 +258,7 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center gap-2">
             <Palette className="text-primary" />
-            Pengaturan Tampilan
+            Pengaturan Tampilan & Fungsionalitas
           </CardTitle>
           <CardDescription>
             Sesuaikan tampilan dan fungsionalitas aplikasi agar sesuai dengan kebutuhan organisasi Anda.
@@ -325,6 +373,33 @@ export default function SettingsPage() {
              </div>
               <p className="text-xs text-muted-foreground">Unggah file SVG, PNG, atau JPG. Ukuran yang disarankan: 200x200 piksel.</p>
           </div>
+          
+          <div className="space-y-4 p-4 border rounded-lg">
+             <h3 className="font-semibold text-lg flex items-center gap-2"><MapPin/> Pengaturan Lokasi Absensi</h3>
+             <p className="text-sm text-muted-foreground">Tentukan lokasi kantor dan radius yang diizinkan untuk absensi. Karyawan harus berada dalam radius ini untuk bisa absen.</p>
+                <div className="grid md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="officeLat">Latitude Kantor</Label>
+                        <Input id="officeLat" type="number" placeholder="-6.200000" value={officeLat} onChange={(e) => setOfficeLat(e.target.value)} disabled={isSavingLocation}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="officeLng">Longitude Kantor</Label>
+                        <Input id="officeLng" type="number" placeholder="106.816666" value={officeLng} onChange={(e) => setOfficeLng(e.target.value)} disabled={isSavingLocation}/>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="attendanceRadius">Radius (meter)</Label>
+                        <Input id="attendanceRadius" type="number" placeholder="500" value={attendanceRadius} onChange={(e) => setAttendanceRadius(e.target.value)} disabled={isSavingLocation}/>
+                    </div>
+                </div>
+                
+             <div className="pt-4">
+                 <Button onClick={saveLocationSettings} disabled={isSavingLocation}>
+                    {isSavingLocation ? <Loader2 className="animate-spin mr-2"/> : null}
+                    Simpan Pengaturan Lokasi
+                </Button>
+             </div>
+          </div>
+          
           <div className="space-y-4 p-4 border rounded-lg">
              <h3 className="font-semibold text-lg flex items-center gap-2"><Clock /> Jadwal Absensi</h3>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -349,4 +424,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

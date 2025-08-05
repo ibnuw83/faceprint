@@ -88,8 +88,8 @@ export default function RequiredLocation() {
     }
 
     const title = effectiveLocation.isSpecific 
-        ? 'Lokasi Absen Wajib (Khusus)'
-        : 'Lokasi Absen Wajib (Global)';
+        ? 'Lokasi Absen Wajib (Khusus Pengguna)'
+        : 'Lokasi Absen Wajib (Kantor)';
 
     return (
         <Card className="shadow-md rounded-xl border-primary/20 bg-primary/5">

@@ -15,7 +15,8 @@ import {
   X,
   Building2,
   Settings,
-  User as UserIcon, // Import User icon
+  User as UserIcon,
+  MoreVertical,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -98,10 +99,9 @@ function Sidebar() {
             <Logo />
           </div>
           <div className="flex-1 overflow-auto py-2 px-4">{navLinks}</div>
-          <div className="mt-auto p-4">
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start gap-3 px-3">
+          <div className="mt-auto p-4 border-t">
+             <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                     <Avatar className="h-9 w-9">
                         <AvatarImage
                         src={user?.faceprint || undefined}
@@ -110,32 +110,39 @@ function Sidebar() {
                         {user?.name?.charAt(0).toUpperCase()}
                         </AvatarFallback>
                     </Avatar>
-                    <div className="flex min-w-0 w-full flex-col items-start">
-                        <p className="w-full truncate text-sm font-medium leading-none">{user?.name}</p>
-                        <p className="w-full truncate text-xs leading-none text-muted-foreground">
+                    <div className="flex flex-col min-w-0">
+                        <p className="truncate text-sm font-medium leading-none">{user?.name}</p>
+                        <p className="truncate text-xs leading-none text-muted-foreground">
                             {user?.email}
                         </p>
                     </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>
-                    Akun Saya
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/profile" className="cursor-pointer">
-                      <UserIcon className="mr-2 h-4 w-4" />
-                      <span>Profil Saya</span>
-                    </Link>
-                  </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Keluar</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </div>
+                 <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                         <span className="sr-only">Buka menu pengguna</span>
+                      </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                        Akun Saya
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile" className="cursor-pointer">
+                          <UserIcon className="mr-2 h-4 w-4" />
+                          <span>Profil Saya</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Keluar</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+             </div>
           </div>
         </div>
       </aside>

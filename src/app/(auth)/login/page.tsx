@@ -11,14 +11,17 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth, type User } from '@/hooks/use-auth';
-import { Camera } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { Camera, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -26,17 +29,31 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const isAdmin = email.toLowerCase().includes('admin');
-    const user: User = {
-      name: isAdmin ? 'Admin User' : 'Employee User',
-      email: email,
-      role: isAdmin ? 'admin' : 'employee',
-    };
-    login(user);
-    router.push('/dashboard');
+    setIsSubmitting(true);
+    try {
+      await login(email, password);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Login Failed',
+        description: 'Please check your email and password.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (loading && !isSubmitting) {
+    return (
+       <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <Card className="w-full max-w-md shadow-2xl">
@@ -60,6 +77,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isSubmitting}
             />
           </div>
           <div className="space-y-2">
@@ -71,9 +89,11 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter any password"
+              disabled={isSubmitting}
             />
           </div>
-          <Button type="submit" className="w-full !mt-6" size="lg">
+          <Button type="submit" className="w-full !mt-6" size="lg" disabled={isSubmitting}>
+             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
           </Button>
         </form>

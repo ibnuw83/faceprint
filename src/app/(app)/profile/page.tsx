@@ -124,7 +124,7 @@ export default function ProfilePage() {
                      <MapPin />
                      Lokasi Absensi Khusus
                    </h3>
-                   {user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null && user.locationSettings.radius != null ? (
+                   {user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null ? (
                       <div className="space-y-4">
                          <div className="space-y-1">
                            <Label htmlFor='latitude'>Latitude</Label>
@@ -133,10 +133,6 @@ export default function ProfilePage() {
                          <div className="space-y-1">
                            <Label htmlFor='longitude'>Longitude</Label>
                            <Input id='longitude' value={user.locationSettings.longitude} disabled />
-                         </div>
-                         <div className="space-y-1">
-                           <Label htmlFor='radius'>Radius (meter)</Label>
-                           <Input id='radius' value={user.locationSettings.radius} disabled />
                          </div>
                       </div>
                    ) : (

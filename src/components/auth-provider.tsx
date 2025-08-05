@@ -20,7 +20,6 @@ export type User = {
   locationSettings?: {
     latitude: number;
     longitude: number;
-    radius: number;
   } | null;
   faceprint?: string | null;
   department?: string | null;
@@ -54,13 +53,11 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
       if (rawSettings) {
         const lat = Number(rawSettings.latitude);
         const lng = Number(rawSettings.longitude);
-        const rad = Number(rawSettings.radius);
 
-        if (!isNaN(lat) && !isNaN(lng) && !isNaN(rad)) {
+        if (!isNaN(lat) && !isNaN(lng)) {
             locationSettings = {
                 latitude: lat,
                 longitude: lng,
-                radius: rad,
             };
         }
       }
@@ -138,14 +135,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (rawSettings) {
                     const lat = Number(rawSettings.latitude);
                     const lng = Number(rawSettings.longitude);
-                    const rad = Number(rawSettings.radius);
 
                     // Only set the locationSettings object if all values are valid numbers.
-                    if (!isNaN(lat) && !isNaN(lng) && !isNaN(rad)) {
+                    if (!isNaN(lat) && !isNaN(lng)) {
                         locationSettings = {
                             latitude: lat,
                             longitude: lng,
-                            radius: rad,
                         };
                     }
                 }

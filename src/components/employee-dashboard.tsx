@@ -82,10 +82,11 @@ export default function EmployeeDashboard() {
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      const history = querySnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
+        .sort((a,b) => b.createdAt.seconds - a.createdAt.seconds);
 
       setAttendanceHistory(history);
       
@@ -152,14 +153,14 @@ export default function EmployeeDashboard() {
       // Check schedule
       if (scheduleSettings) {
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
-        const fourHoursInMinutes = 4 * 60;
         
         // Clock In Window
         if (scheduleSettings.clockInTime) {
+            const fourHoursInMinutes = 4 * 60;
             const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
             const clockInStartTime = inHours * 60 + inMinutes;
             const clockInEndTime = clockInStartTime + fourHoursInMinutes;
-            setIsClockInAllowed(currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes < clockInEndTime);
+            setIsClockInAllowed(currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime);
         } else {
             setIsClockInAllowed(true); // Default to allowed if not set
         }
@@ -459,40 +460,11 @@ export default function EmployeeDashboard() {
           </Card>
 
           <Dialog>
-             <Card className="shadow-lg rounded-xl">
-                <CardHeader>
-                    <CardTitle>Status Kehadiran</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {loadingHistory ? (
-                        <Skeleton className="h-8 w-48" />
-                    ) : status === 'in' ? (
-                        <div className="flex items-start gap-3 text-green-600 dark:text-green-400">
-                            <UserCheck className="h-8 w-8 shrink-0"/>
-                            <div>
-                                <p className="font-bold text-lg">Sudah Absen Masuk</p>
-                                <p className="text-sm text-muted-foreground">Anda saat ini sedang bekerja.</p>
-                            </div>
-                        </div>
-                    ) : status === 'out' ? (
-                        <div className="flex items-start gap-3 text-red-600 dark:text-red-400">
-                            <UserX className="h-8 w-8 shrink-0"/>
-                            <div>
-                                <p className="font-bold text-lg">Sudah Absen Keluar</p>
-                                <p className="text-sm text-muted-foreground">Anda telah menyelesaikan shift Anda.</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <p className="text-muted-foreground">Anda belum absen masuk hari ini.</p>
-                    )}
-                    <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full">
-                            <History className="mr-2" /> Lihat Riwayat Lengkap
-                        </Button>
-                    </DialogTrigger>
-                </CardContent>
-             </Card>
-
+             <DialogTrigger asChild>
+                <Button variant="outline" className="w-full">
+                    <History className="mr-2" /> Lihat Riwayat Absensi
+                </Button>
+            </DialogTrigger>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
                 <DialogTitle>Riwayat Absensi Anda</DialogTitle>
@@ -554,3 +526,4 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+

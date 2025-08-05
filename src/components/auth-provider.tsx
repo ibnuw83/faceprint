@@ -11,6 +11,7 @@ export type User = {
   name: string | null;
   email: string | null;
   role: 'admin' | 'employee';
+  isProfileComplete: boolean;
 };
 
 interface AuthContextType {
@@ -21,6 +22,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
+  checkUserStatus: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -36,15 +38,17 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         name: fbUser.displayName,
         email: fbUser.email,
         role: userData.role || 'employee',
+        isProfileComplete: userData.isProfileComplete || false,
       };
     }
-    console.warn(`No user document found for UID: ${fbUser.uid}. Defaulting to employee.`);
-    // Default to a user object even if Firestore doc is missing, to avoid being stuck in loading.
+     console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user.`);
+    // This can happen for a brand new user right after registration before the doc is created.
     return {
       uid: fbUser.uid,
       name: fbUser.displayName,
       email: fbUser.email,
-      role: 'employee',
+      role: 'employee', // Default role
+      isProfileComplete: false,
     };
   } catch (error) {
     console.error("Error fetching user data:", error);
@@ -61,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUserState = useCallback(async (fbUser: FirebaseUser | null) => {
     if (fbUser) {
       setFirebaseUser(fbUser);
-      const appUser = await fetchUserData(fbUser); // This is the critical call
+      const appUser = await fetchUserData(fbUser);
       setUser(appUser);
     } else {
       setFirebaseUser(null);
@@ -70,6 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  const checkUserStatus = useCallback(async () => {
+    const fbUser = auth.currentUser;
+    setLoading(true);
+    await updateUserState(fbUser);
+    setLoading(false);
+  }, [updateUserState]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, updateUserState);
@@ -87,7 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     await updateProfile(fbUser, { displayName: name });
     
-    // Explicitly set role based on email content during registration
     const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
 
     const userRef = doc(db, "users", fbUser.uid);
@@ -95,7 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       uid: fbUser.uid,
       name: name,
       email: email,
-      role: role, // Ensure correct role is saved
+      role: role,
+      isProfileComplete: false, // New users must complete their profile
       createdAt: new Date(),
     });
     // onAuthStateChanged will handle the rest
@@ -115,8 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       isAuthenticated: !!user,
       loading,
+      checkUserStatus
     }),
-    [user, firebaseUser, login, register, logout, loading]
+    [user, firebaseUser, login, register, logout, loading, checkUserStatus]
   );
 
   return (

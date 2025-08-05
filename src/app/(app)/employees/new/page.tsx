@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,59 +8,57 @@ import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Camera, Upload, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/hooks/use-auth';
 
-export default function NewEmployeePage() {
+export default function CompleteProfilePage() {
   const { toast } = useToast();
   const router = useRouter();
+  const { user, loading: authLoading, checkUserStatus } = useAuth();
+
   const [fullName, setFullName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
-  const [email, setEmail] = useState('');
   const [department, setDepartment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // For simplicity, we'll use a placeholder password for admin-created users.
-  // In a real application, you would want a more secure way to handle this,
-  // such as sending a password reset email.
-  const placeholderPassword = 'password123';
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      // Pre-fill name from auth, but allow user to change it if needed.
+      setFullName(user.name || '');
+    }
+  }, [user, authLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast({ title: 'Error', description: 'Anda harus login terlebih dahulu.', variant: 'destructive' });
+      return;
+    }
     setIsLoading(true);
+
     try {
-      // NOTE: This creates a separate auth user. In a real app, you might only want
-      // to create a user profile in Firestore without a separate login, or handle
-      // invites differently.
-      const userCredential = await createUserWithEmailAndPassword(auth, email, placeholderPassword);
-      const user = userCredential.user;
-
-      // Update user profile in Auth
-      await updateProfile(user, { displayName: fullName });
-
-      // Save user details to Firestore
       const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
-        uid: user.uid,
+      await updateDoc(userRef, {
         name: fullName,
         employeeId: employeeId,
-        email: email,
         department: department,
-        role: 'employee', // All users created here are employees by default
-        createdAt: new Date(),
+        isProfileComplete: true, // Mark profile as complete
       });
 
+      // Refresh the auth state to get the latest user data
+      await checkUserStatus();
+
       toast({
-        title: 'Karyawan Terdaftar',
-        description: 'Karyawan baru telah berhasil ditambahkan ke sistem.',
+        title: 'Profil Diperbarui',
+        description: 'Data Anda telah berhasil disimpan.',
       });
-      router.push('/employees');
+      router.push('/dashboard'); // Redirect to dashboard after completion
 
     } catch (error: any) {
-      console.error('Error mendaftarkan karyawan:', error);
+      console.error('Error memperbarui profil:', error);
       toast({
-        title: 'Pendaftaran Gagal',
+        title: 'Gagal Memperbarui',
         description: error.message || 'Terjadi kesalahan. Silakan coba lagi.',
         variant: 'destructive',
       });
@@ -68,6 +66,15 @@ export default function NewEmployeePage() {
       setIsLoading(false);
     }
   };
+  
+  // To avoid flash of content while auth is loading or redirecting
+  if (authLoading || !user) {
+    return (
+       <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
@@ -75,15 +82,19 @@ export default function NewEmployeePage() {
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center gap-2">
             <UserPlus className="text-primary" />
-            Daftarkan Karyawan Baru
+            Lengkapi Profil Anda
           </CardTitle>
           <CardDescription>
-            Masukkan detail karyawan dan ambil foto wajah mereka untuk otentikasi biometrik.
+            Masukkan detail Anda dan daftarkan wajah untuk menyelesaikan pengaturan akun.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">
+               <div className="space-y-2">
+                <Label htmlFor="email">Alamat Email</Label>
+                <Input id="email" type="email" value={user.email || ''} disabled />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nama Lengkap</Label>
                 <Input id="fullName" placeholder="contoh: John Doe" required value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={isLoading} />
@@ -91,10 +102,6 @@ export default function NewEmployeePage() {
               <div className="space-y-2">
                 <Label htmlFor="employeeId">ID Karyawan</Label>
                 <Input id="employeeId" placeholder="contoh: EMP12345" required value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} disabled={isLoading} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Alamat Email</Label>
-                <Input id="email" type="email" placeholder="john.doe@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department">Departemen</Label>
@@ -123,10 +130,10 @@ export default function NewEmployeePage() {
                 {isLoading ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Mendaftarkan...
+                        Menyimpan...
                     </>
                 ) : (
-                    'Daftarkan Karyawan'
+                    'Daftar dan Selesaikan'
                 )}
               </Button>
             </div>

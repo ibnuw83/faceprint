@@ -103,7 +103,7 @@ function Sidebar() {
                         />
                         <AvatarFallback>
                         {user?.name?.charAt(0).toUpperCase()}
-                        </AvatarFallback>
+                        </Fallback>
                     </Avatar>
                     <div className="flex flex-col items-start">
                         <p className="text-sm font-medium leading-none">{user?.name}</p>
@@ -134,12 +134,17 @@ function Sidebar() {
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.replace('/login');
+    if (!loading) {
+      if (!isAuthenticated) {
+        router.replace('/login');
+      } else if (user && !user.isProfileComplete && pathname !== '/employees/new') {
+        router.replace('/employees/new');
+      }
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, user, loading, router, pathname]);
 
   if (loading || !isAuthenticated || !user) {
     return (
@@ -148,6 +153,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
     );
   }
+
+  // Hide sidebar on the profile completion page
+  if (!user.isProfileComplete) {
+    return <main>{children}</main>;
+  }
+
 
   return (
     <div className="flex min-h-screen w-full">

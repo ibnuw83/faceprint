@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -271,6 +271,26 @@ export default function SettingsPage() {
     }
   }
 
+  const handleResetSchedule = async () => {
+    setIsSavingSchedule(true);
+    try {
+        setClockInTime('');
+        setClockOutTime('');
+        const settingsRef = doc(db, 'settings', 'schedule');
+        // Setting the fields to empty strings or null to clear them
+        await setDoc(settingsRef, {
+            clockInTime: '',
+            clockOutTime: '',
+        });
+        toast({ title: 'Jadwal Direset', description: 'Pengaturan jadwal absensi telah dihapus.'});
+    } catch (error) {
+        console.error('Error resetting schedule:', error);
+        toast({ title: 'Gagal Mereset Jadwal', description: 'Terjadi kesalahan saat mereset jadwal.', variant: 'destructive' });
+    } finally {
+        setIsSavingSchedule(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'admin') {
@@ -447,12 +467,16 @@ export default function SettingsPage() {
                     </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                    Tentukan kapan tombol absen aktif untuk karyawan.
+                    Tentukan kapan tombol absen aktif untuk karyawan. Kosongkan untuk menonaktifkan jadwal.
                 </p>
-             <div className="pt-4">
+             <div className="pt-4 flex gap-2">
                  <Button onClick={saveScheduleSettings} disabled={isSavingSchedule}>
                     {isSavingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
                     Simpan Jadwal
+                 </Button>
+                  <Button onClick={handleResetSchedule} disabled={isSavingSchedule} variant="outline">
+                    <RotateCcw className="mr-2 h-4 w-4"/>
+                    Reset Jadwal
                  </Button>
              </div>
           </div>

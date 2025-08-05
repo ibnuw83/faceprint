@@ -4,64 +4,75 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
   
-    // Helper function to check if a user is an admin
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Helper function to check if the user is the owner of the document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    // Helper function to check for admin role
+    function isAdmin(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
     }
 
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow read/update by the owner or an admin
-      allow read, update: if isOwner(userId) || isAdmin();
-      // Allow create for any authenticated user
-      allow create: if request.auth != null;
-      // Disallow delete from client
-      allow delete: if false;
-    }
-    
-    match /departments/{departmentId} {
-        // Only admins can read/write departments
-        allow read, write: if isAdmin();
-    }
-    
-    match /settings/{settingId} {
-        // Only admins can read/write settings
-        allow read, write: if isAdmin();
-    }
-    
-    match /attendance/{attendanceId} {
-        // Admins can read all records
-        // Employees can only create records (assuming validation happens in app)
-        // and cannot read all records for privacy. History is fetched via specific queries.
-        allow read, delete: if isAdmin();
-        allow create: if request.auth != null;
-        allow update, delete: if false; // General updates/deletes are disallowed
+      // Allow a user to read their own document. Admins can read any.
+      allow read: if request.auth.uid == userId || isAdmin(request.auth.uid);
+      
+      // Allow a user to create their own document (on register)
+      allow create: if request.auth.uid == userId;
+
+      // Allow a user to update their own document.
+      allow update: if request.auth.uid == userId || isAdmin(request.auth.uid);
+
+      // Disallow client-side deletion for data integrity.
+      allow delete: if isAdmin(request.auth.uid);
     }
 
+    // Rules for 'leaveRequests' collection
     match /leaveRequests/{requestId} {
-      // READ: 
-      // - Admins can read all requests.
-      // - Authenticated users can read their own requests.
-      allow read: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.uid);
-
-      // CREATE:
-      // - Any authenticated user can create a request.
-      // - The UID in the new document must match the creator's UID.
+      // Any authenticated user can create a request for themselves.
       allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
 
-      // UPDATE:
-      // - An admin can update the status.
-      // - The user who created the request can only update the 'acknowledgedByEmployee' field.
-      allow update: if isAdmin() || 
-                      (isOwner(resource.data.uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acknowledgedByEmployee']));
+      // Admins can read all requests. Employees can only read their own.
+      allow read: if request.auth != null && (isAdmin(request.auth.uid) || resource.data.uid == request.auth.uid);
 
-      // DELETE:
-      // - No one can delete a leave request from the client to preserve history.
+      // Admins can update any request. Employees can only update 'acknowledgedByEmployee' on their own requests.
+      allow update: if request.auth != null && (
+        isAdmin(request.auth.uid) ||
+        (resource.data.uid == request.auth.uid && request.resource.data.keys().hasOnly(['acknowledgedByEmployee']))
+      );
+      
+      // Nobody can delete for data integrity.
       allow delete: if false;
+    }
+    
+    // Rules for 'attendance' collection
+    match /attendance/{attendanceId} {
+       // Users can create their own attendance record
+       allow create: if request.auth != null;
+
+       // Admins can read all. Employees can read their own.
+       allow read: if request.auth != null && (isAdmin(request.auth.uid) || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId == resource.data.employeeId);
+       
+       // Attendance records are immutable
+       allow update: if false;
+
+       // Only admins can delete attendance records
+       allow delete: if request.auth != null && isAdmin(request.auth.uid);
+    }
+    
+    // Rules for 'settings' collection (e.g., /settings/location, /settings/schedule)
+    match /settings/{settingId} {
+        // Any authenticated user can read the settings
+        allow read: if request.auth != null;
+
+        // Only admins can write settings
+        allow write: if request.auth != null && isAdmin(request.auth.uid);
+    }
+
+     // Rules for 'departments' collection
+    match /departments/{departmentId} {
+        // Any authenticated user can read the list of departments
+        allow read: if request.auth != null;
+        
+        // Only admins can create, update or delete departments
+        allow write: if request.auth != null && isAdmin(request.auth.uid);
     }
   }
 }

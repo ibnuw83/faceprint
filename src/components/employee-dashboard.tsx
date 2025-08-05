@@ -306,15 +306,13 @@ export default function EmployeeDashboard() {
 
       // 3. Get location settings (user-specific with global fallback)
       let locationSettings: LocationSettings | null = null;
-      if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
+      if (user.locationSettings?.latitude && user.locationSettings?.longitude && user.locationSettings?.radius) {
         locationSettings = user.locationSettings;
       } else {
         const settingsRef = doc(db, 'settings', 'location');
         const settingsSnap = await getDoc(settingsRef);
-        if (settingsSnap.exists()) {
+        if (settingsSnap.exists() && settingsSnap.data()) {
             locationSettings = settingsSnap.data() as LocationSettings;
-        } else {
-             toast({ title: 'Peringatan', description: 'Pengaturan lokasi global tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
         }
       }
       
@@ -332,6 +330,8 @@ export default function EmployeeDashboard() {
           if (distance > locationSettings.radius) {
             throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${locationSettings.radius} meter untuk absen.`);
           }
+      } else {
+           toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
       
       const now = new Date();

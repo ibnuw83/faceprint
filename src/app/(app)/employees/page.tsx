@@ -150,8 +150,8 @@ export default function EmployeesPage() {
           employeeId: editEmployeeId,
         };
 
-        const latStr = editLat.trim();
-        const lngStr = editLng.trim();
+        const latStr = editLat.trim().replace(',', '.');
+        const lngStr = editLng.trim().replace(',', '.');
         const radiusStr = editRadius.trim();
 
         // Only update location if all three fields are provided
@@ -322,11 +322,11 @@ export default function EmployeesPage() {
                      <Label className="font-medium">Lokasi Absensi Khusus</Label>
                     <div className="space-y-2">
                         <Label htmlFor="lat" className="text-xs">Latitude</Label>
-                        <Input id="lat" value={editLat} onChange={(e) => setEditLat(e.target.value)} type="number" placeholder="contoh: -6.200000" />
+                        <Input id="lat" value={editLat} onChange={(e) => setEditLat(e.target.value)} type="text" placeholder="contoh: -6.200000" />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="lng" className="text-xs">Longitude</Label>
-                        <Input id="lng" value={editLng} onChange={(e) => setEditLng(e.target.value)} type="number" placeholder="contoh: 106.816666" />
+                        <Input id="lng" value={editLng} onChange={(e) => setEditLng(e.target.value)} type="text" placeholder="contoh: 106.816666" />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="radius" className="text-xs">Radius (meter)</Label>

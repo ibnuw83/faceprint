@@ -226,8 +226,8 @@ export default function SettingsPage() {
   const saveLocationSettings = async () => {
     setIsSavingLocation(true);
     try {
-      const latStr = officeLat.trim();
-      const lngStr = officeLng.trim();
+      const latStr = officeLat.trim().replace(',', '.');
+      const lngStr = officeLng.trim().replace(',', '.');
       const radiusStr = attendanceRadius.trim();
 
       const allFieldsEmpty = !latStr && !lngStr && !radiusStr;
@@ -451,11 +451,11 @@ export default function SettingsPage() {
                 <div className="grid md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="officeLat">Latitude Kantor</Label>
-                        <Input id="officeLat" type="number" placeholder="-6.200000" value={officeLat} onChange={(e) => setOfficeLat(e.target.value)} disabled={isSavingLocation}/>
+                        <Input id="officeLat" type="text" placeholder="-6.200000" value={officeLat} onChange={(e) => setOfficeLat(e.target.value)} disabled={isSavingLocation}/>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="officeLng">Longitude Kantor</Label>
-                        <Input id="officeLng" type="number" placeholder="106.816666" value={officeLng} onChange={(e) => setOfficeLng(e.target.value)} disabled={isSavingLocation}/>
+                        <Input id="officeLng" type="text" placeholder="106.816666" value={officeLng} onChange={(e) => setOfficeLng(e.target.value)} disabled={isSavingLocation}/>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="attendanceRadius">Radius (meter)</Label>

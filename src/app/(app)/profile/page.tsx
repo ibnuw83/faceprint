@@ -3,11 +3,12 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
-import { User, Mail, Building, Briefcase, Loader2 } from 'lucide-react';
+import { User, Mail, Building, Briefcase, Loader2, MapPin } from 'lucide-react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
@@ -68,6 +69,33 @@ export default function ProfilePage() {
                         </div>
                      </div>
                 </div>
+
+                <Separator className="my-6" />
+
+                <div className="space-y-4">
+                   <h3 className="font-semibold text-xl border-b pb-2 flex items-center gap-2">
+                     <MapPin />
+                     Lokasi Absensi Khusus
+                   </h3>
+                   {user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null && user.locationSettings.radius != null ? (
+                      <div className="space-y-4">
+                         <div className="space-y-1">
+                           <Label htmlFor='latitude'>Latitude</Label>
+                           <Input id='latitude' value={user.locationSettings.latitude} disabled />
+                         </div>
+                         <div className="space-y-1">
+                           <Label htmlFor='longitude'>Longitude</Label>
+                           <Input id='longitude' value={user.locationSettings.longitude} disabled />
+                         </div>
+                         <div className="space-y-1">
+                           <Label htmlFor='radius'>Radius (meter)</Label>
+                           <Input id='radius' value={user.locationSettings.radius} disabled />
+                         </div>
+                      </div>
+                   ) : (
+                      <p className="text-sm text-muted-foreground italic">Mengikuti pengaturan lokasi global.</p>
+                   )}
+                </div>
             </div>
             <div className="space-y-6">
                  <h3 className="font-semibold text-xl border-b pb-2">Foto Wajah Terdaftar</h3>
@@ -86,4 +114,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

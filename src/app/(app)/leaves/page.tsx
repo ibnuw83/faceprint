@@ -41,6 +41,7 @@ import { Label } from '@/components/ui/label';
 
 type LeaveRequest = {
   id: string;
+  uid: string;
   employeeId: string;
   employeeName: string;
   leaveType: 'Cuti Tahunan' | 'Sakit' | 'Izin Khusus';
@@ -66,7 +67,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
     const [dates, setDates] = useState<DateRange | undefined>(undefined);
 
     const fetchMyRequests = useCallback(async () => {
-        if (!user?.employeeId) {
+        if (!user?.uid) {
             setLoading(false);
             return;
         }
@@ -74,7 +75,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
         try {
             const q = query(
                 collection(db, "leaveRequests"),
-                where('employeeId', '==', user.employeeId),
+                where('uid', '==', user.uid),
                 orderBy('createdAt', 'desc')
             );
             const querySnapshot = await getDocs(q);
@@ -114,6 +115,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
         setIsSubmitting(true);
         try {
             await addDoc(collection(db, 'leaveRequests'), {
+                uid: user.uid, // Add user's UID for security rules
                 employeeId: user.employeeId,
                 employeeName: user.name,
                 leaveType: leaveType,
@@ -432,5 +434,3 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
-
-    

@@ -1,57 +1,67 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if the requesting user is an admin.
+  
+    // Helper function to check if a user is an admin
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // An authenticated user can read/update their own profile.
-      // An admin can read/update any user's profile.
-      allow read, update: if request.auth != null && (request.auth.uid == userId || isAdmin());
-
-      // Only admins can delete user documents.
-      allow delete: if request.auth != null && isAdmin();
-
-      // User creation is handled by the registration logic, but we can secure it so only admins could create users directly if needed.
-      // For this app, creation is open during registration, but let's lock it down for direct writes.
-      allow create: if request.auth != null;
+    
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Rules for the 'departments' collection
-    match /departments/{departmentId} {
-      // Any authenticated user can read the list of departments.
-      allow read: if request.auth != null;
-
-      // Only admins can create, update, or delete departments.
-      allow write: if request.auth != null && isAdmin();
+    match /users/{userId} {
+      // Allow read/update by the owner or an admin
+      allow read, update: if isOwner(userId) || isAdmin();
+      // Allow create for any authenticated user
+      allow create: if request.auth != null;
+      // Disallow delete from client
+      allow delete: if false;
     }
     
-    // Rules for the 'attendance' collection
+    match /departments/{departmentId} {
+        // Only admins can read/write departments
+        allow read, write: if isAdmin();
+    }
+    
+    match /settings/{settingId} {
+        // Only admins can read/write settings
+        allow read, write: if isAdmin();
+    }
+    
     match /attendance/{attendanceId} {
-        // An employee can read their own attendance records.
-        // An admin can read all attendance records.
-        allow read: if request.auth != null && (request.auth.uid == resource.data.employeeId || isAdmin());
-
-        // An employee can create their own attendance record.
-        allow create: if request.auth != null && request.resource.data.employeeId == request.auth.uid;
-        
-        // No one should be able to update or delete attendance records to maintain data integrity.
-        // Only admins can, if necessary (e.g., for corrections, but we disable it by default for safety).
-        allow update, delete: if request.auth != null && isAdmin();
+        // Admins can read all records
+        // Employees can only create records (assuming validation happens in app)
+        // and cannot read all records for privacy. History is fetched via specific queries.
+        allow read, delete: if isAdmin();
+        allow create: if request.auth != null;
+        allow update, delete: if false; // General updates/deletes are disallowed
     }
 
-    // Rules for the 'settings' collection
-    match /settings/{settingId} {
-        // Any authenticated user can read the global settings.
-        allow read: if request.auth != null;
-        
-        // Only admins can write to the global settings.
-        allow write: if request.auth != null && isAdmin();
+    match /leaveRequests/{requestId} {
+      // READ: 
+      // - Admins can read all requests.
+      // - Authenticated users can read their own requests.
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == resource.data.uid);
+
+      // CREATE:
+      // - Any authenticated user can create a request.
+      // - The UID in the new document must match the creator's UID.
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+
+      // UPDATE:
+      // - An admin can update the status.
+      // - The user who created the request can only update the 'acknowledgedByEmployee' field.
+      allow update: if isAdmin() || 
+                      (isOwner(resource.data.uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['acknowledgedByEmployee']));
+
+      // DELETE:
+      // - No one can delete a leave request from the client to preserve history.
+      allow delete: if false;
     }
   }
 }

@@ -103,7 +103,7 @@ function Sidebar() {
                         />
                         <AvatarFallback>
                         {user?.name?.charAt(0).toUpperCase()}
-                        </Fallback>
+                        </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start">
                         <p className="text-sm font-medium leading-none">{user?.name}</p>

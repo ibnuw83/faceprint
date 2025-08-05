@@ -1,12 +1,13 @@
 
 'use client';
 
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Skeleton } from './ui/skeleton';
+import { useAuth } from '@/hooks/use-auth';
 
 type LocationSettings = {
     latitude: number;
@@ -15,34 +16,42 @@ type LocationSettings = {
 }
 
 export default function RequiredLocation() {
+    const { user } = useAuth();
     const [location, setLocation] = useState<LocationSettings | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetchLocationSettings = async () => {
-            try {
-                const docRef = doc(db, 'settings', 'location');
-                const docSnap = await getDoc(docRef);
+        // If user has specific settings, don't show the global one.
+        if (user?.locationSettings) {
+            setLoading(false);
+            setLocation(null);
+            return;
+        }
 
-                if (docSnap.exists()) {
-                     const data = docSnap.data();
-                     if (data.latitude != null && data.longitude != null && data.radius != null) {
-                        setLocation({
-                            latitude: Number(data.latitude),
-                            longitude: Number(data.longitude),
-                            radius: Number(data.radius),
-                        });
-                     }
-                }
-            } catch (error) {
-                console.error("Error fetching location settings:", error);
-            } finally {
-                setLoading(false);
+        const docRef = doc(db, 'settings', 'location');
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+             if (docSnap.exists()) {
+                 const data = docSnap.data();
+                 if (data.latitude != null && data.longitude != null && data.radius != null) {
+                    setLocation({
+                        latitude: Number(data.latitude),
+                        longitude: Number(data.longitude),
+                        radius: Number(data.radius),
+                    });
+                 } else {
+                    setLocation(null);
+                 }
+            } else {
+                setLocation(null);
             }
-        };
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching location settings:", error);
+            setLoading(false);
+        });
 
-        fetchLocationSettings();
-    }, []);
+        return () => unsubscribe();
+    }, [user]);
 
     if (loading) {
         return (
@@ -61,7 +70,7 @@ export default function RequiredLocation() {
     }
 
     if (!location) {
-        return null; // Don't render anything if no global location is set
+        return null; // Don't render anything if no global location is set or if user has specific settings
     }
 
     return (
@@ -72,7 +81,7 @@ export default function RequiredLocation() {
                         <MapPin className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                        <CardTitle className="text-lg font-semibold">Lokasi Absen Wajib</CardTitle>
+                        <CardTitle className="text-lg font-semibold">Lokasi Absen Wajib (Global)</CardTitle>
                         <CardDescription className="text-xs">
                            Anda harus berada dalam radius yang ditentukan untuk absen.
                         </CardDescription>
@@ -87,4 +96,3 @@ export default function RequiredLocation() {
         </Card>
     );
 }
-

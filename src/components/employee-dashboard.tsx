@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import MotivationalQuote from './motivational-quote';
 import RequiredLocation from './required-location';
 
 
@@ -70,8 +71,8 @@ export default function EmployeeDashboard() {
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
   const [effectiveLocationSettings, setEffectiveLocationSettings] = useState<LocationSettings>(null);
   
-  const [isClockInAllowed, setIsClockInAllowed] = useState(false);
-  const [isClockOutAllowed, setIsClockOutAllowed] = useState(false);
+  const [isClockInAllowed, setIsClockInAllowed] = useState(true);
+  const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
 
   const fetchAttendanceHistory = useCallback(async (employeeId: string) => {
     setLoadingHistory(true);
@@ -126,13 +127,13 @@ export default function EmployeeDashboard() {
         if (!user) return;
         
         // 1. Determine location settings (user > global)
-        if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
+        if (user.locationSettings) {
             setEffectiveLocationSettings(user.locationSettings);
         } else {
             const globalLocationRef = doc(db, 'settings', 'location');
             const docSnap = await getDoc(globalLocationRef);
             if (docSnap.exists() && docSnap.data()) {
-                const data = docSnap.data();
+                 const data = docSnap.data();
                  if (data.latitude != null && data.longitude != null && data.radius != null) {
                     setEffectiveLocationSettings({
                         latitude: Number(data.latitude),
@@ -177,12 +178,16 @@ export default function EmployeeDashboard() {
                 const clockInStartTime = inHours * 60 + inMinutes;
                 // Allow clocking in for a 4-hour window
                 clockInEnabled = currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInStartTime + (4 * 60);
+            } else {
+                 clockInEnabled = true;
             }
 
             if (scheduleSettings.clockOutTime) {
                 const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
                 const clockOutStartTime = outHours * 60 + outMinutes;
                 clockOutEnabled = currentTimeInMinutes >= clockOutStartTime;
+            } else {
+                clockOutEnabled = true;
             }
         }
         
@@ -383,6 +388,7 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
+      <MotivationalQuote />
       <RequiredLocation />
       <Card className="shadow-lg rounded-xl">
         <CardHeader className='flex-row items-center justify-between'>

@@ -105,8 +105,6 @@ export default function EmployeeDashboard() {
 
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
-      // This is a common error if the composite index is not created yet.
-      // We will show a more helpful message.
       if ((error as any).code === 'failed-precondition') {
           toast({
             title: 'Indeks Firestore Diperlukan',
@@ -124,7 +122,8 @@ export default function EmployeeDashboard() {
       setLoadingHistory(false);
     }
   }, [toast]);
-
+  
+  // Fetch initial data (history & settings)
   useEffect(() => {
     const fetchScheduleSettings = async () => {
         try {
@@ -142,31 +141,29 @@ export default function EmployeeDashboard() {
     if(user){
       fetchAttendanceHistory(user);
     }
-    
+  }, [user, fetchAttendanceHistory]);
+
+  // Effect for handling time-based logic (scheduling)
+  useEffect(() => {
     const updateTimeChecks = () => {
        const now = new Date();
-      // Check schedule
       if (scheduleSettings) {
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
         
-        // Clock In Window
         if (scheduleSettings.clockInTime) {
-            const fourHoursInMinutes = 4 * 60;
             const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
             const clockInStartTime = inHours * 60 + inMinutes;
-            const clockInEndTime = clockInStartTime + fourHoursInMinutes;
+            const clockInEndTime = clockInStartTime + (4 * 60); // 4 hour window
             setIsClockInAllowed(currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime);
         } else {
-            setIsClockInAllowed(true); // Default to allowed if not set
+            setIsClockInAllowed(true);
         }
         
-        // Clock Out Window - Allow anytime after the start time
         if (scheduleSettings.clockOutTime) {
             const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
             const clockOutStartTime = outHours * 60 + outMinutes;
              setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime);
         } else {
-             // If clock out time is not set, allow clocking out if they are clocked in
             setIsClockOutAllowed(status === 'in');
         }
 
@@ -174,8 +171,13 @@ export default function EmployeeDashboard() {
     };
     
     updateTimeChecks();
-    const timerId = setInterval(updateTimeChecks, 1000);
+    const timerId = setInterval(updateTimeChecks, 60000); // Check every minute is enough
 
+    return () => clearInterval(timerId);
+  }, [scheduleSettings, status]);
+
+  // Effect for getting camera permissions and listing devices
+  useEffect(() => {
     const getCameraPermission = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setHasCameraPermission(false);
@@ -204,29 +206,31 @@ export default function EmployeeDashboard() {
     };
     
     getCameraPermission();
-
-    return () => {
-      clearInterval(timerId);
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [toast, user, fetchAttendanceHistory, scheduleSettings, status]);
-
+  }, [toast]);
+  
+  // Effect for handling the video stream itself
   useEffect(() => {
+    let stream: MediaStream;
     if (selectedCamera && hasCameraPermission && videoRef.current) {
-        let stream: MediaStream;
         const startStream = async () => {
             if (videoRef.current?.srcObject) {
                 const currentStream = videoRef.current.srcObject as MediaStream;
                 currentStream.getTracks().forEach(track => track.stop());
             }
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: { deviceId: { exact: selectedCamera } }
-            });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: selectedCamera } }
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch(error) {
+                console.error("Error starting video stream:", error);
+                 toast({
+                    variant: 'destructive',
+                    title: 'Gagal Memulai Kamera',
+                    description: 'Tidak dapat memulai stream video. Coba pilih kamera lain jika tersedia.',
+                });
             }
         };
 
@@ -238,7 +242,7 @@ export default function EmployeeDashboard() {
             }
         };
     }
-  }, [selectedCamera, hasCameraPermission]);
+  }, [selectedCamera, hasCameraPermission, toast]);
 
 
   const getLocation = (): Promise<Location> => {
@@ -314,8 +318,6 @@ export default function EmployeeDashboard() {
         if (settingsSnap.exists()) {
             locationSettings = settingsSnap.data() as LocationSettings;
         } else {
-             // If there's no global setting either, we allow attendance from anywhere
-             // This can be changed to a strict denial if required
              toast({ title: 'Peringatan', description: 'Pengaturan lokasi global tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
         }
       }
@@ -388,7 +390,7 @@ export default function EmployeeDashboard() {
               <Camera className="text-primary" />
               Otentikasi Wajah
             </CardTitle>
-            <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
+            <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar.</CardDescription>
           </div>
            <Dialog>
              <DialogTrigger asChild>

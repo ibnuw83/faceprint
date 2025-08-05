@@ -1,3 +1,4 @@
+
 'use client';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -109,9 +110,9 @@ function Sidebar() {
                         {user?.name?.charAt(0).toUpperCase()}
                         </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col items-start">
-                        <p className="text-sm font-medium leading-none">{user?.name}</p>
-                        <p className="text-xs leading-none text-muted-foreground truncate max-w-[150px]">
+                    <div className="flex min-w-0 w-full flex-col items-start">
+                        <p className="w-full truncate text-sm font-medium leading-none">{user?.name}</p>
+                        <p className="w-full truncate text-xs leading-none text-muted-foreground">
                             {user?.email}
                         </p>
                     </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -49,15 +48,20 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
       const role = userData.role || (fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
       
       let locationSettings = null;
-      if (userData.locationSettings && 
-          userData.locationSettings.latitude != null && 
-          userData.locationSettings.longitude != null && 
-          userData.locationSettings.radius != null) {
-          locationSettings = {
-              latitude: Number(userData.locationSettings.latitude),
-              longitude: Number(userData.locationSettings.longitude),
-              radius: Number(userData.locationSettings.radius),
-          };
+      // Critical fix: Ensure data is converted to Number before being checked and used.
+      const rawSettings = userData.locationSettings;
+      if (rawSettings) {
+        const lat = Number(rawSettings.latitude);
+        const lng = Number(rawSettings.longitude);
+        const rad = Number(rawSettings.radius);
+
+        if (!isNaN(lat) && !isNaN(lng) && !isNaN(rad)) {
+            locationSettings = {
+                latitude: lat,
+                longitude: lng,
+                radius: rad,
+            };
+        }
       }
 
       return {
@@ -128,17 +132,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const role = userData.role || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
                 
                 let locationSettings = null;
-                // This is the critical fix: ensure data from Firestore is converted to Number.
-                if (userData.locationSettings && 
-                    userData.locationSettings.latitude != null && 
-                    userData.locationSettings.longitude != null && 
-                    userData.locationSettings.radius != null) {
-                    locationSettings = {
-                        latitude: Number(userData.locationSettings.latitude),
-                        longitude: Number(userData.locationSettings.longitude),
-                        radius: Number(userData.locationSettings.radius),
-                    };
+                 // Critical fix: Ensure data is converted to Number before being checked and used.
+                const rawSettings = userData.locationSettings;
+                if (rawSettings) {
+                    const lat = Number(rawSettings.latitude);
+                    const lng = Number(rawSettings.longitude);
+                    const rad = Number(rawSettings.radius);
+
+                    // Only set the locationSettings object if all values are valid numbers.
+                    if (!isNaN(lat) && !isNaN(lng) && !isNaN(rad)) {
+                        locationSettings = {
+                            latitude: lat,
+                            longitude: lng,
+                            radius: rad,
+                        };
+                    }
                 }
+
 
                 setUser({
                     uid: firebaseUser.uid,
@@ -226,5 +236,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-
-    

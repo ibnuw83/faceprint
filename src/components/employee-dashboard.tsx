@@ -24,7 +24,7 @@ export default function EmployeeDashboard() {
   const [location, setLocation] = useState<Location | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState(true);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
     // --- Date and Time Logic ---
@@ -37,7 +37,6 @@ export default function EmployeeDashboard() {
     const timerId = setInterval(updateDateTime, 1000);
 
     // --- Camera Logic ---
-    let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('Camera not supported on this browser');
@@ -45,7 +44,7 @@ export default function EmployeeDashboard() {
         return;
       }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -60,12 +59,14 @@ export default function EmployeeDashboard() {
         });
       }
     };
+    
     getCameraPermission();
 
-    // --- Cleanup Function ---
     return () => {
       clearInterval(timerId);
-      if (stream) {
+      // Stop camera stream on component unmount
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
       }
     };
@@ -164,19 +165,26 @@ export default function EmployeeDashboard() {
             <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-6">
-            <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center">
+            <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+               {hasCameraPermission === false && (
+                <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                  <Alert variant="destructive" className="w-auto">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Akses Kamera Ditolak</AlertTitle>
+                    <AlertDescription>
+                      Mohon izinkan akses kamera di pengaturan browser Anda.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+               {hasCameraPermission === null && (
+                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2"/>
+                    Meminta izin kamera...
+                 </div>
+               )}
             </div>
-            
-             {!hasCameraPermission && (
-              <Alert variant="destructive" className="w-full">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
-                <AlertDescription>
-                  Mohon izinkan akses kamera di pengaturan browser Anda untuk melanjutkan.
-                </AlertDescription>
-              </Alert>
-            )}
 
             <div className="flex gap-4 w-full flex-col sm:flex-row">
               <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in' || isLocating || !hasCameraPermission}>

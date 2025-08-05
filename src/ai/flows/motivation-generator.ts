@@ -14,7 +14,7 @@ const MotivationalQuoteOutputSchema = z.object({
   quote: z
     .string()
     .describe(
-      'A short, impactful motivational quote related to work, success, or productivity.'
+      'A short, impactful motivational quote related to work, success, or productivity in Indonesian.'
     ),
 });
 export type MotivationalQuoteOutput = z.infer<
@@ -28,7 +28,7 @@ export async function getMotivationalQuote(): Promise<MotivationalQuoteOutput> {
 const prompt = ai.definePrompt({
   name: 'motivationGeneratorPrompt',
   output: { schema: MotivationalQuoteOutputSchema },
-  prompt: `Generate a single, concise, and powerful motivational quote suitable for a professional work environment. The quote should inspire productivity, teamwork, or personal growth. Do not add quotation marks.`,
+  prompt: `Generate a single, concise, and powerful motivational quote in Indonesian suitable for a professional work environment. The quote should inspire productivity, teamwork, or personal growth. Do not add quotation marks.`,
 });
 
 const motivationGeneratorFlow = ai.defineFlow(

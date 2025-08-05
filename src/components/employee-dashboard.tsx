@@ -25,8 +25,9 @@ export default function EmployeeDashboard() {
   const [location, setLocation] = useState<Location | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState(true); // Assume true initially
+  const [hasCameraPermission, setHasCameraPermission] = useState(true);
 
+  // Separate effect for date and time
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
@@ -38,7 +39,9 @@ export default function EmployeeDashboard() {
     return () => clearInterval(timer);
   }, []);
 
+  // Separate effect for camera access
   useEffect(() => {
+    let stream: MediaStream;
     const getCameraPermission = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setHasCameraPermission(false);
@@ -46,7 +49,7 @@ export default function EmployeeDashboard() {
         return;
       }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
@@ -66,8 +69,7 @@ export default function EmployeeDashboard() {
     
     // Cleanup function to stop video stream when component unmounts
     return () => {
-        if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
+        if (stream) {
             stream.getTracks().forEach(track => track.stop());
         }
     }
@@ -260,5 +262,4 @@ export default function EmployeeDashboard() {
       </div>
     </div>
   );
-
-    
+}

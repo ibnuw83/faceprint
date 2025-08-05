@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile, User as FirebaseUser } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 export type User = {
@@ -51,7 +51,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
       
       return {
         uid: fbUser.uid,
-        name: fbUser.displayName,
+        name: userData.name || fbUser.displayName,
         email: fbUser.email,
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
@@ -86,29 +86,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const updateUserState = useCallback(async (fbUser: FirebaseUser | null) => {
+  const checkUserStatus = useCallback(async () => {
+    setLoading(true);
+    const fbUser = auth.currentUser;
     if (fbUser) {
-      setFirebaseUser(fbUser);
-      const appUser = await fetchUserData(fbUser);
-      setUser(appUser);
-    } else {
-      setFirebaseUser(null);
-      setUser(null);
+        const appUser = await fetchUserData(fbUser);
+        setUser(appUser);
     }
     setLoading(false);
   }, []);
 
-  const checkUserStatus = useCallback(async () => {
-    const fbUser = auth.currentUser;
-    setLoading(true);
-    await updateUserState(fbUser);
-    setLoading(false);
-  }, [updateUserState]);
+  useEffect(() => {
+    // This listener handles auth state changes (login/logout)
+    const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
+      setFirebaseUser(fbUser);
+      if (!fbUser) {
+          // User is logged out
+          setUser(null);
+          setLoading(false);
+      }
+      // If user is logged in, the other useEffect will handle data fetching.
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, updateUserState);
-    return () => unsubscribe();
-  }, [updateUserState]);
+    // This listener handles real-time updates to the logged-in user's data
+    if (firebaseUser) {
+        setLoading(true);
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        
+        const unsubscribeUser = onSnapshot(userDocRef, (doc) => {
+            if (doc.exists()) {
+                const userData = doc.data();
+                const role = userData.role || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
+                setUser({
+                    uid: firebaseUser.uid,
+                    name: userData.name || firebaseUser.displayName,
+                    email: firebaseUser.email,
+                    role: role,
+                    isProfileComplete: userData.isProfileComplete || false,
+                    lastLocation: userData.lastLocation || null,
+                    locationSettings: userData.locationSettings || null,
+                    faceprint: userData.faceprint || null,
+                    department: userData.department || null,
+                    employeeId: userData.employeeId || null,
+                });
+            } else {
+                // This might happen right after registration, before the doc is created.
+                // We'll rely on the initial fetch or redirect.
+                setUser(null);
+            }
+            setLoading(false);
+        }, (error) => {
+            console.error("Error listening to user document:", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribeUser();
+    } else {
+        // No user logged in.
+        setLoading(false);
+    }
+}, [firebaseUser]);
+
 
   const login = useCallback(async (email: string, pass: string) => {
     await signInWithEmailAndPassword(auth, email, pass);
@@ -147,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
-      isAuthenticated: !!user,
+      isAuthenticated: !!user && !!firebaseUser, // Ensure both are present
       loading,
       checkUserStatus
     }),

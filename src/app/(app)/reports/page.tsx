@@ -20,7 +20,7 @@ export default function ReportsPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect if not loading and user is not an admin.
+    // Redirect non-admins away from this page.
     if (!authLoading && user && user.role !== 'admin') {
       router.replace('/dashboard');
     }
@@ -45,7 +45,7 @@ export default function ReportsPage() {
     }
   };
 
-  // Render a loading state while checking for authentication or if the user is not an admin.
+  // Render a loading state while checking for auth or if the user is not an admin.
   // This prevents the main content from rendering for unauthorized users and fixes the build error.
   if (authLoading || !user || user.role !== 'admin') {
     return (
@@ -55,7 +55,7 @@ export default function ReportsPage() {
     );
   }
 
-  // Render the page content only for admins.
+  // Render the page content only for authenticated admins.
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="grid gap-6">
@@ -74,44 +74,41 @@ export default function ReportsPage() {
               Klik tombol di bawah untuk memproses data absensi terbaru dan membuat laporan yang menyoroti tren, absensi, dan ketepatan waktu.
             </p>
             <Button onClick={handleGenerateReport} disabled={isLoading}>
-              {isLoading ? (
+              {isLoading && !report ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Membuat...
                 </>
               ) : (
-                'Buat Laporan'
+                'Buat Laporan Baru'
               )}
             </Button>
           </CardContent>
         </Card>
 
-        {isLoading && (
+        {(isLoading || report) && (
             <Card className="shadow-lg rounded-xl">
                 <CardHeader>
                     <CardTitle>Laporan yang Dihasilkan</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-1/2" />
+                    {isLoading ? (
+                         <>
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-3/4" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-1/2" />
+                        </>
+                    ) : (
+                         report && (
+                            <pre className="bg-muted p-4 rounded-lg whitespace-pre-wrap font-code text-sm leading-relaxed">
+                                {report}
+                            </pre>
+                         )
+                    )}
                 </CardContent>
             </Card>
-        )}
-
-        {report && (
-          <Card className="shadow-lg rounded-xl">
-            <CardHeader>
-              <CardTitle>Laporan Ringkasan yang Dihasilkan</CardTitle>
-            </Header>
-            <CardContent>
-              <pre className="bg-muted p-4 rounded-lg whitespace-pre-wrap font-code text-sm leading-relaxed">
-                {report}
-              </pre>
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>

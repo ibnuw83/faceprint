@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2 } from 'lucide-react';
+import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2, History } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -43,6 +43,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+
 
 type LocationSettings = {
     latitude: number;
@@ -70,6 +72,7 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user: authUser } = useAuth();
+  const router = useRouter();
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -285,6 +288,10 @@ export default function EmployeesPage() {
                               <Edit className="mr-2" />
                               Edit Pengguna
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/employees/${user.uid}/attendance`)}>
+                                <History className="mr-2"/>
+                                Lihat Riwayat Absensi
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDeleteUser(user.uid)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                               <Trash2 className="mr-2" />
                               Hapus
@@ -349,5 +356,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-    

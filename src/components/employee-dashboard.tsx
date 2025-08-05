@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import MotivationalQuote from './motivational-quote';
-import RequiredLocation from './required-location';
+import LocationStatus from './location-status';
 
 
 type Location = {
@@ -556,7 +556,7 @@ export default function EmployeeDashboard() {
           </div>
         </CardContent>
       </Card>
-
+      <LocationStatus locationSettings={effectiveLocationSettings} />
     </div>
   );
 }

@@ -16,7 +16,6 @@ import {
   Building2,
   Settings,
   User as UserIcon,
-  MoreVertical,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -30,14 +29,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function Sidebar() {
+function Header() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
 
   const handleLogout = () => {
     logout();
@@ -56,109 +61,108 @@ function Sidebar() {
         ]
       : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
 
-  const navLinks = (
-    <nav className="flex flex-col gap-2">
-      {navItems.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          onClick={() => setIsMobileMenuOpen(false)}
-          className={cn(
-            'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-            pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href)) ? 'bg-muted text-primary' : ''
-          )}
-        >
-          <item.icon className="h-4 w-4" />
-          {item.label}
-        </Link>
-      ))}
-    </nav>
-  );
+  const desktopNav = (
+     <nav className="hidden md:flex items-center gap-4 text-sm font-medium text-muted-foreground">
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'transition-colors hover:text-foreground',
+              pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+                ? 'text-foreground font-semibold'
+                : ''
+            )}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+  )
+
+  const mobileNav = (
+     <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+        <SheetTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 md:hidden"
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle navigation menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left">
+          <nav className="grid gap-6 text-lg font-medium">
+            <Logo />
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className={cn(
+                    "flex items-center gap-4 px-2.5 text-muted-foreground hover:text-foreground",
+                    pathname === item.href ? "text-foreground" : ""
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </SheetContent>
+      </Sheet>
+  )
 
   return (
-    <>
-      {/* Mobile Menu Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 left-4 z-50 md:hidden"
-        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-      >
-        {isMobileMenuOpen ? <X /> : <Menu />}
-        <span className="sr-only">Toggle Menu</span>
-      </Button>
-
-      {/* Sidebar Content */}
-      <aside
-        className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-background transition-transform duration-300 md:flex md:translate-x-0',
-          isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        <div className="flex h-full max-h-screen flex-col gap-2">
-          <div className="flex h-16 items-center border-b px-6">
+    <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
+        <div className='flex items-center gap-6'>
             <Logo />
-          </div>
-          <div className="flex-1 overflow-auto py-2 px-4">{navLinks}</div>
-          <div className="mt-auto p-4 border-t">
-             <div className="flex items-center justify-between gap-2">
-                
-                <Link href="/profile" className="flex items-center gap-3 min-w-0 flex-1 group">
-                    <Avatar className="h-9 w-9 transition-transform group-hover:scale-110">
-                        <AvatarImage
+            {desktopNav}
+        </div>
+      
+        <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4 justify-end">
+            {mobileNav}
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                     <AvatarImage
                         src={user?.faceprint || undefined}
-                        />
-                        <AvatarFallback>
+                      />
+                    <AvatarFallback>
                          {loading ? <Loader2 className="animate-spin h-4 w-4" /> : user?.name?.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                    </Avatar>
-                     {loading ? (
-                       <div className="space-y-1.5 min-w-0 flex-1">
-                          <Skeleton className="h-4 w-24" />
-                          <Skeleton className="h-3 w-32" />
-                       </div>
-                     ) : (
-                        <div className="flex flex-col min-w-0 flex-1 w-full">
-                            <p className="truncate text-sm font-medium leading-none">{user?.name}</p>
-                            <p className="truncate text-xs leading-none text-muted-foreground">
-                                {user?.email}
-                            </p>
-                        </div>
-                     )}
-                </Link>
-
-                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="shrink-0">
-                        <MoreVertical className="h-4 w-4" />
-                         <span className="sr-only">Buka menu pengguna</span>
-                      </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>
-                        Akun Saya
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link href="/profile" className="cursor-pointer">
+                    </AvatarFallback>
+                </Avatar>
+                <span className="sr-only">Toggle user menu</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>
+                    <p className="font-medium leading-none">{user?.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground mt-1">
+                        {user?.email}
+                    </p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                     <Link href="/profile" className="cursor-pointer">
                           <UserIcon className="mr-2 h-4 w-4" />
                           <span>Profil Saya</span>
                         </Link>
-                      </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Keluar</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-             </div>
-          </div>
-        </div>
-      </aside>
-    </>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Keluar</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+            </DropdownMenu>
+      </div>
+    </header>
   );
 }
+
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, user, loading } = useAuth();
@@ -185,17 +189,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   }
 
   // A non-admin user with an incomplete profile will see the profile completion page.
-  // This layout ensures they don't see the sidebar.
+  // This layout ensures they don't see the header.
   if (user.role === 'employee' && !user.isProfileComplete) {
     return <main>{children}</main>;
   }
 
   return (
-    <div className="flex min-h-screen w-full">
-      <Sidebar />
-      <main className="flex-1 flex flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-8 md:pl-72">
-        {/* Add a spacer for the mobile header */}
-        <div className="h-12 md:hidden" />
+    <div className="flex min-h-screen w-full flex-col">
+      <Header />
+      <main className="flex flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-10 pt-20">
         {children}
       </main>
     </div>

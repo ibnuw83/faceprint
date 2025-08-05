@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,8 @@ import { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 type Location = {
   latitude: number;
@@ -25,6 +28,8 @@ export default function EmployeeDashboard() {
   const [isLocating, setIsLocating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>('');
 
   useEffect(() => {
     // --- Date and Time Logic ---
@@ -44,11 +49,20 @@ export default function EmployeeDashboard() {
         return;
       }
       try {
+        // First, get permission
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
         setHasCameraPermission(true);
+
+        // Then, enumerate devices to get the list of cameras
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setCameras(videoDevices);
+        if (videoDevices.length > 0) {
+          setSelectedCamera(videoDevices[0].deviceId);
+        }
+        
+        // We can stop the initial permission stream, a new one will be started based on selection
+        stream.getTracks().forEach(track => track.stop());
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
@@ -64,13 +78,37 @@ export default function EmployeeDashboard() {
 
     return () => {
       clearInterval(timerId);
-      // Stop camera stream on component unmount
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
     };
   }, [toast]);
+
+  useEffect(() => {
+    // Effect to start/restart stream when selectedCamera changes
+    if (selectedCamera && hasCameraPermission && videoRef.current) {
+        let stream: MediaStream;
+        const startStream = async () => {
+            // Stop any existing stream
+            if (videoRef.current?.srcObject) {
+                const currentStream = videoRef.current.srcObject as MediaStream;
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: selectedCamera } }
+            });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        };
+
+        startStream();
+
+        return () => {
+            // Cleanup: stop the stream when component unmounts or selected camera changes
+             if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }
+  }, [selectedCamera, hasCameraPermission]);
 
 
   const getLocation = (): Promise<Location> => {
@@ -185,6 +223,23 @@ export default function EmployeeDashboard() {
                  </div>
                )}
             </div>
+             {cameras.length > 1 && hasCameraPermission && (
+                <div className="w-full space-y-2">
+                  <Label htmlFor="cameraSelect">Pilih Kamera</Label>
+                  <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                    <SelectTrigger id="cameraSelect">
+                      <SelectValue placeholder="Pilih kamera..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cameras.map(camera => (
+                        <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                          {camera.label || `Kamera ${cameras.indexOf(camera) + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
             <div className="flex gap-4 w-full flex-col sm:flex-row">
               <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in' || isLocating || !hasCameraPermission}>

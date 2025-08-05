@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Camera, Upload, Loader2, AlertTriangle } from 'lucide-react';
+import { UserPlus, Camera, Upload, Loader2, AlertTriangle, Video } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -40,6 +40,9 @@ export default function CompleteProfilePage() {
   const [loadingDepartments, setLoadingDepartments] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>('');
+
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -69,7 +72,7 @@ export default function CompleteProfilePage() {
     fetchDepartments();
   }, [toast]);
   
-  useEffect(() => {
+   useEffect(() => {
     const getCameraPermission = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.error('Camera not supported on this browser');
@@ -77,11 +80,21 @@ export default function CompleteProfilePage() {
         return;
       }
       try {
+        // First, get permission
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
         setHasCameraPermission(true);
+        
+        // Then, enumerate devices to get the list of cameras
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setCameras(videoDevices);
+        if (videoDevices.length > 0) {
+          setSelectedCamera(videoDevices[0].deviceId);
+        }
+
+        // Stop the initial stream, we'll start a new one with the selected device
+        stream.getTracks().forEach(track => track.stop());
+
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
@@ -95,14 +108,37 @@ export default function CompleteProfilePage() {
     
     getCameraPermission();
 
-    return () => {
-      // Stop camera stream on component unmount
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
   }, [toast]);
+
+  useEffect(() => {
+    // Effect to start/restart stream when selectedCamera changes
+    if (selectedCamera && hasCameraPermission && videoRef.current) {
+        let stream: MediaStream;
+        const startStream = async () => {
+             // Stop any existing stream
+            if (videoRef.current?.srcObject) {
+                const currentStream = videoRef.current.srcObject as MediaStream;
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: selectedCamera } }
+            });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        };
+
+        startStream();
+
+        return () => {
+            // Cleanup: stop the stream when component unmounts or selected camera changes
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        };
+    }
+  }, [selectedCamera, hasCameraPermission]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -212,7 +248,7 @@ export default function CompleteProfilePage() {
             </div>
             <div className="space-y-4 flex flex-col">
               <Label>Pendaftaran Wajah</Label>
-              <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center">
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center">
                  <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
                   {hasCameraPermission === false && (
                     <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
@@ -232,6 +268,23 @@ export default function CompleteProfilePage() {
                     </div>
                   )}
               </div>
+               {cameras.length > 1 && hasCameraPermission && (
+                <div className="space-y-2">
+                  <Label htmlFor="cameraSelect">Pilih Kamera</Label>
+                  <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                    <SelectTrigger id="cameraSelect">
+                      <SelectValue placeholder="Pilih kamera..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cameras.map(camera => (
+                        <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                          {camera.label || `Kamera ${cameras.indexOf(camera) + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="flex gap-2 flex-col sm:flex-row">
                 <Button type="button" className="flex-1" disabled={isLoading || !hasCameraPermission}>
                   <Camera className="mr-2" /> Ambil Gambar

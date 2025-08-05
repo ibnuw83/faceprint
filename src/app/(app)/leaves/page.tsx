@@ -187,72 +187,73 @@ export default function LeavesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-                    <Label htmlFor="leaveType">Jenis Pengajuan</Label>
-                    <Select onValueChange={setLeaveType} value={leaveType} disabled={isSubmitting}>
-                        <SelectTrigger id="leaveType">
-                            <SelectValue placeholder="Pilih jenis cuti/izin..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Cuti Tahunan">Cuti Tahunan</SelectItem>
-                            <SelectItem value="Sakit">Sakit</SelectItem>
-                            <SelectItem value="Izin Khusus">Izin Khusus</SelectItem>
-                        </SelectContent>
-                    </Select>
-               </div>
-                <div className="space-y-2">
-                    <Label>Tanggal Pengajuan</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant={"outline"}
-                            className="w-full justify-start text-left font-normal"
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dates?.from ? (
-                            dates.to ? (
-                                <>
-                                {format(dates.from, "LLL dd, y")} -{" "}
-                                {format(dates.to, "LLL dd, y")}
-                                </>
-                            ) : (
-                                format(dates.from, "LLL dd, y")
-                            )
-                            ) : (
-                            <span>Pilih tanggal</span>
-                            )}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dates?.from}
-                            selected={dates}
-                            onSelect={setDates}
-                            numberOfMonths={2}
-                        />
-                        </PopoverContent>
-                    </Popover>
-               </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+                <Label htmlFor="leaveType" className="md:w-40">Jenis Pengajuan</Label>
+                <Select onValueChange={setLeaveType} value={leaveType} disabled={isSubmitting}>
+                    <SelectTrigger id="leaveType" className="flex-1">
+                        <SelectValue placeholder="Pilih jenis cuti/izin..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="Cuti Tahunan">Cuti Tahunan</SelectItem>
+                        <SelectItem value="Sakit">Sakit</SelectItem>
+                        <SelectItem value="Izin Khusus">Izin Khusus</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
-             <div className="space-y-2">
-                <Label htmlFor="reason">Alasan/Keterangan</Label>
+             <div className="flex flex-col md:flex-row gap-4 items-center">
+                <Label className="md:w-40">Tanggal Pengajuan</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        id="date"
+                        variant={"outline"}
+                        className="w-full justify-start text-left font-normal flex-1"
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dates?.from ? (
+                        dates.to ? (
+                            <>
+                            {format(dates.from, "LLL dd, y")} -{" "}
+                            {format(dates.to, "LLL dd, y")}
+                            </>
+                        ) : (
+                            format(dates.from, "LLL dd, y")
+                        )
+                        ) : (
+                        <span>Pilih tanggal</span>
+                        )}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dates?.from}
+                        selected={dates}
+                        onSelect={setDates}
+                        numberOfMonths={2}
+                    />
+                    </PopoverContent>
+                </Popover>
+            </div>
+             <div className="flex flex-col md:flex-row gap-4 items-start">
+                <Label htmlFor="reason" className="md:w-40 pt-2">Alasan/Keterangan</Label>
                 <Textarea
                     id="reason"
                     placeholder="Jelaskan alasan Anda secara singkat..."
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     disabled={isSubmitting}
+                    className='flex-1'
                 />
              </div>
-             <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
-                Kirim Pengajuan
-             </Button>
+             <div className='flex justify-end'>
+                 <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
+                    Kirim Pengajuan
+                 </Button>
+             </div>
           </form>
         </CardContent>
       </Card>

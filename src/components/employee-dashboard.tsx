@@ -146,12 +146,11 @@ export default function EmployeeDashboard() {
             setIsClockInAllowed(true); // Default to allowed if not set
         }
         
-        // Clock Out Window
+        // Clock Out Window - Allow anytime after the start time
         if (scheduleSettings.clockOutTime) {
             const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
             const clockOutStartTime = outHours * 60 + outMinutes;
-            const clockOutEndTime = clockOutStartTime + fourHoursInMinutes;
-            setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime && currentTimeInMinutes < clockOutEndTime);
+            setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime);
         } else {
             setIsClockOutAllowed(false); // Default to not allowed if not set
         }

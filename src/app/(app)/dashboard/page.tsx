@@ -100,7 +100,7 @@ function AdminDashboard() {
       </div>
       <div className="container mx-auto p-0 space-y-6">
       {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Karyawan</CardTitle>
@@ -137,18 +137,6 @@ function AdminDashboard() {
             <p className="text-xs text-muted-foreground">
               Karyawan yang belum absen
             </p>
-          </CardContent>
-        </Card>
-         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Laporan</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">AI</div>
-             <Link href="/reports" className="text-xs text-muted-foreground hover:underline">
-              Buat laporan ringkasan
-            </Link>
           </CardContent>
         </Card>
       </div>

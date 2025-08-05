@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Clock, UserCheck, UserX, MapPin, Loader2, AlertTriangle, History } from 'lucide-react';
 import { useAuth, User } from '@/hooks/use-auth';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -51,7 +52,8 @@ export default function EmployeeDashboard() {
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(10) // Fetch more to be sure
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
@@ -60,12 +62,21 @@ export default function EmployeeDashboard() {
       // Check the last status to set the initial button state
       if (history.length > 0) {
         const lastRecord = history[0];
-        if (lastRecord.status === 'Clocked In') {
-          setStatus('in');
+         // Only consider today's records for current status
+        if(lastRecord.date === new Date().toLocaleDateString('id-ID')) {
+            if (lastRecord.status === 'Clocked In') {
+                setStatus('in');
+            } else {
+                setStatus('out');
+            }
         } else {
-          setStatus('out');
+            // If last record is from another day, they need to clock in today
+            setStatus(null);
         }
+      } else {
+        setStatus(null); // No history, needs to clock in
       }
+
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
       toast({
@@ -422,3 +433,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    

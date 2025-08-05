@@ -58,7 +58,10 @@ function Header() {
           { href: '/departments', label: 'Departemen', icon: Building2 },
           { href: '/leaves', label: 'Cuti & Izin', icon: FileText },
         ]
-      : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
+      : [
+          { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard },
+          { href: '/leaves', label: 'Cuti & Izin', icon: FileText },
+        ];
 
   const desktopNav = (
      <nav className="hidden md:flex items-center gap-4 text-sm font-medium text-muted-foreground">

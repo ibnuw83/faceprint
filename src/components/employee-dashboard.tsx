@@ -57,8 +57,6 @@ export default function EmployeeDashboard() {
   const { user, checkUserStatus } = useAuth();
   const [status, setStatus] = useState<'in' | 'out' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [location, setLocation] = useState<Location | null>(null);
-  const [isLocating, setIsLocating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
@@ -251,17 +249,14 @@ export default function EmployeeDashboard() {
         reject(new Error('Geolocation tidak didukung oleh browser ini.'));
         return;
       }
-      setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setIsLocating(false);
           resolve({
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
         },
         (error) => {
-          setIsLocating(false);
           reject(new Error(`Gagal mendapatkan lokasi: ${error.message}`));
         },
         { enableHighAccuracy: true }
@@ -309,10 +304,11 @@ export default function EmployeeDashboard() {
       
        toast({ title: 'Wajah Terverifikasi!', description: 'Sekarang memeriksa lokasi Anda.' });
 
-      // 3. Get location settings (user-specific or global fallback)
-      let locationSettings: LocationSettings | null = user.locationSettings || null;
-      
-      if (!locationSettings) {
+      // 3. Get location settings (user-specific with global fallback)
+      let locationSettings: LocationSettings | null = null;
+      if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
+        locationSettings = user.locationSettings;
+      } else {
         const settingsRef = doc(db, 'settings', 'location');
         const settingsSnap = await getDoc(settingsRef);
         if (settingsSnap.exists()) {
@@ -324,7 +320,6 @@ export default function EmployeeDashboard() {
       
       // 4. Get user's current location & check distance if settings exist
       const currentLocation = await getLocation();
-      setLocation(currentLocation);
 
       if(locationSettings) {
           const distance = calculateDistance(

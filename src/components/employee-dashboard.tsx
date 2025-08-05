@@ -46,7 +46,8 @@ type LocationSettings = {
     latitude: number;
     longitude: number;
     radius: number;
-}
+} | null;
+
 
 type ScheduleSettings = {
     clockInTime: string;
@@ -68,9 +69,9 @@ export default function EmployeeDashboard() {
   const [loadingHistory, setLoadingHistory] = useState(true);
 
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
+  const [locationSettings, setLocationSettings] = useState<LocationSettings>(null);
   const [isClockInAllowed, setIsClockInAllowed] = useState(true);
   const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
-
 
   const fetchAttendanceHistory = useCallback(async (employeeId: string) => {
     setLoadingHistory(true);
@@ -88,8 +89,15 @@ export default function EmployeeDashboard() {
       
       if (history.length > 0) {
         const lastRecord = history[0];
+        // Only set status if it's for today, otherwise it's a new day.
         if (lastRecord.date === new Date().toLocaleDateString('id-ID')) {
-            setStatus(lastRecord.status === 'Clocked In' ? 'in' : 'out');
+             if (lastRecord.status === 'Clocked In') {
+                setStatus('in');
+            } else if (lastRecord.status === 'Clocked Out') {
+                setStatus('out');
+            } else {
+                setStatus(null);
+            }
         } else {
             setStatus(null); // Reset status for a new day
         }
@@ -98,7 +106,7 @@ export default function EmployeeDashboard() {
       }
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
-      if ((error as any).code === 'failed-precondition') {
+       if ((error as any).code === 'failed-precondition') {
           toast({
             title: 'Gagal Memuat Riwayat',
             description: 'Indeks Firestore yang diperlukan untuk melihat riwayat belum dibuat. Silakan hubungi admin.',
@@ -116,35 +124,61 @@ export default function EmployeeDashboard() {
       setLoadingHistory(false);
     }
   }, [toast]);
-  
+
+
+  // Effect for fetching initial data and setting up listeners
   useEffect(() => {
     // Listener for real-time schedule settings updates
     const scheduleRef = doc(db, 'settings', 'schedule');
-    const unsubscribe = onSnapshot(scheduleRef, (doc) => {
-        if (doc.exists()) {
+    const unsubscribeSchedule = onSnapshot(scheduleRef, (doc) => {
+        if (doc.exists() && doc.data()) {
             setScheduleSettings(doc.data() as ScheduleSettings);
         } else {
-            console.warn("Schedule settings not found.");
             setScheduleSettings(null);
         }
     }, (error) => {
         console.error("Error listening to schedule settings:", error);
-        toast({
-            title: 'Gagal Memuat Jadwal',
-            description: 'Tidak dapat memuat pengaturan jadwal secara real-time.',
-            variant: 'destructive',
-        });
     });
+    
+    // Logic for location settings (priority: user-specific > global)
+    const setupLocationSettings = async () => {
+        if (user && user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
+            setLocationSettings(user.locationSettings);
+        } else {
+            // Fallback to global settings
+            const globalLocationRef = doc(db, 'settings', 'location');
+            const docSnap = await getDoc(globalLocationRef);
+            if (docSnap.exists() && docSnap.data()) {
+                const data = docSnap.data();
+                 if (data.latitude && data.longitude && data.radius) {
+                    setLocationSettings({
+                        latitude: Number(data.latitude),
+                        longitude: Number(data.longitude),
+                        radius: Number(data.radius),
+                    });
+                } else {
+                    setLocationSettings(null);
+                }
+            } else {
+                setLocationSettings(null);
+            }
+        }
+    }
 
-    if(user?.employeeId){
-        fetchAttendanceHistory(user.employeeId);
+    if (user) {
+        setupLocationSettings();
+        if (user.employeeId) {
+            fetchAttendanceHistory(user.employeeId);
+        } else {
+            setLoadingHistory(false);
+        }
     } else {
         setLoadingHistory(false);
     }
     
-    return () => unsubscribe();
+    return () => unsubscribeSchedule();
 
-  }, [user, fetchAttendanceHistory, toast]);
+  }, [user, fetchAttendanceHistory]);
 
 
   // Effect for handling time-based logic (scheduling)
@@ -158,15 +192,12 @@ export default function EmployeeDashboard() {
         let clockOutAllowed = true;
 
         if (scheduleSettings) {
-            // Clock In Logic
             if (scheduleSettings.clockInTime) {
                 const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
                 const clockInStartTime = inHours * 60 + inMinutes;
                 const clockInEndTime = clockInStartTime + (4 * 60); // 4 hour window
                 clockInAllowed = currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime;
             }
-
-            // Clock Out Logic
             if (scheduleSettings.clockOutTime) {
                 const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
                 const clockOutStartTime = outHours * 60 + outMinutes;
@@ -182,7 +213,7 @@ export default function EmployeeDashboard() {
     const timerId = setInterval(updateTimeChecks, 60000); // Check every minute
 
     return () => clearInterval(timerId);
-  }, [scheduleSettings, status]);
+  }, [scheduleSettings]);
 
   // Effect for getting camera permissions and listing devices
   useEffect(() => {
@@ -313,20 +344,8 @@ export default function EmployeeDashboard() {
       }
       
        toast({ title: 'Wajah Terverifikasi!', description: 'Sekarang memeriksa lokasi Anda.' });
-
-      // 3. Get location settings (user-specific with global fallback)
-      let locationSettings: LocationSettings | null = null;
-      if (user.locationSettings?.latitude && user.locationSettings?.longitude && user.locationSettings?.radius) {
-        locationSettings = user.locationSettings;
-      } else {
-        const settingsRef = doc(db, 'settings', 'location');
-        const settingsSnap = await getDoc(settingsRef);
-        if (settingsSnap.exists() && settingsSnap.data()) {
-            locationSettings = settingsSnap.data() as LocationSettings;
-        }
-      }
       
-      // 4. Get user's current location & check distance if settings exist
+      // 3. Get user's current location & check distance if settings exist
       const currentLocation = await getLocation();
 
       if(locationSettings) {
@@ -345,7 +364,7 @@ export default function EmployeeDashboard() {
       }
       
       const now = new Date();
-      // 5. Add record to 'attendance' collection
+      // 4. Add record to 'attendance' collection
       await addDoc(collection(db, 'attendance'), {
         employeeId: user.employeeId,
         employeeName: user.name,
@@ -356,7 +375,7 @@ export default function EmployeeDashboard() {
         createdAt: Timestamp.fromDate(now),
       });
 
-      // 6. Update user's last location
+      // 5. Update user's last location
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
       await checkUserStatus();
@@ -367,7 +386,7 @@ export default function EmployeeDashboard() {
         description: `Kehadiran Anda di [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,
       });
 
-      // 7. Refresh history
+      // 6. Refresh history
       if (user.employeeId) {
         await fetchAttendanceHistory(user.employeeId);
       }
@@ -518,5 +537,3 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
-
-    

@@ -16,6 +16,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { calculateDistance } from '@/lib/location';
+import { verifyFaces } from '@/ai/flows/face-verifier';
+import Image from 'next/image';
 
 type Location = {
   latitude: number;
@@ -45,6 +47,7 @@ export default function EmployeeDashboard() {
   const [location, setLocation] = useState<Location | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>('');
@@ -199,14 +202,46 @@ export default function EmployeeDashboard() {
   };
 
   const recordAttendance = async (clockStatus: 'Clocked In' | 'Clocked Out') => {
-    if (!user) return;
+    if (!user || !user.faceprint) {
+       toast({ title: 'Profil Belum Lengkap', description: 'Wajah Anda belum terdaftar. Silakan lengkapi profil Anda.', variant: 'destructive'});
+       return;
+    }
     if (!hasCameraPermission) {
         toast({ title: 'Kamera Diperlukan', description: 'Akses kamera diperlukan untuk absen.', variant: 'destructive'});
         return;
     }
+    if (!videoRef.current || !canvasRef.current) {
+        toast({ title: 'Error Kamera', description: 'Komponen kamera tidak siap.', variant: 'destructive'});
+        return;
+    }
+
     setIsProcessing(true);
+
     try {
-      // 1. Get location settings from admin
+      // 1. Capture image from video
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const captureToVerify = canvas.toDataURL('image/jpeg', 0.9);
+      
+      toast({ title: 'Memverifikasi Wajah...', description: 'Mohon tunggu, AI sedang memproses gambar Anda.' });
+
+      // 2. Verify face with AI
+      const verificationResult = await verifyFaces({
+        registeredFace: user.faceprint,
+        captureToVerify: captureToVerify,
+      });
+
+      if (!verificationResult.match) {
+        throw new Error('Verifikasi wajah gagal. Pastikan wajah Anda terlihat jelas dan coba lagi.');
+      }
+      
+       toast({ title: 'Wajah Terverifikasi!', description: 'Sekarang memeriksa lokasi Anda.' });
+
+      // 3. Get location settings from admin
       const settingsRef = doc(db, 'settings', 'location');
       const settingsSnap = await getDoc(settingsRef);
       if (!settingsSnap.exists()) {
@@ -214,11 +249,11 @@ export default function EmployeeDashboard() {
       }
       const locationSettings = settingsSnap.data() as LocationSettings;
       
-      // 2. Get user's current location
+      // 4. Get user's current location
       const currentLocation = await getLocation();
       setLocation(currentLocation);
 
-      // 3. Calculate distance and check if within radius
+      // 5. Calculate distance and check if within radius
       const distance = calculateDistance(
         currentLocation.latitude,
         currentLocation.longitude,
@@ -231,7 +266,7 @@ export default function EmployeeDashboard() {
       }
       
       const now = new Date();
-      // Add record to 'attendance' collection
+      // 6. Add record to 'attendance' collection
       await addDoc(collection(db, 'attendance'), {
         employeeId: user.uid,
         employeeName: user.name,
@@ -242,7 +277,7 @@ export default function EmployeeDashboard() {
         createdAt: now,
       });
 
-      // Update user's last location
+      // 7. Update user's last location
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
       await checkUserStatus();
@@ -253,7 +288,7 @@ export default function EmployeeDashboard() {
         description: `Kehadiran Anda di [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,
       });
 
-      // Refresh history
+      // 8. Refresh history
       await fetchAttendanceHistory(user);
 
     } catch (error: any) {
@@ -287,6 +322,7 @@ export default function EmployeeDashboard() {
             <CardContent className="flex flex-col items-center gap-6">
               <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
                  <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                 <canvas ref={canvasRef} className="hidden"></canvas>
                  {hasCameraPermission === null ? (
                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
                       <Loader2 className="h-6 w-6 animate-spin mr-2"/>
@@ -324,11 +360,11 @@ export default function EmployeeDashboard() {
 
               <div className="flex gap-4 w-full flex-col sm:flex-row">
                 <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission}>
-                  {(isProcessing && !isLocating) ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
+                  {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
                   Absen Masuk
                 </Button>
                 <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission}>
-                   {(isProcessing && !isLocating) ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
+                   {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
                   Absen Keluar
                 </Button>
               </div>

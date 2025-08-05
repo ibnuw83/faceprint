@@ -63,7 +63,7 @@ export default function EmployeeDashboard() {
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.uid),
         orderBy('createdAt', 'desc'),
-        limit(10) // Fetch more to be sure
+        limit(5)
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
@@ -396,7 +396,7 @@ export default function EmployeeDashboard() {
                                 </TableRow>
                             ))
                         ) : attendanceHistory.length > 0 ? (
-                        attendanceHistory.slice(0, 5).map((record) => (
+                        attendanceHistory.map((record) => (
                             <TableRow key={record.id}>
                                 <TableCell>{record.date}</TableCell>
                                 <TableCell>{record.time}</TableCell>
@@ -497,3 +497,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    

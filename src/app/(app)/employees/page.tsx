@@ -159,7 +159,7 @@ export default function EmployeesPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarImage src={user.faceprint} alt={user.name} />
+                            <AvatarImage src={user.faceprint || undefined} alt={user.name || ''} />
                             <AvatarFallback>{user.name?.charAt(0).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div>

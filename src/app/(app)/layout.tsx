@@ -1,6 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -10,6 +10,7 @@ import {
   Users,
   FileText,
   Loader2,
+  Menu,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -23,12 +24,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 function Header() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -44,15 +51,18 @@ function Header() {
           { href: '/reports', label: 'Laporan', icon: FileText },
         ]
       : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
-
-  return (
-    <header className="sticky top-0 z-50 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
-      <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
-        <Logo />
+  
+  const NavLinks = ({isMobile = false}: {isMobile?: boolean}) => (
+    <nav className={cn(
+        "items-center gap-6 text-lg font-medium",
+        isMobile ? "flex flex-col items-start" : "hidden md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6"
+    )}>
+        <Logo className="mb-4 self-start" />
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
+            onClick={() => setOpen(false)}
             className={cn(
               'transition-colors hover:text-foreground',
               pathname.startsWith(item.href)
@@ -63,9 +73,31 @@ function Header() {
             {item.label}
           </Link>
         ))}
-      </nav>
-      {/* Mobile Menu can be added here if needed */}
-      <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:w-auto">
+    </nav>
+  )
+
+  return (
+    <header className="sticky top-0 z-50 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
+      <div className="flex items-center gap-4">
+        <div className="md:hidden">
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="pt-10">
+                <NavLinks isMobile />
+              </SheetContent>
+            </Sheet>
+        </div>
+        <div className="hidden md:flex">
+             <NavLinks />
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-end gap-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="rounded-full">

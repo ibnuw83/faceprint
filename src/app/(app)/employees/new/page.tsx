@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -8,9 +9,22 @@ import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Camera, Upload, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Skeleton } from '@/components/ui/skeleton';
+
+type Department = {
+  id: string;
+  name: string;
+};
 
 export default function CompleteProfilePage() {
   const { toast } = useToast();
@@ -20,6 +34,8 @@ export default function CompleteProfilePage() {
   const [fullName, setFullName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [department, setDepartment] = useState('');
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -29,10 +45,35 @@ export default function CompleteProfilePage() {
     }
   }, [user, authLoading]);
 
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const departmentsCollection = collection(db, 'departments');
+        const departmentSnapshot = await getDocs(departmentsCollection);
+        const departmentList = departmentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
+        setDepartments(departmentList);
+      } catch (error) {
+        console.error('Error fetching departments:', error);
+        toast({
+          title: 'Gagal Memuat Departemen',
+          description: 'Tidak dapat memuat daftar departemen.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+    fetchDepartments();
+  }, [toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
       toast({ title: 'Error', description: 'Anda harus login terlebih dahulu.', variant: 'destructive' });
+      return;
+    }
+    if (!department) {
+      toast({ title: 'Departemen Diperlukan', description: 'Silakan pilih departemen.', variant: 'destructive' });
       return;
     }
     setIsLoading(true);
@@ -105,7 +146,24 @@ export default function CompleteProfilePage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="department">Departemen</Label>
-                <Input id="department" placeholder="contoh: Engineering" required value={department} onChange={(e) => setDepartment(e.target.value)} disabled={isLoading} />
+                {loadingDepartments ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <Select onValueChange={setDepartment} value={department} disabled={isLoading}>
+                    <SelectTrigger id="department">
+                      <SelectValue placeholder="Pilih departemen..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.length > 0 ? (
+                        departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="-" disabled>Tidak ada departemen tersedia</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
             <div className="space-y-4 flex flex-col">
@@ -126,7 +184,7 @@ export default function CompleteProfilePage() {
               </div>
             </div>
             <div className="md:col-span-2">
-              <Button type="submit" size="lg" className="w-full !mt-4" disabled={isLoading}>
+              <Button type="submit" size="lg" className="w-full !mt-4" disabled={isLoading || loadingDepartments}>
                 {isLoading ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -143,3 +201,4 @@ export default function CompleteProfilePage() {
     </div>
   );
 }
+

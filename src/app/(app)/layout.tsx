@@ -1,3 +1,4 @@
+
 'use client';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -12,6 +13,7 @@ import {
   Loader2,
   Menu,
   X,
+  Building2
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -44,6 +46,7 @@ function Sidebar() {
           { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard },
           { href: '/attendance', label: 'Absensi', icon: ClipboardList },
           { href: '/employees', label: 'Karyawan', icon: Users },
+          { href: '/departments', label: 'Departemen', icon: Building2 },
           { href: '/reports', label: 'Laporan', icon: FileText },
         ]
       : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
@@ -155,8 +158,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Hide sidebar and force layout for profile completion page
-  if (user.role !== 'admin' && !user.isProfileComplete) {
+  // Hide sidebar and force layout for profile completion page for employees only
+  if (user.role === 'employee' && !user.isProfileComplete) {
     return <main>{children}</main>;
   }
 
@@ -171,3 +174,4 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

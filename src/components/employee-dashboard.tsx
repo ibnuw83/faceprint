@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -27,25 +26,22 @@ export default function EmployeeDashboard() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(true);
 
-  // Separate effect for date and time
   useEffect(() => {
+    // --- Date and Time Logic ---
     const updateDateTime = () => {
       const now = new Date();
       setTime(now.toLocaleTimeString('id-ID'));
       setDate(now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
     };
     updateDateTime();
-    const timer = setInterval(updateDateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const timerId = setInterval(updateDateTime, 1000);
 
-  // Separate effect for camera access
-  useEffect(() => {
-    let stream: MediaStream;
+    // --- Camera Logic ---
+    let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('Camera not supported on this browser');
         setHasCameraPermission(false);
-        console.error('getUserMedia not supported on this browser');
         return;
       }
       try {
@@ -64,16 +60,17 @@ export default function EmployeeDashboard() {
         });
       }
     };
-
     getCameraPermission();
-    
-    // Cleanup function to stop video stream when component unmounts
+
+    // --- Cleanup Function ---
     return () => {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-    }
+      clearInterval(timerId);
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, [toast]);
+
 
   const getLocation = (): Promise<Location> => {
     return new Promise((resolve, reject) => {

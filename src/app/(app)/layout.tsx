@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   Building2,
-  Settings, // Import Settings icon
+  Settings,
+  User as UserIcon, // Import User icon
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -48,7 +49,7 @@ function Sidebar() {
           { href: '/employees', label: 'Karyawan', icon: Users },
           { href: '/departments', label: 'Departemen', icon: Building2 },
           { href: '/reports', label: 'Laporan', icon: FileText },
-          { href: '/settings', label: 'Pengaturan', icon: Settings }, // Add Settings item
+          { href: '/settings', label: 'Pengaturan', icon: Settings },
         ]
       : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
 
@@ -102,8 +103,7 @@ function Sidebar() {
                   <Button variant="ghost" className="w-full justify-start gap-3 px-3">
                     <Avatar className="h-9 w-9">
                         <AvatarImage
-                        data-ai-hint="person avatar"
-                        src={`https://i.pravatar.cc/150?u=${user?.email}`}
+                        src={user?.faceprint || undefined}
                         />
                         <AvatarFallback>
                         {user?.name?.charAt(0).toUpperCase()}
@@ -121,6 +121,13 @@ function Sidebar() {
                 <DropdownMenuLabel>
                     Akun Saya
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="cursor-pointer">
+                      <UserIcon className="mr-2 h-4 w-4" />
+                      <span>Profil Saya</span>
+                    </Link>
+                  </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
                   <LogOut className="mr-2 h-4 w-4" />

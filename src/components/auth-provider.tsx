@@ -17,7 +17,9 @@ export type User = {
     latitude: number,
     longitude: number
   };
-  faceprint?: string | null; // Add faceprint field
+  faceprint?: string | null;
+  department?: string | null;
+  employeeId?: string | null;
 };
 
 interface AuthContextType {
@@ -49,7 +51,9 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
         lastLocation: userData.lastLocation || null,
-        faceprint: userData.faceprint || null, // Fetch faceprint
+        faceprint: userData.faceprint || null,
+        department: userData.department || null,
+        employeeId: userData.employeeId || null,
       };
     }
      console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user.`);
@@ -150,5 +154,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-
-    

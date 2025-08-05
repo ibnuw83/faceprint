@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Card,
   CardContent,
@@ -16,12 +18,29 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { attendanceRecords } from '@/lib/mock-data';
 import { ClipboardList } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 
 export default function AttendancePage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
+  
   const statusLocale: Record<string, string> = {
     'Clocked In': 'Masuk',
     'Clocked Out': 'Keluar',
   }
+
+  if (user?.role !== 'admin') {
+    return null;
+  }
+
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <Card className="shadow-lg rounded-xl">

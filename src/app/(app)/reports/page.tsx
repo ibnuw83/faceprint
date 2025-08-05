@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -8,11 +8,21 @@ import { attendanceRecords } from '@/lib/mock-data';
 import { attendanceReportGenerator } from '@/ai/flows/attendance-report-generator';
 import { FileText, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
 
 export default function ReportsPage() {
   const { toast } = useToast();
   const [report, setReport] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
@@ -32,6 +42,10 @@ export default function ReportsPage() {
       setIsLoading(false);
     }
   };
+
+  if (user?.role !== 'admin') {
+    return null;
+  }
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
@@ -82,7 +96,7 @@ export default function ReportsPage() {
           <Card className="shadow-lg rounded-xl">
             <CardHeader>
               <CardTitle>Laporan Ringkasan yang Dihasilkan</CardTitle>
-            </CardHeader>
+            </Header>
             <CardContent>
               <pre className="bg-muted p-4 rounded-lg whitespace-pre-wrap font-code text-sm leading-relaxed">
                 {report}

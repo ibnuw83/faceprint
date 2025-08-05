@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -39,20 +39,15 @@ export default function DepartmentsPage() {
   const [newDepartmentName, setNewDepartmentName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user?.role !== 'admin') {
-      router.replace('/dashboard');
-    }
-  }, [user, router]);
-  
-  const fetchDepartments = async () => {
+  const fetchDepartments = useCallback(async () => {
     setIsLoading(true);
     try {
       const departmentsCollection = collection(db, 'departments');
       const departmentSnapshot = await getDocs(departmentsCollection);
       const departmentList = departmentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
-      setDepartments(departmentList);
+      setDepartments(departmentList.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       console.error('Error fetching departments:', error);
       toast({
@@ -63,33 +58,36 @@ export default function DepartmentsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
   
   useEffect(() => {
-    if (user?.role === 'admin') {
-      fetchDepartments();
+    if (user?.role !== 'admin') {
+      router.replace('/dashboard');
+      return;
     }
-  }, [user]);
+    fetchDepartments();
+  }, [user, router, fetchDepartments]);
 
   const handleAddDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDepartmentName.trim()) {
-      toast({ title: 'Nama tidak boleh kosong', variant: 'destructive' });
+      toast({ title: 'Nama departemen tidak boleh kosong', variant: 'destructive' });
       return;
     }
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'departments'), { name: newDepartmentName });
+      const docRef = await addDoc(collection(db, 'departments'), { name: newDepartmentName.trim() });
       toast({
-        title: 'Departemen Ditambahkan',
-        description: `Departemen "${newDepartmentName}" berhasil dibuat.`,
+        title: 'Departemen Berhasil Ditambahkan',
+        description: `Departemen "${newDepartmentName.trim()}" telah dibuat.`,
       });
+      // Add to local state immediately for better UX
+      setDepartments(prev => [...prev, {id: docRef.id, name: newDepartmentName.trim()}].sort((a,b) => a.name.localeCompare(b.name)));
       setNewDepartmentName('');
-      fetchDepartments(); // Refresh list
     } catch (error) {
       console.error('Error adding department:', error);
       toast({
-        title: 'Gagal Menambahkan',
+        title: 'Gagal Menambahkan Departemen',
         description: 'Terjadi kesalahan. Silakan coba lagi.',
         variant: 'destructive',
       });
@@ -99,20 +97,23 @@ export default function DepartmentsPage() {
   };
 
   const handleDeleteDepartment = async (departmentId: string) => {
+    setDeletingId(departmentId);
     try {
       await deleteDoc(doc(db, 'departments', departmentId));
       toast({
-        title: 'Departemen Dihapus',
-        description: 'Departemen telah berhasil dihapus.',
+        title: 'Departemen Berhasil Dihapus',
+        description: 'Departemen yang dipilih telah dihapus.',
       });
-      fetchDepartments(); // Refresh list
+      setDepartments(prev => prev.filter(d => d.id !== departmentId));
     } catch (error) {
       console.error('Error deleting department:', error);
       toast({
-        title: 'Gagal Menghapus',
-        description: 'Terjadi kesalahan saat menghapus departemen.',
+        title: 'Gagal Menghapus Departemen',
+        description: 'Terjadi kesalahan saat menghapus.',
         variant: 'destructive',
       });
+    } finally {
+      setDeletingId(null);
     }
   };
   
@@ -122,41 +123,82 @@ export default function DepartmentsPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 shadow-lg rounded-xl">
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+            <Card className="shadow-lg rounded-xl">
+            <CardHeader>
+                <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                <Building2 className="text-primary" />
+                Tambah Departemen Baru
+                </CardTitle>
+                <CardDescription>
+                Buat departemen baru untuk organisasi Anda.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleAddDepartment} className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="departmentName">Nama Departemen</Label>
+                    <Input
+                    id="departmentName"
+                    placeholder="contoh: Pemasaran Digital"
+                    value={newDepartmentName}
+                    onChange={(e) => setNewDepartmentName(e.target.value)}
+                    disabled={isSubmitting}
+                    required
+                    />
+                </div>
+                <Button type="submit" className="w-full" disabled={isSubmitting || !newDepartmentName.trim()}>
+                    {isSubmitting ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Menambahkan...
+                    </>
+                    ) : (
+                    <>
+                        <PlusCircle className="mr-2" /> Tambah Departemen
+                    </>
+                    )}
+                </Button>
+                </form>
+            </CardContent>
+            </Card>
+        </div>
+
+        <Card className="shadow-lg rounded-xl h-fit">
           <CardHeader>
             <CardTitle className="text-2xl font-bold flex items-center gap-2">
               <List className="text-primary" />
               Daftar Departemen
             </CardTitle>
-            <CardDescription>
-              Lihat dan kelola semua departemen yang terdaftar di perusahaan.
+             <CardDescription>
+              Total: {departments.length} departemen
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, index) => (
                    <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
                       <Skeleton className="h-5 w-3/5" />
-                      <Skeleton className="h-8 w-8" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
                   </div>
                 ))
               ) : departments.length > 0 ? (
                 departments.map((dept) => (
-                  <div key={dept.id} className="flex items-center justify-between p-4 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
+                  <div key={dept.id} className="flex items-center justify-between p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors">
                     <p className="font-medium">{dept.name}</p>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                         <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10">
-                            <Trash2 className="h-4 w-4" />
+                         <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 shrink-0" disabled={!!deletingId}>
+                           {deletingId === dept.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                           </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Apakah Anda Yakin?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tindakan ini akan menghapus departemen "{dept.name}" secara permanen. Tindakan ini tidak dapat diurungkan.
+                            Tindakan ini akan menghapus departemen "{dept.name}" secara permanen dan tidak dapat diurungkan.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -175,46 +217,8 @@ export default function DepartmentsPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card className="shadow-lg rounded-xl h-fit">
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold flex items-center gap-2">
-              <Building2 className="text-primary" />
-              Tambah Departemen
-            </CardTitle>
-            <CardDescription>
-              Buat departemen baru untuk organisasi Anda.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleAddDepartment} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="departmentName">Nama Departemen</Label>
-                <Input
-                  id="departmentName"
-                  placeholder="contoh: Marketing"
-                  value={newDepartmentName}
-                  onChange={(e) => setNewDepartmentName(e.target.value)}
-                  disabled={isSubmitting}
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Menambahkan...
-                  </>
-                ) : (
-                  <>
-                    <PlusCircle className="mr-2" /> Tambah
-                  </>
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
-}
+
+    

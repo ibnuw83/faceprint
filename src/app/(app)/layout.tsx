@@ -144,8 +144,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     if (!loading) {
       if (!isAuthenticated) {
         router.replace('/login');
-      } else if (user && user.role !== 'admin' && !user.isProfileComplete && pathname !== '/employees/new') {
-        // Only redirect non-admins to complete their profile
+      } else if (user && user.role === 'employee' && !user.isProfileComplete && pathname !== '/employees/new') {
+        // Redirect employees with incomplete profiles to the profile completion page.
         router.replace('/employees/new');
       }
     }
@@ -159,7 +159,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Hide sidebar and force layout for profile completion page for employees only
+  // A non-admin user with an incomplete profile will see the profile completion page.
+  // This layout ensures they don't see the sidebar.
   if (user.role === 'employee' && !user.isProfileComplete) {
     return <main>{children}</main>;
   }

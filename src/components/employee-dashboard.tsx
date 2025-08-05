@@ -26,8 +26,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import MotivationalQuote from './motivational-quote';
 import LocationStatus from './location-status';
+import AnnouncementBanner from './announcement-banner';
 
 
 type Location = {
@@ -432,7 +432,7 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
-      <MotivationalQuote />
+      <AnnouncementBanner />
       <Card className="shadow-lg rounded-xl">
         <CardHeader className='flex-row items-center justify-between'>
           <div>

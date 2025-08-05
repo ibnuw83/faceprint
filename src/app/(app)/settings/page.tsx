@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw, Megaphone } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Textarea } from '@/components/ui/textarea';
 
 // Function to convert HSL string to object
 const hslStringToObj = (hslStr: string | null) => {
@@ -85,6 +86,10 @@ export default function SettingsPage() {
   const [clockOutTime, setClockOutTime] = useState('');
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
+  // Announcement settings
+  const [announcement, setAnnouncement] = useState('');
+  const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
+
 
   // Apply theme and logo from localStorage on initial load
   useEffect(() => {
@@ -141,6 +146,12 @@ export default function SettingsPage() {
             const data = scheduleSnap.data();
             setClockInTime(data.clockInTime || '');
             setClockOutTime(data.clockOutTime || '');
+        }
+
+        const announcementRef = doc(db, 'settings', 'announcement');
+        const announcementSnap = await getDoc(announcementRef);
+        if (announcementSnap.exists()) {
+            setAnnouncement(announcementSnap.data().text || '');
         }
     }
 
@@ -288,6 +299,20 @@ export default function SettingsPage() {
     }
   }
 
+  const saveAnnouncement = async () => {
+    setIsSavingAnnouncement(true);
+    try {
+        const announcementRef = doc(db, 'settings', 'announcement');
+        await setDoc(announcementRef, { text: announcement });
+        toast({ title: 'Pengumuman Disimpan', description: 'Teks berjalan telah diperbarui untuk semua karyawan.'});
+    } catch (error) {
+        console.error('Error saving announcement:', error);
+        toast({ title: 'Gagal Menyimpan', variant: 'destructive'});
+    } finally {
+        setIsSavingAnnouncement(false);
+    }
+  };
+
   const handleResetSchedule = async () => {
     setIsSavingSchedule(true);
     try {
@@ -353,6 +378,27 @@ export default function SettingsPage() {
                          </Button>
                     </div>
                     <p className="text-xs text-muted-foreground">Judul ini akan ditampilkan di sidebar, halaman login, dan judul tab browser.</p>
+                </div>
+            </div>
+
+            <div className="space-y-4 p-4 border rounded-lg">
+             <h3 className="font-semibold text-lg flex items-center gap-2"><Megaphone /> Pengumuman Berjalan</h3>
+                <div className="space-y-2">
+                    <Label htmlFor="announcementText">Teks Pengumuman</Label>
+                    <div className='flex items-center gap-2'>
+                       <Textarea
+                        id="announcementText"
+                        value={announcement}
+                        onChange={(e) => setAnnouncement(e.target.value)}
+                        placeholder="Tulis pengumuman singkat di sini..."
+                        disabled={isSavingAnnouncement}
+                        />
+                         <Button onClick={saveAnnouncement} disabled={isSavingAnnouncement}>
+                            {isSavingAnnouncement ? <Loader2 className="mr-2 animate-spin"/> : null}
+                            Simpan
+                         </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Teks ini akan ditampilkan sebagai pengumuman berjalan di dasbor setiap karyawan.</p>
                 </div>
             </div>
 
@@ -502,4 +548,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-    

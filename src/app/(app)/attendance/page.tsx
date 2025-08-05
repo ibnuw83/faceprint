@@ -47,12 +47,9 @@ export default function AttendancePage() {
   const fetchAttendanceRecords = useCallback(async () => {
     setLoading(true);
     try {
-        // NOTE: orderBy is removed to prevent query failure without a composite index.
-        // The data is sorted client-side instead.
-        const q = query(collection(db, "attendance"));
+        const q = query(collection(db, "attendance"), orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
-          .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
         setAttendanceRecords(records);
     } catch (error) {
         console.error("Error fetching attendance records: ", error);
@@ -158,5 +155,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-
-    

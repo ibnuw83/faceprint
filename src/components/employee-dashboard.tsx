@@ -72,12 +72,12 @@ export default function EmployeeDashboard() {
 
 
   const fetchAttendanceHistory = useCallback(async (currentUser: User) => {
-    if (!currentUser) return;
+    if (!currentUser?.uid) return;
     setLoadingHistory(true);
     try {
       const q = query(
         collection(db, 'attendance'),
-        where('employeeId', '==', currentUser.uid),
+        where('employeeId', '==', currentUser.employeeId),
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs
@@ -265,8 +265,8 @@ export default function EmployeeDashboard() {
   };
 
   const recordAttendance = async (clockStatus: 'Clocked In' | 'Clocked Out') => {
-    if (!user || !user.faceprint) {
-       toast({ title: 'Profil Belum Lengkap', description: 'Wajah Anda belum terdaftar. Silakan lengkapi profil Anda.', variant: 'destructive'});
+    if (!user || !user.faceprint || !user.employeeId) {
+       toast({ title: 'Profil Belum Lengkap', description: 'Wajah atau ID Karyawan Anda belum terdaftar. Silakan lengkapi profil Anda.', variant: 'destructive'});
        return;
     }
     if (!hasCameraPermission) {
@@ -337,7 +337,7 @@ export default function EmployeeDashboard() {
       const now = new Date();
       // 5. Add record to 'attendance' collection
       await addDoc(collection(db, 'attendance'), {
-        employeeId: user.uid,
+        employeeId: user.employeeId,
         employeeName: user.name,
         date: now.toLocaleDateString('id-ID'),
         time: now.toLocaleTimeString('id-ID'),

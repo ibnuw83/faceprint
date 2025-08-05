@@ -25,20 +25,27 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
-const fetchUserRole = async (uid: string): Promise<'admin' | 'employee'> => {
+const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
   try {
-    const userDocRef = doc(db, 'users', uid);
+    const userDocRef = doc(db, 'users', fbUser.uid);
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
-      return userDoc.data()?.role || 'employee';
+      const userData = userDoc.data();
+      return {
+        uid: fbUser.uid,
+        name: fbUser.displayName,
+        email: fbUser.email,
+        role: userData.role || 'employee',
+      };
     }
-    console.warn(`No user document found for UID: ${uid}. Defaulting to 'employee'.`);
-    return 'employee';
+    console.warn(`No user document found for UID: ${fbUser.uid}.`);
+    return null;
   } catch (error) {
-    console.error("Error fetching user role:", error);
-    return 'employee';
+    console.error("Error fetching user data:", error);
+    return null;
   }
 };
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -48,13 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUserState = useCallback(async (fbUser: FirebaseUser | null) => {
     if (fbUser) {
       setFirebaseUser(fbUser);
-      const role = await fetchUserRole(fbUser.uid);
-      const appUser: User = {
-        uid: fbUser.uid,
-        name: fbUser.displayName,
-        email: fbUser.email,
-        role: role,
-      };
+      const appUser = await fetchUserData(fbUser);
       setUser(appUser);
     } else {
       setFirebaseUser(null);
@@ -71,8 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, pass: string) => {
     setLoading(true);
-    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-    // onAuthStateChanged will handle updating the state, no need to call updateUserState here
+    await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged will handle updating the state
   }, []);
 
   const register = useCallback(async (email: string, pass: string, name: string) => {

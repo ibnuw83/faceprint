@@ -30,7 +30,9 @@ export default function NewEmployeePage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      // Create user in Firebase Auth
+      // NOTE: This creates a separate auth user. In a real app, you might only want
+      // to create a user profile in Firestore without a separate login, or handle
+      // invites differently.
       const userCredential = await createUserWithEmailAndPassword(auth, email, placeholderPassword);
       const user = userCredential.user;
 

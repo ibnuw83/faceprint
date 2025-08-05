@@ -152,35 +152,32 @@ export default function EmployeeDashboard() {
   // Effect for handling time-based logic (scheduling)
   useEffect(() => {
     const updateTimeChecks = () => {
-       const now = new Date();
-      
-      if (scheduleSettings) {
+        const now = new Date();
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
-        
-        // Clock In Logic: Active for 4 hours from the start time.
-        if (scheduleSettings.clockInTime) {
-            const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
-            const clockInStartTime = inHours * 60 + inMinutes;
-            const clockInEndTime = clockInStartTime + (4 * 60); // 4 hour window
-            setIsClockInAllowed(currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime);
-        } else {
-            setIsClockInAllowed(true); // Always allow if not set
+
+        // Default to allowed, then restrict if settings exist
+        let clockInAllowed = true;
+        let clockOutAllowed = status === 'in';
+
+        if (scheduleSettings) {
+            // Clock In Logic
+            if (scheduleSettings.clockInTime) {
+                const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
+                const clockInStartTime = inHours * 60 + inMinutes;
+                const clockInEndTime = clockInStartTime + (4 * 60); // 4 hour window
+                clockInAllowed = currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime;
+            }
+
+            // Clock Out Logic
+            if (scheduleSettings.clockOutTime) {
+                const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
+                const clockOutStartTime = outHours * 60 + outMinutes;
+                clockOutAllowed = currentTimeInMinutes >= clockOutStartTime && status === 'in';
+            }
         }
         
-        // Clock Out Logic: Active from the start time until clocked out.
-        if (scheduleSettings.clockOutTime) {
-            const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
-            const clockOutStartTime = outHours * 60 + outMinutes;
-            setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime && status === 'in');
-        } else {
-             // If no time is set, allow clocking out anytime as long as the user is clocked in
-            setIsClockOutAllowed(status === 'in');
-        }
-      } else {
-         // Default behavior if no settings are loaded
-         setIsClockInAllowed(true);
-         setIsClockOutAllowed(status === 'in');
-      }
+        setIsClockInAllowed(clockInAllowed);
+        setIsClockOutAllowed(clockOutAllowed);
     };
     
     updateTimeChecks();
@@ -523,3 +520,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    

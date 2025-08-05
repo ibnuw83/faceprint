@@ -49,6 +49,8 @@ type LeaveRequest = {
   endDate: string;
   status: 'Menunggu' | 'Disetujui' | 'Ditolak';
   createdAt: Timestamp;
+  statusUpdatedAt: Timestamp | null;
+  acknowledgedByEmployee: boolean;
 };
 
 export default function LeavesPage() {
@@ -70,12 +72,33 @@ export default function LeavesPage() {
       let q;
       if (user?.role === 'admin') {
         q = query(collection(db, "leaveRequests"), orderBy('createdAt', 'desc'));
+      } else if (user?.employeeId) {
+        q = query(collection(db, "leaveRequests"), where('employeeId', '==', user.employeeId), orderBy('createdAt', 'desc'));
       } else {
-        q = query(collection(db, "leaveRequests"), where('employeeId', '==', user?.employeeId), orderBy('createdAt', 'desc'));
+        setLoading(false);
+        return;
       }
+
       const querySnapshot = await getDocs(q);
       const requestList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
       setRequests(requestList);
+      
+      // For employees, check for unacknowledged status changes
+      if (user?.role === 'employee') {
+          for (const req of requestList) {
+              if (req.status !== 'Menunggu' && !req.acknowledgedByEmployee) {
+                  toast({
+                      title: `Pengajuan ${req.leaveType} Anda Diperbarui`,
+                      description: `Status pengajuan untuk tanggal ${req.startDate} sekarang: ${req.status}.`,
+                      duration: 8000,
+                  });
+                  // Mark as acknowledged
+                  const reqDoc = doc(db, 'leaveRequests', req.id);
+                  await updateDoc(reqDoc, { acknowledgedByEmployee: true });
+              }
+          }
+      }
+
     } catch (error) {
       console.error("Error fetching leave requests: ", error);
       toast({
@@ -88,7 +111,7 @@ export default function LeavesPage() {
   }, [user, toast]);
 
   useEffect(() => {
-    if(user?.employeeId) {
+    if (user) {
         fetchRequests();
     }
   }, [user, fetchRequests]);
@@ -111,6 +134,8 @@ export default function LeavesPage() {
             endDate: dates.to ? format(dates.to, 'yyyy-MM-dd') : format(dates.from, 'yyyy-MM-dd'),
             status: 'Menunggu',
             createdAt: Timestamp.now(),
+            statusUpdatedAt: null,
+            acknowledgedByEmployee: false,
         });
 
         toast({ title: 'Pengajuan Terkirim', description: 'Pengajuan cuti/izin Anda telah berhasil dikirim.'});
@@ -130,7 +155,11 @@ export default function LeavesPage() {
   const handleUpdateStatus = async (id: string, status: 'Disetujui' | 'Ditolak') => {
     try {
         const docRef = doc(db, 'leaveRequests', id);
-        await updateDoc(docRef, { status: status });
+        await updateDoc(docRef, { 
+            status: status,
+            statusUpdatedAt: Timestamp.now(),
+            acknowledgedByEmployee: false, // Reset acknowledgment so employee gets notified
+        });
         toast({ title: 'Status Diperbarui', description: `Pengajuan telah ditandai sebagai ${status}.`});
         await fetchRequests();
     } catch (error) {
@@ -302,3 +331,5 @@ export default function LeavesPage() {
     </div>
   );
 }
+
+    

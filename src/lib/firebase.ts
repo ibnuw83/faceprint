@@ -8,12 +8,13 @@ import { getFirestore } from "firebase/firestore";
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  "projectId": "visageid-gsic4",
-  "appId": "1:712085680469:web:1ac5391b93dfff4971ffdc",
-  "storageBucket": "visageid-gsic4.firebasestorage.app",
-  "apiKey": "AIzaSyCDQki3_w9nj3K_XHVrLeu2s_4f3Nqrn_A",
-  "authDomain": "visageid-gsic4.firebaseapp.com",
-  "messagingSenderId": "712085680469"
+  apiKey: "AIzaSyCVPDCAGMGePL3PcBBlAY25etCWHs1EfKs",
+  authDomain: "visageid-ae9b9.firebaseapp.com",
+  projectId: "visageid-ae9b9",
+  storageBucket: "visageid-ae9b9.firebasestorage.app",
+  messagingSenderId: "808812032105",
+  appId: "1:808812032105:web:d3a524ab6d68c47d34f2f8",
+  measurementId: "G-B1X6HRVCK7"
 };
 
 // Initialize Firebase

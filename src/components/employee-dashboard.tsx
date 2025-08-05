@@ -556,7 +556,7 @@ export default function EmployeeDashboard() {
           </div>
         </CardContent>
       </Card>
-      <LocationStatus locationSettings={effectiveLocationSettings} />
+      <LocationStatus />
     </div>
   );
 }

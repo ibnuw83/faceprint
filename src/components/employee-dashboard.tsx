@@ -82,14 +82,12 @@ export default function EmployeeDashboard() {
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', employeeId),
+        orderBy('createdAt', 'desc'),
         limit(10)
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-
-      // Sort the results on the client-side to avoid needing a composite index
-      history.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-
+      
       setAttendanceHistory(history);
 
       // Check the last attendance for today
@@ -110,7 +108,7 @@ export default function EmployeeDashboard() {
        if ((error as any).code === 'failed-precondition') {
           toast({
             title: 'Gagal Memuat Riwayat',
-            description: 'Indeks Firestore yang diperlukan untuk melihat riwayat belum dibuat. Silakan hubungi admin.',
+            description: 'Indeks Firestore yang diperlukan belum dibuat. Buka konsol developer (F12) untuk melihat link pembuatan indeks.',
             variant: 'destructive',
             duration: 10000,
           });

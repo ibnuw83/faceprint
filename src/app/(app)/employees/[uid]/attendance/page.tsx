@@ -62,6 +62,7 @@ type ScheduleSettings = {
 
 type UserData = {
     name: string;
+    employeeId: string;
 };
 
 export default function UserAttendancePage({ params }: { params: { uid: string } }) {
@@ -80,12 +81,14 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
   const fetchAttendanceAndSettings = useCallback(async () => {
     if (!uid) return;
     setLoading(true);
+    let targetUser: UserData | null = null;
     try {
         // Fetch user data
         const userRef = doc(db, 'users', uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-            setUserData(userSnap.data() as UserData);
+            targetUser = userSnap.data() as UserData
+            setUserData(targetUser);
         } else {
              toast({
                 title: "Pengguna Tidak Ditemukan",
@@ -102,14 +105,16 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
             setScheduleSettings(scheduleSnap.data() as ScheduleSettings);
         }
 
-        // Fetch attendance records
-        const q = query(
-            collection(db, "attendance"),
-            where('employeeId', '==', userSnap.data()?.employeeId), // Use employeeId for robustness
-        );
-        const querySnapshot = await getDocs(q);
-        const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
-        setAllAttendanceRecords(records);
+        // Fetch attendance records for the specific employee
+        if (targetUser && targetUser.employeeId) {
+            const q = query(
+                collection(db, "attendance"),
+                where('employeeId', '==', targetUser.employeeId)
+            );
+            const querySnapshot = await getDocs(q);
+            const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
+            setAllAttendanceRecords(records);
+        }
 
     } catch (error) {
         console.error("Error fetching data: ", error);

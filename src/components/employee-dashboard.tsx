@@ -354,10 +354,8 @@ export default function EmployeeDashboard() {
         throw new Error('Verifikasi wajah gagal. Pastikan wajah Anda terlihat jelas dan coba lagi.');
       }
       
-      toast({ title: 'Wajah Terverifikasi!', description: 'Mencatat absensi tanpa validasi lokasi (sementara).', variant: 'default' });
+      toast({ title: 'Wajah Terverifikasi!', description: 'Memvalidasi lokasi Anda...', variant: 'default' });
       
-      // Temporarily disable location check
-      /*
       const currentLocation = await getLocation();
 
       if(effectiveLocationSettings) {
@@ -374,18 +372,19 @@ export default function EmployeeDashboard() {
       } else {
            toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
-      */
       
       const now = new Date();
-      const currentLocation = { latitude: 0, longitude: 0 }; // Dummy location
-
+      
       await addDoc(collection(db, 'attendance'), {
         employeeId: user.employeeId,
         employeeName: user.name,
         date: now.toLocaleDateString('id-ID'),
         time: now.toLocaleTimeString('id-ID'),
         status: clockStatus,
-        location: currentLocation,
+        location: {
+            latitude: currentLocation.latitude,
+            longitude: currentLocation.longitude,
+        },
         createdAt: Timestamp.fromDate(now),
       });
 
@@ -419,8 +418,8 @@ export default function EmployeeDashboard() {
   }
   
   const baseButtonsDisabled = isProcessing || !hasCameraPermission || isLoadingSettings;
-  const clockInDisabled = baseButtonsDisabled || !isClockInAllowed || lastTodayStatus === 'Clocked In' || lastTodayStatus === 'Clocked Out';
-  const clockOutDisabled = baseButtonsDisabled || !isClockOutAllowed || lastTodayStatus !== 'Clocked In';
+  const clockInDisabled = baseButtonsDisabled || !isClockInAllowed;
+  const clockOutDisabled = baseButtonsDisabled || !isClockOutAllowed;
 
 
   return (
@@ -554,6 +553,7 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
 
 
 

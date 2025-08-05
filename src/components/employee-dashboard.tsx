@@ -72,17 +72,17 @@ export default function EmployeeDashboard() {
 
 
   const fetchAttendanceHistory = useCallback(async (currentUser: User) => {
-    if (!currentUser?.uid) return;
+    if (!currentUser?.employeeId) return;
     setLoadingHistory(true);
     try {
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.employeeId),
+        orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
-        .sort((a,b) => b.createdAt.seconds - a.createdAt.seconds);
+        .map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
 
       setAttendanceHistory(history);
       
@@ -105,14 +105,15 @@ export default function EmployeeDashboard() {
       console.error("Error fetching attendance history: ", error);
       if ((error as any).code === 'failed-precondition') {
           toast({
-            title: 'Indeks Firestore Diperlukan',
-            description: 'Fitur riwayat memerlukan indeks. Harap minta admin untuk membuatnya di konsol Firebase.',
+            title: 'Gagal Memuat Riwayat',
+            description: 'Indeks Firestore yang diperlukan untuk melihat riwayat belum dibuat. Silakan hubungi admin.',
             variant: 'destructive',
+            duration: 10000,
           });
       } else {
           toast({
-            title: 'Gagal memuat riwayat',
-            description: 'Tidak dapat mengambil data absensi Anda.',
+            title: 'Gagal Memuat Riwayat',
+            description: 'Terjadi kesalahan saat mengambil data absensi Anda.',
             variant: 'destructive',
           });
       }

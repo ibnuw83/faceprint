@@ -69,7 +69,7 @@ export default function EmployeeDashboard() {
 
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
   const [isClockInAllowed, setIsClockInAllowed] = useState(true);
-  const [isClockOutAllowed, setIsClockOutAllowed] = useState(false);
+  const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
 
 
   const fetchAttendanceHistory = useCallback(async (employeeId: string) => {
@@ -91,7 +91,7 @@ export default function EmployeeDashboard() {
         if (lastRecord.date === new Date().toLocaleDateString('id-ID')) {
             setStatus(lastRecord.status === 'Clocked In' ? 'in' : 'out');
         } else {
-            setStatus(null);
+            setStatus(null); // Reset status for a new day
         }
       } else {
         setStatus(null);
@@ -136,14 +136,12 @@ export default function EmployeeDashboard() {
         });
     });
 
-    // Initial fetch for attendance history
     if(user?.employeeId){
         fetchAttendanceHistory(user.employeeId);
     } else {
         setLoadingHistory(false);
     }
     
-    // Cleanup listener on component unmount
     return () => unsubscribe();
 
   }, [user, fetchAttendanceHistory, toast]);
@@ -157,7 +155,7 @@ export default function EmployeeDashboard() {
 
         // Default to allowed, then restrict if settings exist
         let clockInAllowed = true;
-        let clockOutAllowed = status === 'in';
+        let clockOutAllowed = true;
 
         if (scheduleSettings) {
             // Clock In Logic
@@ -172,7 +170,7 @@ export default function EmployeeDashboard() {
             if (scheduleSettings.clockOutTime) {
                 const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
                 const clockOutStartTime = outHours * 60 + outMinutes;
-                clockOutAllowed = currentTimeInMinutes >= clockOutStartTime && status === 'in';
+                clockOutAllowed = currentTimeInMinutes >= clockOutStartTime;
             }
         }
         
@@ -505,11 +503,11 @@ export default function EmployeeDashboard() {
             )}
 
           <div className="flex gap-4 w-full flex-col sm:flex-row max-w-sm">
-            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission || !isClockInAllowed}>
+            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={isProcessing || !hasCameraPermission || !isClockInAllowed}>
               {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk
             </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission || !isClockOutAllowed}>
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={isProcessing || !hasCameraPermission || !isClockOutAllowed}>
                 {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
               Absen Keluar
             </Button>

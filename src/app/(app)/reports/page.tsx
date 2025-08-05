@@ -44,7 +44,11 @@ export default function ReportsPage() {
   };
 
   if (user?.role !== 'admin') {
-    return null;
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (

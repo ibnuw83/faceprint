@@ -72,9 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, pass: string) => {
     setLoading(true);
     const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-    await updateUserState(userCredential.user);
-    // setLoading is handled by updateUserState
-  }, [updateUserState]);
+    // onAuthStateChanged will handle updating the state, no need to call updateUserState here
+  }, []);
 
   const register = useCallback(async (email: string, pass: string, name: string) => {
     setLoading(true);
@@ -84,7 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await updateProfile(fbUser, { displayName: name });
       
-      // Default role is 'employee'. If registering 'admin@visageid.com', set role to 'admin'.
       const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
 
       const userRef = doc(db, "users", fbUser.uid);
@@ -95,12 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: role,
         createdAt: new Date(),
       });
-
+      // onAuthStateChanged will handle updating the state after registration
     } catch (error) {
         console.error("Error during registration:", error);
+        setLoading(false); // Ensure loading is turned off on error
         throw error;
-    } finally {
-        setLoading(false);
     }
   }, []);
 

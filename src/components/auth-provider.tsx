@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -56,11 +55,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
         lastLocation: userData.lastLocation || null,
-        locationSettings: userData.locationSettings ? {
-          latitude: Number(userData.locationSettings.latitude),
-          longitude: Number(userData.locationSettings.longitude),
-          radius: Number(userData.locationSettings.radius),
-        } : null,
+        locationSettings: userData.locationSettings,
         faceprint: userData.faceprint || null,
         department: userData.department || null,
         employeeId: userData.employeeId || null,
@@ -127,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const role = userData.role || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
                 
                 let locationSettings = null;
+                // THIS IS THE CRITICAL FIX: Ensure data types are correct upon reading from Firestore.
                 if (userData.locationSettings && 
                     userData.locationSettings.latitude != null && 
                     userData.locationSettings.longitude != null && 

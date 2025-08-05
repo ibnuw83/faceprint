@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,6 @@ type ScheduleSettings = {
 export default function EmployeeDashboard() {
   const { toast } = useToast();
   const { user, checkUserStatus } = useAuth();
-  const [status, setStatus] = useState<'in' | 'out' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -87,23 +85,6 @@ export default function EmployeeDashboard() {
 
       setAttendanceHistory(history);
       
-      if (history.length > 0) {
-        const lastRecord = history[0];
-        // Only set status if it's for today, otherwise it's a new day.
-        if (lastRecord.date === new Date().toLocaleDateString('id-ID')) {
-             if (lastRecord.status === 'Clocked In') {
-                setStatus('in');
-            } else if (lastRecord.status === 'Clocked Out') {
-                setStatus('out');
-            } else {
-                setStatus(null);
-            }
-        } else {
-            setStatus(null); // Reset status for a new day
-        }
-      } else {
-        setStatus(null);
-      }
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
        if ((error as any).code === 'failed-precondition') {
@@ -142,7 +123,7 @@ export default function EmployeeDashboard() {
     
     // Logic for location settings (priority: user-specific > global)
     const setupLocationSettings = async () => {
-        if (user && user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
+        if (user && user.locationSettings) {
             setLocationSettings(user.locationSettings);
         } else {
             // Fallback to global settings
@@ -380,7 +361,6 @@ export default function EmployeeDashboard() {
       await updateDoc(userRef, { lastLocation: currentLocation });
       await checkUserStatus();
       
-      setStatus(clockStatus === 'Clocked In' ? 'in' : 'out');
       toast({
         title: `Absen ${clockStatus === 'Clocked In' ? 'Masuk' : 'Keluar'} Berhasil`,
         description: `Kehadiran Anda di [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,

@@ -83,10 +83,9 @@ function Sidebar() {
       {/* Sidebar Content */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex-col border-r bg-background transition-transform duration-300 md:flex md:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r bg-background transition-transform duration-300 md:flex md:translate-x-0',
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         )}
-        style={{ width: '280px' }}
       >
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-16 items-center border-b px-6">
@@ -153,7 +152,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar />
-      <main className="flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-8 md:pl-[280px]">
+      <main className="flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-8 md:pl-72">
         <div className="h-12 md:hidden" />
         {children}
       </main>

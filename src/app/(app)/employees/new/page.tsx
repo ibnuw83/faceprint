@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Camera, Upload, Loader2, AlertTriangle, Video } from 'lucide-react';
+import { UserPlus, Camera, Upload, Loader2, AlertTriangle, Video, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import Image from 'next/image';
 
 
 type Department = {
@@ -32,6 +33,7 @@ export default function CompleteProfilePage() {
   const router = useRouter();
   const { user, loading: authLoading, checkUserStatus } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [fullName, setFullName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
@@ -42,7 +44,7 @@ export default function CompleteProfilePage() {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>('');
-
+  const [faceprintDataUrl, setFaceprintDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -112,7 +114,7 @@ export default function CompleteProfilePage() {
 
   useEffect(() => {
     // Effect to start/restart stream when selectedCamera changes
-    if (selectedCamera && hasCameraPermission && videoRef.current) {
+    if (selectedCamera && hasCameraPermission && videoRef.current && !faceprintDataUrl) {
         let stream: MediaStream;
         const startStream = async () => {
              // Stop any existing stream
@@ -138,8 +140,41 @@ export default function CompleteProfilePage() {
             }
         };
     }
-  }, [selectedCamera, hasCameraPermission]);
+  }, [selectedCamera, hasCameraPermission, faceprintDataUrl]);
 
+
+  const handleCaptureFace = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw the current video frame onto the canvas
+      const context = canvas.getContext('2d');
+      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Get the image data as a base64 string
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9); // Use JPEG for smaller size
+      setFaceprintDataUrl(dataUrl);
+
+      // Stop the video stream
+      if(video.srcObject) {
+        const stream = video.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+
+      toast({ title: "Gambar Diambil", description: "Gambar wajah Anda telah berhasil ditangkap." });
+    }
+  };
+
+  const handleRetake = () => {
+    setFaceprintDataUrl(null);
+    // The useEffect will restart the camera stream since faceprintDataUrl is now null
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,8 +186,8 @@ export default function CompleteProfilePage() {
       toast({ title: 'Departemen Diperlukan', description: 'Silakan pilih departemen.', variant: 'destructive' });
       return;
     }
-     if (!hasCameraPermission) {
-      toast({ title: 'Kamera Diperlukan', description: 'Pendaftaran wajah memerlukan akses kamera.', variant: 'destructive'});
+     if (!faceprintDataUrl) {
+      toast({ title: 'Pendaftaran Wajah Diperlukan', description: 'Silakan ambil gambar wajah Anda.', variant: 'destructive'});
       return;
     }
     setIsLoading(true);
@@ -163,16 +198,17 @@ export default function CompleteProfilePage() {
         name: fullName,
         employeeId: employeeId,
         department: department,
-        role: user.role, // CRITICAL FIX: Preserve the existing user role
+        role: user.role, 
         isProfileComplete: true,
+        faceprint: faceprintDataUrl, // Save the captured face
       });
 
       // Refresh the auth state to get the latest user data
       await checkUserStatus();
 
       toast({
-        title: 'Profil Diperbarui',
-        description: 'Data Anda telah berhasil disimpan.',
+        title: 'Profil Berhasil Disimpan',
+        description: 'Data dan wajah Anda telah berhasil disimpan.',
       });
       router.push('/dashboard'); // Redirect to dashboard after completion
 
@@ -249,8 +285,13 @@ export default function CompleteProfilePage() {
             <div className="space-y-4 flex flex-col">
               <Label>Pendaftaran Wajah</Label>
               <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center">
-                 <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                  {hasCameraPermission === false && (
+                 {faceprintDataUrl ? (
+                   <Image src={faceprintDataUrl} alt="Hasil Gambar Wajah" layout="fill" objectFit="cover" />
+                 ) : (
+                   <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                 )}
+                 <canvas ref={canvasRef} className="hidden"></canvas>
+                  {hasCameraPermission === false && !faceprintDataUrl && (
                     <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
                       <Alert variant="destructive" className="w-auto">
                         <AlertTriangle className="h-4 w-4" />
@@ -261,14 +302,14 @@ export default function CompleteProfilePage() {
                       </Alert>
                     </div>
                   )}
-                  {hasCameraPermission === null && (
+                  {hasCameraPermission === null && !faceprintDataUrl && (
                     <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
                         <Loader2 className="h-6 w-6 animate-spin mr-2"/>
                         Meminta izin kamera...
                     </div>
                   )}
               </div>
-               {cameras.length > 1 && hasCameraPermission && (
+               {cameras.length > 1 && hasCameraPermission && !faceprintDataUrl && (
                 <div className="space-y-2">
                   <Label htmlFor="cameraSelect">Pilih Kamera</Label>
                   <Select value={selectedCamera} onValueChange={setSelectedCamera}>
@@ -286,23 +327,29 @@ export default function CompleteProfilePage() {
                 </div>
               )}
               <div className="flex gap-2 flex-col sm:flex-row">
-                <Button type="button" className="flex-1" disabled={isLoading || !hasCameraPermission}>
-                  <Camera className="mr-2" /> Ambil Gambar
-                </Button>
+                 {faceprintDataUrl ? (
+                    <Button type="button" variant="outline" className="flex-1" onClick={handleRetake} disabled={isLoading}>
+                      <RotateCcw className="mr-2" /> Ambil Ulang
+                    </Button>
+                 ) : (
+                    <Button type="button" className="flex-1" onClick={handleCaptureFace} disabled={isLoading || !hasCameraPermission}>
+                      <Camera className="mr-2" /> Ambil Gambar
+                    </Button>
+                 )}
                 <Button type="button" variant="outline" className="flex-1" disabled={true}>
                   <Upload className="mr-2" /> Unggah Foto
                 </Button>
               </div>
             </div>
             <div className="md:col-span-2">
-              <Button type="submit" size="lg" className="w-full !mt-4" disabled={isLoading || loadingDepartments || !hasCameraPermission}>
+              <Button type="submit" size="lg" className="w-full !mt-4" disabled={isLoading || loadingDepartments || !faceprintDataUrl}>
                 {isLoading ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Menyimpan...
                     </>
                 ) : (
-                    'Daftar dan Selesaikan'
+                    'Simpan Profil & Selesaikan'
                 )}
               </Button>
             </div>
@@ -312,4 +359,6 @@ export default function CompleteProfilePage() {
     </div>
   );
 }
+    
+
     

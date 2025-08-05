@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -16,6 +17,7 @@ export type User = {
     latitude: number,
     longitude: number
   };
+  faceprint?: string | null; // Add faceprint field
 };
 
 interface AuthContextType {
@@ -47,6 +49,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
         lastLocation: userData.lastLocation || null,
+        faceprint: userData.faceprint || null, // Fetch faceprint
       };
     }
      console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user.`);
@@ -59,6 +62,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
       email: fbUser.email,
       role: role,
       isProfileComplete: role === 'admin', // Admins are complete by default
+      faceprint: null,
     };
   } catch (error) {
     console.error("Error fetching user data:", error);
@@ -118,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: role,
       isProfileComplete: isProfileComplete, 
       createdAt: new Date(),
+      faceprint: null, // Initialize faceprint as null
     });
   }, []);
 
@@ -145,3 +150,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
+
+    

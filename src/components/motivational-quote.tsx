@@ -5,6 +5,8 @@ import { getMotivationalQuote } from '@/ai/flows/motivation-generator';
 import { Lightbulb, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+const QUOTE_SESSION_KEY = 'motivational-quote-cache';
+
 export default function MotivationalQuote() {
   const [quote, setQuote] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -13,23 +15,32 @@ export default function MotivationalQuote() {
     const fetchQuote = async () => {
       try {
         setLoading(true);
+        // Check session storage first
+        const cachedQuote = sessionStorage.getItem(QUOTE_SESSION_KEY);
+        if (cachedQuote) {
+          setQuote(cachedQuote);
+          return;
+        }
+
         const result = await getMotivationalQuote();
-        setQuote(result.quote);
+        if (result.quote) {
+            setQuote(result.quote);
+            sessionStorage.setItem(QUOTE_SESSION_KEY, result.quote); // Cache the new quote
+        } else {
+            throw new Error("Received empty quote from API");
+        }
       } catch (error) {
         console.error('Failed to fetch motivational quote:', error);
-        // Set a default quote on error
-        setQuote('Kerja keras mengalahkan bakat ketika bakat tidak bekerja keras.');
+        // Set a default quote on error and cache it to prevent retries
+        const defaultQuote = 'Kerja keras mengalahkan bakat ketika bakat tidak bekerja keras.';
+        setQuote(defaultQuote);
+        sessionStorage.setItem(QUOTE_SESSION_KEY, defaultQuote);
       } finally {
         setLoading(false);
       }
     };
 
     fetchQuote();
-
-    // Fetch a new quote every hour
-    const intervalId = setInterval(fetchQuote, 3600000); 
-
-    return () => clearInterval(intervalId);
   }, []);
 
   return (
@@ -83,4 +94,5 @@ export default function MotivationalQuote() {
     </div>
   );
 }
+
 

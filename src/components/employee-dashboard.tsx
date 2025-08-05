@@ -106,6 +106,7 @@ export default function EmployeeDashboard() {
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
        if ((error as any).code === 'failed-precondition') {
+          console.error('Firestore index missing. Please create it using the link in the error message.');
           toast({
             title: 'Gagal Memuat Riwayat',
             description: 'Indeks Firestore yang diperlukan belum dibuat. Buka konsol developer (F12) untuk melihat link pembuatan indeks.',
@@ -365,7 +366,6 @@ export default function EmployeeDashboard() {
       
       const currentLocation = await getLocation();
       
-      /*
       if(effectiveLocationSettings) {
           const distance = calculateDistance(
             currentLocation.latitude,
@@ -380,7 +380,6 @@ export default function EmployeeDashboard() {
       } else {
            toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
-      */
       
       const now = new Date();
       

@@ -13,49 +13,63 @@ type LocationSettings = {
     latitude: number;
     longitude: number;
     radius: number;
+    isSpecific: boolean; // To differentiate between user-specific and global settings
 }
 
 export default function RequiredLocation() {
-    const { user } = useAuth();
-    const [location, setLocation] = useState<LocationSettings | null>(null);
+    const { user, loading: authLoading } = useAuth();
+    const [effectiveLocation, setEffectiveLocation] = useState<LocationSettings | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // If user has specific settings, don't show the global one.
-        if (user?.locationSettings) {
-            setLoading(false);
-            setLocation(null);
-            return;
-        }
+        if (authLoading) return;
+        setLoading(true);
 
-        const docRef = doc(db, 'settings', 'location');
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-             if (docSnap.exists()) {
-                 const data = docSnap.data();
-                 if (data.latitude != null && data.longitude != null && data.radius != null) {
-                    setLocation({
-                        latitude: Number(data.latitude),
-                        longitude: Number(data.longitude),
-                        radius: Number(data.radius),
-                    });
-                 } else {
-                    setLocation(null);
-                 }
-            } else {
-                setLocation(null);
+        const fetchSettings = async () => {
+             // Priority 1: User-specific location settings
+            if (user?.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
+                // Radius is always global. We must fetch it.
+                const globalLocRef = doc(db, 'settings', 'location');
+                const globalLocSnap = await getDoc(globalLocRef);
+                const radius = globalLocSnap.exists() ? Number(globalLocSnap.data().radius) : 0;
+                
+                setEffectiveLocation({
+                    ...user.locationSettings,
+                    radius: radius,
+                    isSpecific: true
+                });
+                setLoading(false);
+                return;
             }
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching location settings:", error);
-            setLoading(false);
-        });
 
-        return () => unsubscribe();
-    }, [user]);
+            // Priority 2: Global location settings
+            const globalLocRef = doc(db, 'settings', 'location');
+            const globalLocSnap = await getDoc(globalLocRef);
+            if (globalLocSnap.exists()) {
+                const data = globalLocSnap.data();
+                if (data.latitude != null && data.longitude != null && data.radius != null) {
+                   setEffectiveLocation({
+                       latitude: Number(data.latitude),
+                       longitude: Number(data.longitude),
+                       radius: Number(data.radius),
+                       isSpecific: false,
+                   });
+                } else {
+                   setEffectiveLocation(null);
+                }
+           } else {
+               setEffectiveLocation(null);
+           }
+           setLoading(false);
+        };
+
+        fetchSettings();
+
+    }, [user, authLoading]);
 
     if (loading) {
         return (
-             <Card>
+             <Card className="shadow-md rounded-xl">
                 <CardHeader>
                     <Skeleton className="h-6 w-48" />
                     <Skeleton className="h-4 w-full mt-2" />
@@ -69,9 +83,13 @@ export default function RequiredLocation() {
         )
     }
 
-    if (!location) {
-        return null; // Don't render anything if no global location is set or if user has specific settings
+    if (!effectiveLocation) {
+        return null;
     }
+
+    const title = effectiveLocation.isSpecific 
+        ? 'Lokasi Absen Wajib (Khusus)'
+        : 'Lokasi Absen Wajib (Global)';
 
     return (
         <Card className="shadow-md rounded-xl border-primary/20 bg-primary/5">
@@ -81,7 +99,7 @@ export default function RequiredLocation() {
                         <MapPin className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                        <CardTitle className="text-lg font-semibold">Lokasi Absen Wajib (Global)</CardTitle>
+                        <CardTitle className="text-lg font-semibold">{title}</CardTitle>
                         <CardDescription className="text-xs">
                            Anda harus berada dalam radius yang ditentukan untuk absen.
                         </CardDescription>
@@ -89,9 +107,9 @@ export default function RequiredLocation() {
                 </div>
             </CardHeader>
             <CardContent className="text-sm space-y-1 font-mono text-muted-foreground pl-16">
-                 <p><strong>Latitude:</strong> {location.latitude.toFixed(6)}</p>
-                 <p><strong>Longitude:</strong> {location.longitude.toFixed(6)}</p>
-                 <p><strong>Radius:</strong> {location.radius} meter</p>
+                 <p><strong>Latitude:</strong> {effectiveLocation.latitude.toFixed(6)}</p>
+                 <p><strong>Longitude:</strong> {effectiveLocation.longitude.toFixed(6)}</p>
+                 <p><strong>Radius:</strong> {effectiveLocation.radius} meter</p>
             </CardContent>
         </Card>
     );

@@ -177,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     await updateProfile(fbUser, { displayName: name });
     
-    const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
+    const role = email.toLowerCase().includes('admin') ? 'employee' : 'employee';
 
     const isProfileComplete = role === 'admin';
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2, Text } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -212,7 +213,7 @@ export default function SettingsPage() {
             Pengaturan Tampilan
           </CardTitle>
           <CardDescription>
-            Sesuaikan tampilan aplikasi agar sesuai dengan identitas brand Anda.
+            Sesuaikan tampilan dan fungsionalitas aplikasi agar sesuai dengan kebutuhan organisasi Anda.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
@@ -324,8 +325,28 @@ export default function SettingsPage() {
              </div>
               <p className="text-xs text-muted-foreground">Unggah file SVG, PNG, atau JPG. Ukuran yang disarankan: 200x200 piksel.</p>
           </div>
+          <div className="space-y-4 p-4 border rounded-lg">
+             <h3 className="font-semibold text-lg flex items-center gap-2"><Clock /> Jadwal Absensi</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="clockInTime">Waktu Mulai Absen Masuk</Label>
+                        <Input id="clockInTime" type="time" disabled/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="clockOutTime">Waktu Mulai Absen Keluar</Label>
+                        <Input id="clockOutTime" type="time" disabled/>
+                    </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    Fitur ini sedang dalam pengembangan. Nantinya, Anda dapat menentukan kapan tombol absen aktif untuk karyawan.
+                </p>
+             <div className="pt-4">
+                 <Button disabled>Simpan Jadwal</Button>
+             </div>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+

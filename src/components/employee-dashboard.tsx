@@ -24,6 +24,7 @@ export default function EmployeeDashboard() {
   const [time, setTime] = useState('');
   const [date, setDate] = useState('');
   const [status, setStatus] = useState<'in' | 'out' | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [location, setLocation] = useState<Location | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -141,14 +142,15 @@ export default function EmployeeDashboard() {
         toast({ title: 'Kamera Diperlukan', description: 'Akses kamera diperlukan untuk absen.', variant: 'destructive'});
         return;
     }
+    setIsProcessing(true);
     try {
       const currentLocation = await getLocation();
       setLocation(currentLocation);
-      setStatus('in');
       
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
       await checkUserStatus();
+      setStatus('in'); // Set status to 'in' after successful clock-in
 
       toast({
         title: 'Absen Masuk Berhasil',
@@ -160,6 +162,8 @@ export default function EmployeeDashboard() {
         description: error.message,
         variant: 'destructive',
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -169,14 +173,15 @@ export default function EmployeeDashboard() {
         toast({ title: 'Kamera Diperlukan', description: 'Akses kamera diperlukan untuk absen.', variant: 'destructive'});
         return;
     }
+    setIsProcessing(true);
     try {
       const currentLocation = await getLocation();
       setLocation(currentLocation);
-      setStatus('out');
 
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
       await checkUserStatus();
+      setStatus('out'); // Set status to 'out' after successful clock-out
 
       toast({
         title: 'Absen Keluar Berhasil',
@@ -188,6 +193,8 @@ export default function EmployeeDashboard() {
         description: error.message,
         variant: 'destructive',
       });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -205,11 +212,11 @@ export default function EmployeeDashboard() {
           <CardContent className="flex flex-col items-center gap-6">
             <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-               {hasCameraPermission === false && (
+               {!(hasCameraPermission) && (
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
                   <Alert variant="destructive" className="w-auto">
                     <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Akses Kamera Ditolak</AlertTitle>
+                    <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
                     <AlertDescription>
                       Mohon izinkan akses kamera di pengaturan browser Anda.
                     </AlertDescription>
@@ -242,12 +249,12 @@ export default function EmployeeDashboard() {
               )}
 
             <div className="flex gap-4 w-full flex-col sm:flex-row">
-              <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in' || isLocating || !hasCameraPermission}>
-                {isLocating ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
+              <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission}>
+                {(isProcessing && !isLocating) ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
                 Absen Masuk
               </Button>
-              <Button onClick={handleClockOut} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isLocating || !hasCameraPermission}>
-                 {isLocating ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
+              <Button onClick={handleClockOut} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission}>
+                 {(isProcessing && !isLocating) ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
                 Absen Keluar
               </Button>
             </div>
@@ -323,3 +330,4 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+

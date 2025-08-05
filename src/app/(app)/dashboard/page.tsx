@@ -77,7 +77,7 @@ function AdminDashboard() {
         // It has been removed to prevent query failures if the index doesn't exist.
         const recentQuery = query(collection(db, 'attendance'), limit(5));
         const recentSnapshot = await getDocs(recentQuery);
-        const recentRecords = recentSnapshot.docs.map(doc => doc.data() as AttendanceRecord)
+        const recentRecords = recentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
           .sort((a,b) => b.createdAt.seconds - a.createdAt.seconds);
 
         setRecentAttendance(recentRecords);

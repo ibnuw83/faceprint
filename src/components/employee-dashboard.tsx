@@ -412,82 +412,90 @@ export default function EmployeeDashboard() {
   }
   
   const baseButtonsDisabled = isProcessing || !hasCameraPermission || isLoadingSettings;
-  const clockInDisabled = baseButtonsDisabled || !isClockInAllowed;
-  const clockOutDisabled = baseButtonsDisabled || !isClockOutAllowed;
-
+  const clockInDisabled = baseButtonsDisabled || !isClockInAllowed || lastTodayStatus === 'Clocked In';
+  const clockOutDisabled = baseButtonsDisabled || !isClockOutAllowed || lastTodayStatus !== 'Clocked In';
 
   return (
-    <div className="flex flex-col items-center w-full space-y-6">
+    <div className="flex flex-col w-full space-y-6">
       <AnnouncementBanner />
       
-      <div className="relative w-full max-w-2xl aspect-[4/3] md:aspect-video rounded-2xl overflow-hidden shadow-2xl group">
-        <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-        <canvas ref={canvasRef} className="hidden"></canvas>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
-
-        {/* Camera Status Overlay */}
-        {hasCameraPermission === null ? (
-          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-4 text-white">
-              <Loader2 className="h-10 w-10 animate-spin mb-4"/>
-              <h3 className='text-lg font-medium'>Meminta Izin Kamera...</h3>
-          </div>
-        ) : !hasCameraPermission && (
-          <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4">
-          <Alert variant="destructive" className="w-auto max-w-sm">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
-            <AlertDescription>
-              Mohon izinkan akses kamera di pengaturan browser Anda untuk melanjutkan.
-            </AlertDescription>
-          </Alert>
-          </div>
-        )}
-        
-        {/* Actions & Info Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 flex flex-col gap-4">
-          {cameras.length > 1 && hasCameraPermission && (
-              <div className="w-full max-w-sm space-y-2 bg-black/20 backdrop-blur-sm p-3 rounded-lg border border-white/20">
-                <Label htmlFor="cameraSelect" className="text-white text-xs">Pilih Kamera</Label>
-                <Select value={selectedCamera} onValueChange={setSelectedCamera}>
-                  <SelectTrigger id="cameraSelect" className='bg-white/90'>
-                    <SelectValue placeholder="Pilih kamera..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cameras.map(camera => (
-                      <SelectItem key={camera.deviceId} value={camera.deviceId}>
-                        {camera.label || `Kamera ${cameras.indexOf(camera) + 1}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="shadow-lg rounded-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+                <Camera className="text-primary"/>
+                Absen dengan Wajah
+            </CardTitle>
+            <CardDescription>
+                Posisikan wajah Anda di depan kamera dan tekan tombol yang sesuai.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+              <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center">
+                 <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                 <canvas ref={canvasRef} className="hidden"></canvas>
+                  {hasCameraPermission === false && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                      <Alert variant="destructive" className="w-auto">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Akses Kamera Ditolak</AlertTitle>
+                        <AlertDescription>
+                          Mohon izinkan akses kamera di browser Anda.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
+                  {hasCameraPermission === null && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2"/>
+                        Meminta izin kamera...
+                    </div>
+                  )}
               </div>
-          )}
-
-          <div className="flex gap-4 w-full flex-col sm:flex-row">
-            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1 h-14 text-lg shadow-lg" disabled={clockInDisabled}>
-              {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
-              Absen Masuk
-            </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1 h-14 text-lg shadow-lg" variant="secondary" disabled={clockOutDisabled}>
-                {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
-              Absen Keluar
-            </Button>
-          </div>
-        </div>
-      </div>
-      
-       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
-           <LocationStatus />
-           
-           <Card className="shadow-md rounded-xl">
+              {cameras.length > 1 && hasCameraPermission && (
+                <div className="space-y-2">
+                  <Label htmlFor="cameraSelect">Pilih Kamera</Label>
+                  <Select value={selectedCamera} onValueChange={setSelectedCamera}>
+                    <SelectTrigger id="cameraSelect">
+                      <SelectValue placeholder="Pilih kamera..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cameras.map(camera => (
+                        <SelectItem key={camera.deviceId} value={camera.deviceId}>
+                          {camera.label || `Kamera ${cameras.indexOf(camera) + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="flex gap-4">
+                  <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={clockInDisabled}>
+                    {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserCheck className="mr-2" />}
+                    Absen Masuk
+                  </Button>
+                  <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="outline" disabled={clockOutDisabled}>
+                    {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserX className="mr-2" />}
+                    Absen Keluar
+                  </Button>
+              </div>
+          </CardContent>
+        </Card>
+        
+        <div className="space-y-6">
+            <LocationStatus />
+            <Card className="shadow-lg rounded-xl">
                 <CardHeader>
-                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                    <CardTitle className="text-xl font-semibold flex items-center gap-2">
                         <History />
                         Riwayat Absensi Terbaru
                     </CardTitle>
+                    <CardDescription>
+                        10 catatan absensi terakhir Anda.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="overflow-x-auto">
+                    <div className="border rounded-lg overflow-x-auto">
                         <Table>
                         <TableHeader>
                             <TableRow>
@@ -498,15 +506,15 @@ export default function EmployeeDashboard() {
                         </TableHeader>
                         <TableBody>
                             {loadingHistory ? (
-                                Array.from({ length: 3 }).map((_, index) => (
+                                Array.from({ length: 5 }).map((_, index) => (
                                     <TableRow key={index}>
+                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-6 w-20 ml-auto" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : attendanceHistory.length > 0 ? (
-                            attendanceHistory.slice(0, 5).map((record) => (
+                            attendanceHistory.map((record) => (
                                 <TableRow key={record.id}>
                                     <TableCell>{record.date}</TableCell>
                                     <TableCell>{record.time}</TableCell>
@@ -527,7 +535,7 @@ export default function EmployeeDashboard() {
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                                        Belum ada riwayat.
+                                        Belum ada riwayat absensi.
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -536,9 +544,8 @@ export default function EmployeeDashboard() {
                     </div>
                 </CardContent>
             </Card>
-       </div>
+        </div>
+      </div>
     </div>
   );
 }
-
-    

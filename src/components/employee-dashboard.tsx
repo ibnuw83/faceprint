@@ -454,7 +454,7 @@ export default function EmployeeDashboard() {
           </Dialog>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6">
-          <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
+          <div className="w-80 h-80 aspect-square rounded-full overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
               <canvas ref={canvasRef} className="hidden"></canvas>
               {hasCameraPermission === null ? (
@@ -475,7 +475,7 @@ export default function EmployeeDashboard() {
             )}
           </div>
             {cameras.length > 1 && hasCameraPermission && (
-              <div className="w-full space-y-2">
+              <div className="w-full max-w-sm space-y-2">
                 <Label htmlFor="cameraSelect">Pilih Kamera</Label>
                 <Select value={selectedCamera} onValueChange={setSelectedCamera}>
                   <SelectTrigger id="cameraSelect">
@@ -492,7 +492,7 @@ export default function EmployeeDashboard() {
               </div>
             )}
 
-          <div className="flex gap-4 w-full flex-col sm:flex-row">
+          <div className="flex gap-4 w-full flex-col sm:flex-row max-w-sm">
             <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission || !isClockInAllowed}>
               {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk

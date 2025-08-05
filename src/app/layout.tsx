@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
 import './globals.css';
 
+// This metadata is a fallback, the actual title will be set on the client-side.
 export const metadata: Metadata = {
   title: 'VisageID',
   description: 'Faceprint attendance system for office employees',

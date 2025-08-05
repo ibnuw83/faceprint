@@ -8,23 +8,29 @@ import Image from 'next/image';
 
 type LogoProps = {
   className?: string;
+  showTitle?: boolean;
 };
 
-export function Logo({ className }: LogoProps) {
+export function Logo({ className, showTitle = true }: LogoProps) {
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [appName, setAppName] = useState('VisageID');
 
   useEffect(() => {
-    const loadLogo = () => {
+    const loadData = () => {
       const storedLogo = localStorage.getItem('app-logo');
+      const storedName = localStorage.getItem('app-name');
       setLogoSrc(storedLogo);
+      if (storedName) {
+          setAppName(storedName);
+      }
     };
 
-    loadLogo();
+    loadData();
 
     // Listen for changes from the settings page
-    window.addEventListener('storage', loadLogo);
+    window.addEventListener('storage', loadData);
     return () => {
-      window.removeEventListener('storage', loadLogo);
+      window.removeEventListener('storage', loadData);
     };
   }, []);
 
@@ -41,9 +47,11 @@ export function Logo({ className }: LogoProps) {
             <Camera className="h-6 w-6" />
         )}
       </div>
-      <h1 className="text-xl font-bold text-foreground hidden sm:inline-block">
-        VisageID
-      </h1>
+      {showTitle && (
+          <h1 className="text-xl font-bold text-foreground hidden sm:inline-block">
+              {appName}
+          </h1>
+      )}
     </Link>
   );
 }

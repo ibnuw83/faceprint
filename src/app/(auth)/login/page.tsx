@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Camera, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Logo } from '@/components/logo';
 
 export default function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
@@ -24,13 +25,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [appName, setAppName] = useState('VisageID');
 
   useEffect(() => {
+    const storedName = localStorage.getItem('app-name');
+    if(storedName) {
+        setAppName(storedName);
+        document.title = `Login | ${storedName}`;
+    } else {
+        document.title = `Login | VisageID`;
+    }
+
     if (isAuthenticated) {
       router.replace('/dashboard');
     }
   }, [isAuthenticated, router]);
-
+  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -59,11 +69,9 @@ export default function LoginPage() {
 
   return (
     <Card className="w-full max-w-md shadow-2xl">
-      <CardHeader className="text-center">
-        <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
-          <Camera className="h-8 w-8" />
-        </div>
-        <CardTitle className="text-3xl font-bold">VisageID</CardTitle>
+      <CardHeader className="text-center space-y-4">
+        <Logo className="justify-center" showTitle={false} />
+        <CardTitle className="text-3xl font-bold">{appName}</CardTitle>
         <CardDescription>
           Masuk ke akun Anda. Gunakan email dengan 'admin' untuk akses admin.
         </CardDescription>

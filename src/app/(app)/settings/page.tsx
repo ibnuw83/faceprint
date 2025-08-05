@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2 } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -68,6 +68,8 @@ export default function SettingsPage() {
   const [backgroundColor, setBackgroundColor] = useState('#F5F5F5');
   const [accentColor, setAccentColor] = useState('#009688');
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [appName, setAppName] = useState('VisageID');
+  const [isSavingName, setIsSavingName] = useState(false);
 
   // Apply theme and logo from localStorage on initial load
   useEffect(() => {
@@ -99,9 +101,18 @@ export default function SettingsPage() {
             setLogoSrc(storedLogo);
         }
     }
+    
+    const loadAppName = () => {
+        const storedName = localStorage.getItem('app-name');
+        if (storedName) {
+            setAppName(storedName);
+            document.title = storedName;
+        }
+    }
 
     applyTheme();
     loadLogo();
+    loadAppName();
   }, []);
 
   const handleColorChange = (colorType: 'primary' | 'background' | 'accent', value: string) => {
@@ -149,7 +160,6 @@ export default function SettingsPage() {
         localStorage.setItem('app-logo', base64String);
         setLogoSrc(base64String);
         toast({ title: 'Logo Diperbarui', description: 'Logo baru telah disimpan.' });
-        // Dispatch a storage event to notify other components (like the sidebar logo)
         window.dispatchEvent(new Event('storage'));
       };
       reader.readAsDataURL(file);
@@ -162,6 +172,22 @@ export default function SettingsPage() {
     toast({ title: 'Logo Dihapus', description: 'Logo kustom telah dihapus.' });
     window.dispatchEvent(new Event('storage'));
   }
+
+  const handleAppNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setAppName(e.target.value);
+  };
+
+  const saveAppName = () => {
+    setIsSavingName(true);
+    localStorage.setItem('app-name', appName);
+    document.title = appName;
+    window.dispatchEvent(new Event('storage'));
+    setTimeout(() => {
+        toast({ title: 'Nama Aplikasi Disimpan', description: `Nama aplikasi telah diubah menjadi "${appName}".` });
+        setIsSavingName(false);
+    }, 500)
+  };
+
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'admin') {
@@ -190,6 +216,26 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
+            <div className="space-y-4 p-4 border rounded-lg">
+             <h3 className="font-semibold text-lg flex items-center gap-2"><Text/> Nama Aplikasi</h3>
+                <div className="space-y-2">
+                    <Label htmlFor="appName">Judul Aplikasi</Label>
+                    <div className='flex items-center gap-2'>
+                        <Input
+                            id="appName"
+                            value={appName}
+                            onChange={handleAppNameChange}
+                            placeholder="e.g. VisageID"
+                        />
+                         <Button onClick={saveAppName} disabled={isSavingName}>
+                            {isSavingName ? <Loader2 className="mr-2 animate-spin"/> : null}
+                            Simpan
+                         </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Judul ini akan ditampilkan di sidebar, halaman login, dan judul tab browser.</p>
+                </div>
+            </div>
+
           <div className="space-y-4 p-4 border rounded-lg">
              <h3 className="font-semibold text-lg">Skema Warna</h3>
              <div className="grid md:grid-cols-3 gap-6">

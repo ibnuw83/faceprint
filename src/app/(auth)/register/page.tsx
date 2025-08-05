@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,9 +13,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Loader2, UserPlus } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Logo } from '@/components/logo';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -25,6 +26,17 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [appName, setAppName] = useState('VisageID');
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('app-name');
+    if(storedName) {
+        setAppName(storedName);
+        document.title = `Register | ${storedName}`;
+    } else {
+        document.title = `Register | VisageID`;
+    }
+  }, []);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,13 +62,11 @@ export default function RegisterPage() {
 
   return (
     <Card className="w-full max-w-md shadow-2xl">
-      <CardHeader className="text-center">
-        <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
-          <UserPlus className="h-8 w-8" />
-        </div>
-        <CardTitle className="text-3xl font-bold">Buat Akun</CardTitle>
+      <CardHeader className="text-center space-y-4">
+        <Logo className="justify-center" showTitle={false} />
+        <CardTitle className="text-3xl font-bold">Buat Akun untuk {appName}</CardTitle>
         <CardDescription>
-          Masukkan detail Anda untuk memulai dengan VisageID.
+          Masukkan detail Anda untuk memulai.
         </CardDescription>
       </CardHeader>
       <CardContent>

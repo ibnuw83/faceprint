@@ -555,7 +555,7 @@ export default function EmployeeDashboard() {
              <CardHeader>
                 <CardTitle className="flex items-center gap-2"><MapPin /> Lokasi Terakhir</CardTitle>
              </CardHeader>
-             <CardContent>
+             <CardContent className="min-h-[105px]">
                 {isLocating ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="animate-spin" />

@@ -378,7 +378,7 @@ export default function EmployeeDashboard() {
             throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${effectiveLocationSettings.radius} meter untuk absen.`);
           }
       } else {
-           toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
+           // toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
       
       const now = new Date();
@@ -433,7 +433,6 @@ export default function EmployeeDashboard() {
   return (
     <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
       <MotivationalQuote />
-      <RequiredLocation />
       <Card className="shadow-lg rounded-xl">
         <CardHeader className='flex-row items-center justify-between'>
           <div>

@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Clock, UserCheck, UserX, MapPin, Loader2, AlertTriangle, History } from 'lucide-react';
 import { useAuth, User } from '@/hooks/use-auth';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy, limit, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy, limit, getDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -118,27 +118,36 @@ export default function EmployeeDashboard() {
   }, [toast]);
   
   useEffect(() => {
-    const fetchInitialData = async () => {
-        try {
-            const scheduleRef = doc(db, 'settings', 'schedule');
-            const scheduleSnap = await getDoc(scheduleRef);
-            if (scheduleSnap.exists()) {
-                setScheduleSettings(scheduleSnap.data() as ScheduleSettings);
-            }
-        } catch (error) {
-            console.error("Error fetching schedule settings:", error);
-        }
-
-        if(user?.employeeId){
-            await fetchAttendanceHistory(user.employeeId);
+    // Listener for real-time schedule settings updates
+    const scheduleRef = doc(db, 'settings', 'schedule');
+    const unsubscribe = onSnapshot(scheduleRef, (doc) => {
+        if (doc.exists()) {
+            setScheduleSettings(doc.data() as ScheduleSettings);
         } else {
-            setLoadingHistory(false);
+            console.warn("Schedule settings not found.");
+            setScheduleSettings(null);
         }
+    }, (error) => {
+        console.error("Error listening to schedule settings:", error);
+        toast({
+            title: 'Gagal Memuat Jadwal',
+            description: 'Tidak dapat memuat pengaturan jadwal secara real-time.',
+            variant: 'destructive',
+        });
+    });
+
+    // Initial fetch for attendance history
+    if(user?.employeeId){
+        fetchAttendanceHistory(user.employeeId);
+    } else {
+        setLoadingHistory(false);
     }
     
-    fetchInitialData();
+    // Cleanup listener on component unmount
+    return () => unsubscribe();
 
-  }, [user, fetchAttendanceHistory]);
+  }, [user, fetchAttendanceHistory, toast]);
+
 
   // Effect for handling time-based logic (scheduling)
   useEffect(() => {

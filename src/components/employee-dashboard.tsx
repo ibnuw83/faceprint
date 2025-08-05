@@ -1,14 +1,15 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Clock, UserCheck, UserX, MapPin, Loader2 } from 'lucide-react';
-import Image from 'next/image';
+import { Camera, Clock, UserCheck, UserX, MapPin, Loader2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type Location = {
   latitude: number;
@@ -23,6 +24,8 @@ export default function EmployeeDashboard() {
   const [status, setStatus] = useState<'in' | 'out' | null>(null);
   const [location, setLocation] = useState<Location | null>(null);
   const [isLocating, setIsLocating] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState(true); // Assume true initially
 
   useEffect(() => {
     const updateDateTime = () => {
@@ -34,6 +37,41 @@ export default function EmployeeDashboard() {
     const timer = setInterval(updateDateTime, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setHasCameraPermission(false);
+        console.error('getUserMedia not supported on this browser');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setHasCameraPermission(true);
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Akses Kamera Ditolak',
+          description: 'Silakan izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.',
+        });
+      }
+    };
+
+    getCameraPermission();
+    
+    // Cleanup function to stop video stream when component unmounts
+    return () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
+  }, [toast]);
 
   const getLocation = (): Promise<Location> => {
     return new Promise((resolve, reject) => {
@@ -61,15 +99,18 @@ export default function EmployeeDashboard() {
 
   const handleClockIn = async () => {
     if (!user) return;
+    if (!hasCameraPermission) {
+        toast({ title: 'Kamera Diperlukan', description: 'Akses kamera diperlukan untuk absen.', variant: 'destructive'});
+        return;
+    }
     try {
       const currentLocation = await getLocation();
       setLocation(currentLocation);
       setStatus('in');
       
-      // Save location to user's profile in Firestore
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
-      await checkUserStatus(); // Refresh auth context
+      await checkUserStatus();
 
       toast({
         title: 'Absen Masuk Berhasil',
@@ -86,15 +127,18 @@ export default function EmployeeDashboard() {
 
   const handleClockOut = async () => {
     if (!user) return;
+     if (!hasCameraPermission) {
+        toast({ title: 'Kamera Diperlukan', description: 'Akses kamera diperlukan untuk absen.', variant: 'destructive'});
+        return;
+    }
     try {
       const currentLocation = await getLocation();
       setLocation(currentLocation);
       setStatus('out');
 
-      // Save location to user's profile in Firestore
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
-      await checkUserStatus(); // Refresh auth context
+      await checkUserStatus();
 
       toast({
         title: 'Absen Keluar Berhasil',
@@ -121,18 +165,26 @@ export default function EmployeeDashboard() {
             <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-6">
-            <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed">
-              <Image src="https://placehold.co/600x400" alt="Placeholder feed kamera" layout="fill" objectFit="cover" data-ai-hint="camera feed" />
-              <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                <p className="text-white/90 font-semibold text-lg backdrop-blur-sm p-2 rounded-md">Tampilan Kamera</p>
-              </div>
+            <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center">
+               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             </div>
+            
+             {!hasCameraPermission && (
+              <Alert variant="destructive" className="w-full">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
+                <AlertDescription>
+                  Mohon izinkan akses kamera di pengaturan browser Anda untuk melanjutkan.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="flex gap-4 w-full flex-col sm:flex-row">
-              <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in' || isLocating}>
+              <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in' || isLocating || !hasCameraPermission}>
                 {isLocating ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
                 Absen Masuk
               </Button>
-              <Button onClick={handleClockOut} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isLocating}>
+              <Button onClick={handleClockOut} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isLocating || !hasCameraPermission}>
                  {isLocating ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
                 Absen Keluar
               </Button>
@@ -208,4 +260,5 @@ export default function EmployeeDashboard() {
       </div>
     </div>
   );
-}
+
+    

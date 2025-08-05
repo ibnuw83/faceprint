@@ -1,19 +1,7 @@
 'use client';
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
 import {
   LogOut,
   LayoutDashboard,
@@ -26,33 +14,28 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
-export default function AppLayout({ children }: { children: ReactNode }) {
-  const { isAuthenticated, user, logout, loading } = useAuth();
+function Header() {
+  const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated, loading, router]);
 
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
 
-  if (loading || !isAuthenticated || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   const navItems =
-    user.role === 'admin'
+    user?.role === 'admin'
       ? [
           { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard },
           { href: '/attendance', label: 'Absensi', icon: ClipboardList },
@@ -62,59 +45,86 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
 
   return (
-    <SidebarProvider>
-      <div className="flex min-h-screen">
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex w-full items-center justify-between">
-              <Logo />
-              <SidebarTrigger />
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(item.href)}
-                    tooltip={{ children: item.label }}
-                  >
-                    <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarContent>
-          <SidebarFooter>
-            <div className="flex items-center gap-3 rounded-lg border p-2 shadow-sm">
+    <header className="sticky top-0 z-50 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
+      <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6">
+        <Logo />
+        {navItems.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              'transition-colors hover:text-foreground',
+              pathname.startsWith(item.href)
+                ? 'text-foreground'
+                : 'text-muted-foreground'
+            )}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
+      {/* Mobile Menu can be added here if needed */}
+      <div className="flex w-full items-center justify-end gap-4 md:ml-auto md:w-auto">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full">
               <Avatar>
-                <AvatarImage data-ai-hint="person avatar" src={`https://i.pravatar.cc/150?u=${user.email}`} />
-                <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarImage
+                  data-ai-hint="person avatar"
+                  src={`https://i.pravatar.cc/150?u=${user?.email}`}
+                />
+                <AvatarFallback>
+                  {user?.name?.charAt(0).toUpperCase()}
+                </AvatarFallback>
               </Avatar>
-              <div className="overflow-hidden">
-                <p className="font-semibold truncate">{user.name}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user.email}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user?.email}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="ml-auto shrink-0"
-                onClick={handleLogout}
-                aria-label="Keluar"
-              >
-                <LogOut />
-              </Button>
-            </div>
-          </SidebarFooter>
-        </Sidebar>
-        <SidebarInset>{children}</SidebarInset>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Keluar</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-    </SidebarProvider>
+    </header>
+  );
+}
+
+
+export default function AppLayout({ children }: { children: ReactNode }) {
+  const { isAuthenticated, user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, loading, router]);
+
+  if (loading || !isAuthenticated || !user) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen w-full flex-col">
+      <Header />
+      <main className="flex flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-8">
+        {children}
+      </main>
+    </div>
   );
 }

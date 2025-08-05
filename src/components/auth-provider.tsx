@@ -1,9 +1,10 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
 import { createContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile, User as FirebaseUser } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 export type User = {
@@ -33,11 +34,14 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
       const userData = userDoc.data();
+      // Fallback logic: if role is missing, infer from email. This prevents accidental lockouts.
+      const role = userData.role || (fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
+      
       return {
         uid: fbUser.uid,
         name: fbUser.displayName,
         email: fbUser.email,
-        role: userData.role || 'employee',
+        role: role,
         isProfileComplete: userData.isProfileComplete || false,
       };
     }
@@ -143,3 +147,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
+
+    

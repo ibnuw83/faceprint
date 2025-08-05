@@ -84,7 +84,8 @@ export default function CompleteProfilePage() {
         name: fullName,
         employeeId: employeeId,
         department: department,
-        isProfileComplete: true, // Mark profile as complete
+        role: user.role, // CRITICAL FIX: Preserve the existing user role
+        isProfileComplete: true,
       });
 
       // Refresh the auth state to get the latest user data
@@ -202,3 +203,4 @@ export default function CompleteProfilePage() {
   );
 }
 
+    

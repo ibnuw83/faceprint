@@ -244,13 +244,22 @@ export default function EmployeeDashboard() {
       
        toast({ title: 'Wajah Terverifikasi!', description: 'Sekarang memeriksa lokasi Anda.' });
 
-      // 3. Get location settings from admin
-      const settingsRef = doc(db, 'settings', 'location');
-      const settingsSnap = await getDoc(settingsRef);
-      if (!settingsSnap.exists()) {
-        throw new Error('Pengaturan lokasi absensi belum diatur oleh admin.');
+      // 3. Get location settings (user-specific or global fallback)
+      let locationSettings: LocationSettings | null = user.locationSettings || null;
+      
+      if (!locationSettings) {
+        const settingsRef = doc(db, 'settings', 'location');
+        const settingsSnap = await getDoc(settingsRef);
+        if (settingsSnap.exists()) {
+            locationSettings = settingsSnap.data() as LocationSettings;
+        } else {
+             throw new Error('Pengaturan lokasi absensi belum diatur oleh admin.');
+        }
       }
-      const locationSettings = settingsSnap.data() as LocationSettings;
+
+      if (!locationSettings) {
+          throw new Error('Pengaturan lokasi absensi tidak ditemukan.');
+      }
       
       // 4. Get user's current location
       const currentLocation = await getLocation();
@@ -265,7 +274,7 @@ export default function EmployeeDashboard() {
       );
 
       if (distance > locationSettings.radius) {
-        throw new Error(`Anda berada ${distance.toFixed(0)} meter dari kantor. Anda harus berada dalam radius ${locationSettings.radius} meter untuk absen.`);
+        throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${locationSettings.radius} meter untuk absen.`);
       }
       
       const now = new Date();
@@ -502,5 +511,3 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
-
-    

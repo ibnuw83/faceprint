@@ -17,6 +17,11 @@ export type User = {
     latitude: number,
     longitude: number
   };
+  locationSettings?: {
+    latitude: number;
+    longitude: number;
+    radius: number;
+  };
   faceprint?: string | null;
   department?: string | null;
   employeeId?: string | null;
@@ -51,6 +56,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
         lastLocation: userData.lastLocation || null,
+        locationSettings: userData.locationSettings || null,
         faceprint: userData.faceprint || null,
         department: userData.department || null,
         employeeId: userData.employeeId || null,

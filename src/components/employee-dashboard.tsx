@@ -380,8 +380,6 @@ export default function EmployeeDashboard() {
             longitude: currentLocation.longitude,
         },
         createdAt: Timestamp.fromDate(now),
-        // We could store the captured photo here if needed, e.g., for manual admin review
-        // capturedPhoto: captureToVerify 
       });
 
       const userRef = doc(db, 'users', user.uid);
@@ -419,106 +417,39 @@ export default function EmployeeDashboard() {
 
 
   return (
-    <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
+    <div className="flex flex-col items-center w-full space-y-6">
       <AnnouncementBanner />
-      <Card className="shadow-lg rounded-xl">
-        <CardHeader className='flex-row items-center justify-between'>
-          <div>
-            <CardTitle className="text-2xl font-bold flex items-center gap-2">
-              <Camera className="text-primary" />
-              Absensi Wajah
-            </CardTitle>
-            <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar.</CardDescription>
+      
+      <div className="relative w-full max-w-2xl aspect-[4/3] md:aspect-video rounded-2xl overflow-hidden shadow-2xl group">
+        <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+        <canvas ref={canvasRef} className="hidden"></canvas>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
+
+        {/* Camera Status Overlay */}
+        {hasCameraPermission === null ? (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-4 text-white">
+              <Loader2 className="h-10 w-10 animate-spin mb-4"/>
+              <h3 className='text-lg font-medium'>Meminta Izin Kamera...</h3>
           </div>
-           <Dialog>
-             <DialogTrigger asChild>
-                <Button variant="outline">
-                    <History className="mr-2" /> Lihat Riwayat
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-                <DialogHeader>
-                <DialogTitle>Riwayat Absensi Anda</DialogTitle>
-                <DialogDescription>
-                    Berikut adalah 10 catatan absensi terakhir Anda yang tersimpan di sistem.
-                </DialogDescription>
-                </DialogHeader>
-                  <div className="border rounded-lg overflow-y-auto max-h-[60vh]">
-                    <Table>
-                    <TableHeader>
-                        <TableRow>
-                        <TableHead>Tanggal</TableHead>
-                        <TableHead>Waktu</TableHead>
-                        <TableHead className="text-right">Status</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loadingHistory ? (
-                            Array.from({ length: 5 }).map((_, index) => (
-                                <TableRow key={index}>
-                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                <TableCell className="text-right"><Skeleton className="h-6 w-20 ml-auto" /></TableCell>
-                                </TableRow>
-                            ))
-                        ) : attendanceHistory.length > 0 ? (
-                        attendanceHistory.map((record) => (
-                            <TableRow key={record.id}>
-                                <TableCell>{record.date}</TableCell>
-                                <TableCell>{record.time}</TableCell>
-                                <TableCell className="text-right">
-                                <Badge
-                                    variant={record.status === 'Clocked In' ? 'default' : 'secondary'}
-                                    className={
-                                    record.status === 'Clocked In'
-                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
-                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300'
-                                    }
-                                >
-                                    {statusLocale[record.status] || record.status}
-                                </Badge>
-                                </TableCell>
-                            </TableRow>
-                        ))
-                        ) : (
-                             <TableRow>
-                                <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                                    Belum ada riwayat absensi.
-                                </TableCell>
-                             </TableRow>
-                        )}
-                    </TableBody>
-                    </Table>
-                </div>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center gap-6">
-          <div className="w-80 h-80 aspect-square rounded-full overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">
-              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              <canvas ref={canvasRef} className="hidden"></canvas>
-              {hasCameraPermission === null ? (
-                <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
-                    <Loader2 className="h-6 w-6 animate-spin mr-2"/>
-                    Meminta izin kamera...
-                </div>
-              ) : !hasCameraPermission && (
-              <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
-                <Alert variant="destructive" className="w-auto">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
-                  <AlertDescription>
-                    Mohon izinkan akses kamera di pengaturan browser Anda.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
+        ) : !hasCameraPermission && (
+          <div className="absolute inset-0 bg-black/80 flex items-center justify-center p-4">
+          <Alert variant="destructive" className="w-auto max-w-sm">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Akses Kamera Diperlukan</AlertTitle>
+            <AlertDescription>
+              Mohon izinkan akses kamera di pengaturan browser Anda untuk melanjutkan.
+            </AlertDescription>
+          </Alert>
           </div>
-            {cameras.length > 1 && hasCameraPermission && (
-              <div className="w-full max-w-sm space-y-2">
-                <Label htmlFor="cameraSelect">Pilih Kamera</Label>
+        )}
+        
+        {/* Actions & Info Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6 flex flex-col gap-4">
+          {cameras.length > 1 && hasCameraPermission && (
+              <div className="w-full max-w-sm space-y-2 bg-black/20 backdrop-blur-sm p-3 rounded-lg border border-white/20">
+                <Label htmlFor="cameraSelect" className="text-white text-xs">Pilih Kamera</Label>
                 <Select value={selectedCamera} onValueChange={setSelectedCamera}>
-                  <SelectTrigger id="cameraSelect">
+                  <SelectTrigger id="cameraSelect" className='bg-white/90'>
                     <SelectValue placeholder="Pilih kamera..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -530,21 +461,82 @@ export default function EmployeeDashboard() {
                   </SelectContent>
                 </Select>
               </div>
-            )}
+          )}
 
-          <div className="flex gap-4 w-full flex-col sm:flex-row max-w-sm">
-            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={clockInDisabled}>
+          <div className="flex gap-4 w-full flex-col sm:flex-row">
+            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1 h-14 text-lg shadow-lg" disabled={clockInDisabled}>
               {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk
             </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={clockOutDisabled}>
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1 h-14 text-lg shadow-lg" variant="secondary" disabled={clockOutDisabled}>
                 {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
               Absen Keluar
             </Button>
           </div>
-        </CardContent>
-      </Card>
-      <LocationStatus />
+        </div>
+      </div>
+      
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+           <LocationStatus />
+           
+           <Card className="shadow-md rounded-xl">
+                <CardHeader>
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                        <History />
+                        Riwayat Absensi Terbaru
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="overflow-x-auto">
+                        <Table>
+                        <TableHeader>
+                            <TableRow>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Waktu</TableHead>
+                            <TableHead className="text-right">Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {loadingHistory ? (
+                                Array.from({ length: 3 }).map((_, index) => (
+                                    <TableRow key={index}>
+                                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                                    <TableCell className="text-right"><Skeleton className="h-6 w-20 ml-auto" /></TableCell>
+                                    </TableRow>
+                                ))
+                            ) : attendanceHistory.length > 0 ? (
+                            attendanceHistory.slice(0, 5).map((record) => (
+                                <TableRow key={record.id}>
+                                    <TableCell>{record.date}</TableCell>
+                                    <TableCell>{record.time}</TableCell>
+                                    <TableCell className="text-right">
+                                    <Badge
+                                        variant={record.status === 'Clocked In' ? 'default' : 'secondary'}
+                                        className={
+                                        record.status === 'Clocked In'
+                                            ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300'
+                                        }
+                                    >
+                                        {statusLocale[record.status] || record.status}
+                                    </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                                        Belum ada riwayat.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+       </div>
     </div>
   );
 }

@@ -17,7 +17,6 @@ import {
   Clock,
 } from 'lucide-react';
 import Link from 'next/link';
-import { attendanceRecords } from '@/lib/mock-data';
 import {
   Table,
   TableBody,
@@ -29,35 +28,61 @@ import {
 import { Badge } from '@/components/ui/badge';
 import EmployeeDashboard from '@/components/employee-dashboard';
 import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
+
+type AttendanceRecord = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  time: string;
+  status: 'Clocked In' | 'Clocked Out';
+  createdAt: Timestamp;
+};
 
 
 function AdminDashboard() {
   const [totalEmployees, setTotalEmployees] = useState(0);
+  const [presentToday, setPresentToday] = useState(0);
+  const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchDashboardData = async () => {
       try {
+        // Fetch total users
         const usersCollection = collection(db, 'users');
         const userSnapshot = await getDocs(usersCollection);
         setTotalEmployees(userSnapshot.size);
+
+        // Fetch attendance for today
+        const todayStr = new Date().toLocaleDateString('id-ID');
+        const attendanceCollection = collection(db, 'attendance');
+        
+        const todayQuery = query(
+            attendanceCollection, 
+            where('date', '==', todayStr),
+            where('status', '==', 'Clocked In')
+        );
+        const todaySnapshot = await getDocs(todayQuery);
+        
+        // Use a Set to count unique employees present today
+        const uniquePresentIds = new Set(todaySnapshot.docs.map(doc => doc.data().employeeId));
+        setPresentToday(uniquePresentIds.size);
+
+        // Fetch recent attendance
+        const recentQuery = query(collection(db, 'attendance'), orderBy('createdAt', 'desc'), limit(5));
+        const recentSnapshot = await getDocs(recentQuery);
+        setRecentAttendance(recentSnapshot.docs.map(doc => doc.data() as AttendanceRecord));
+
       } catch (error) {
-        console.error("Error fetching user count:", error);
+        console.error("Error fetching admin dashboard data:", error);
       }
     };
-    fetchUsers();
+    fetchDashboardData();
   }, []);
-
-  const presentToday = attendanceRecords.filter(
-    (r) =>
-      r.status === 'Clocked In' &&
-      new Date(r.date).toDateString() === new Date().toDateString()
-  ).length;
     
-  const recentAttendance = [...attendanceRecords].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-  
   const statusLocale: Record<string, string> = {
     'Clocked In': 'Masuk',
     'Clocked Out': 'Keluar',
@@ -154,7 +179,7 @@ function AdminDashboard() {
                   {recentAttendance.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.employeeName}</TableCell>
-                      <TableCell>{new Date(record.date).toLocaleDateString('id-ID')}</TableCell>
+                      <TableCell>{record.date}</TableCell>
                       <TableCell>{record.time}</TableCell>
                       <TableCell className="text-right">
                         <Badge

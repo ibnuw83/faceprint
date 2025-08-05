@@ -16,21 +16,58 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { attendanceRecords } from '@/lib/mock-data';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+
+type AttendanceRecord = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  time: string;
+  status: 'Clocked In' | 'Clocked Out';
+};
 
 export default function AttendancePage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+  
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAttendanceRecords = useCallback(async () => {
+    setLoading(true);
+    try {
+        const q = query(collection(db, "attendance"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        setAttendanceRecords(records);
+    } catch (error) {
+        console.error("Error fetching attendance records: ", error);
+        toast({
+            title: "Gagal Memuat Data",
+            description: "Terjadi kesalahan saat mengambil catatan absensi.",
+            variant: "destructive",
+        });
+    } finally {
+        setLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
       router.replace('/dashboard');
+    } else {
+      fetchAttendanceRecords();
     }
-  }, [user, router]);
+  }, [user, router, fetchAttendanceRecords]);
   
   const statusLocale: Record<string, string> = {
     'Clocked In': 'Masuk',
@@ -38,7 +75,11 @@ export default function AttendancePage() {
   }
 
   if (user?.role !== 'admin') {
-    return null;
+     return (
+       <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+     )
   }
 
   return (
@@ -66,26 +107,44 @@ export default function AttendancePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attendanceRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="font-medium">{record.employeeName}</TableCell>
-                    <TableCell>{record.employeeId}</TableCell>
-                    <TableCell>{new Date(record.date).toLocaleDateString('id-ID')}</TableCell>
-                    <TableCell>{record.time}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge
-                        variant={record.status === 'Clocked In' ? 'default' : 'secondary'}
-                        className={
-                          record.status === 'Clocked In'
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300'
-                        }
-                      >
-                        {statusLocale[record.status] || record.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {loading ? (
+                    Array.from({ length: 10 }).map((_, index) => (
+                        <TableRow key={index}>
+                            <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-6 w-16 ml-auto" /></TableCell>
+                        </TableRow>
+                    ))
+                ) : attendanceRecords.length > 0 ? (
+                  attendanceRecords.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell className="font-medium">{record.employeeName}</TableCell>
+                      <TableCell>{record.employeeId}</TableCell>
+                      <TableCell>{record.date}</TableCell>
+                      <TableCell>{record.time}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant={record.status === 'Clocked In' ? 'default' : 'secondary'}
+                          className={
+                            record.status === 'Clocked In'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                              : 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300'
+                          }
+                        >
+                          {statusLocale[record.status] || record.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                     <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                            Belum ada catatan absensi.
+                        </TableCell>
+                     </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

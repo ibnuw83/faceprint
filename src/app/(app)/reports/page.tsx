@@ -1,32 +1,71 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { attendanceRecords } from '@/lib/mock-data';
 import { attendanceReportGenerator } from '@/ai/flows/attendance-report-generator';
 import { FileText, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+type AttendanceRecord = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  time: string;
+  status: 'Clocked In' | 'Clocked Out';
+};
 
 export default function ReportsPage() {
   const { toast } = useToast();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  
   const [report, setReport] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
 
-  useEffect(() => {
-    // Redirect non-admins away from this page.
-    if (!authLoading && user && user.role !== 'admin') {
-      router.replace('/dashboard');
+  const fetchAttendanceRecords = useCallback(async () => {
+    try {
+        const q = query(collection(db, "attendance"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        setAttendanceRecords(records);
+    } catch (error) {
+        console.error("Error fetching attendance records: ", error);
+        toast({
+            title: "Gagal Memuat Data",
+            description: "Terjadi kesalahan saat mengambil catatan absensi untuk laporan.",
+            variant: "destructive",
+        });
     }
-  }, [user, authLoading, router]);
+  }, [toast]);
+  
+  useEffect(() => {
+    if (!authLoading) {
+      if (user?.role !== 'admin') {
+        router.replace('/dashboard');
+      } else {
+        fetchAttendanceRecords();
+      }
+    }
+  }, [user, authLoading, router, fetchAttendanceRecords]);
 
   const handleGenerateReport = async () => {
+    if(attendanceRecords.length === 0) {
+      toast({
+        title: 'Tidak Ada Data',
+        description: 'Tidak ada data absensi untuk dibuatkan laporan.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsLoading(true);
     setReport(null);
     try {
@@ -45,8 +84,6 @@ export default function ReportsPage() {
     }
   };
 
-  // Render a loading state while checking for auth or if the user is not an admin.
-  // This prevents the main content from rendering for unauthorized users and fixes the build error.
   if (authLoading || !user || user.role !== 'admin') {
     return (
       <div className="flex h-[80vh] items-center justify-center">
@@ -55,7 +92,6 @@ export default function ReportsPage() {
     );
   }
 
-  // Render the page content only for authenticated admins.
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="grid gap-6">

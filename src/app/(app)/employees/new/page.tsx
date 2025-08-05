@@ -1,13 +1,12 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Camera, Upload, Loader2 } from 'lucide-react';
-import Image from 'next/image';
+import { UserPlus, Camera, Upload, Loader2, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -20,6 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+
 
 type Department = {
   id: string;
@@ -30,6 +31,7 @@ export default function CompleteProfilePage() {
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: authLoading, checkUserStatus } = useAuth();
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const [fullName, setFullName] = useState('');
   const [employeeId, setEmployeeId] = useState('');
@@ -37,6 +39,7 @@ export default function CompleteProfilePage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loadingDepartments, setLoadingDepartments] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -65,6 +68,42 @@ export default function CompleteProfilePage() {
     };
     fetchDepartments();
   }, [toast]);
+  
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('Camera not supported on this browser');
+        setHasCameraPermission(false);
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setHasCameraPermission(true);
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Akses Kamera Ditolak',
+          description: 'Silakan izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.',
+        });
+      }
+    };
+    
+    getCameraPermission();
+
+    return () => {
+      // Stop camera stream on component unmount
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [toast]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +113,10 @@ export default function CompleteProfilePage() {
     }
     if (!department) {
       toast({ title: 'Departemen Diperlukan', description: 'Silakan pilih departemen.', variant: 'destructive' });
+      return;
+    }
+     if (!hasCameraPermission) {
+      toast({ title: 'Kamera Diperlukan', description: 'Pendaftaran wajah memerlukan akses kamera.', variant: 'destructive'});
       return;
     }
     setIsLoading(true);
@@ -170,22 +213,36 @@ export default function CompleteProfilePage() {
             <div className="space-y-4 flex flex-col">
               <Label>Pendaftaran Wajah</Label>
               <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center">
-                <Image src="https://placehold.co/400x400" alt="Placeholder pengambilan wajah" layout="fill" objectFit="cover" data-ai-hint="person face" />
-                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                    <p className="text-white/90 font-semibold backdrop-blur-sm p-2 rounded-md">Area Pengambilan Wajah</p>
-                </div>
+                 <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                  {hasCameraPermission === false && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4">
+                      <Alert variant="destructive" className="w-auto">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Akses Kamera Ditolak</AlertTitle>
+                        <AlertDescription>
+                          Mohon izinkan akses kamera di browser Anda.
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  )}
+                  {hasCameraPermission === null && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 text-white">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2"/>
+                        Meminta izin kamera...
+                    </div>
+                  )}
               </div>
               <div className="flex gap-2 flex-col sm:flex-row">
-                <Button type="button" variant="outline" className="flex-1" disabled={isLoading}>
-                  <Camera className="mr-2" /> Gunakan Kamera
+                <Button type="button" className="flex-1" disabled={isLoading || !hasCameraPermission}>
+                  <Camera className="mr-2" /> Ambil Gambar
                 </Button>
-                <Button type="button" variant="outline" className="flex-1" disabled={isLoading}>
+                <Button type="button" variant="outline" className="flex-1" disabled={true}>
                   <Upload className="mr-2" /> Unggah Foto
                 </Button>
               </div>
             </div>
             <div className="md:col-span-2">
-              <Button type="submit" size="lg" className="w-full !mt-4" disabled={isLoading || loadingDepartments}>
+              <Button type="submit" size="lg" className="w-full !mt-4" disabled={isLoading || loadingDepartments || !hasCameraPermission}>
                 {isLoading ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -202,5 +259,4 @@ export default function CompleteProfilePage() {
     </div>
   );
 }
-
     

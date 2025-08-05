@@ -11,7 +11,7 @@ import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw } from
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // Function to convert HSL string to object
@@ -226,23 +226,39 @@ export default function SettingsPage() {
   const saveLocationSettings = async () => {
     setIsSavingLocation(true);
     try {
-        const lat = parseFloat(officeLat);
-        const lng = parseFloat(officeLng);
-        const rad = parseInt(attendanceRadius, 10);
+      const latStr = officeLat.trim();
+      const lngStr = officeLng.trim();
+      const radiusStr = attendanceRadius.trim();
 
+      const allFieldsEmpty = !latStr && !lngStr && !radiusStr;
+      const allFieldsFilled = latStr && lngStr && radiusStr;
+
+      if (!allFieldsEmpty && !allFieldsFilled) {
+        toast({ title: 'Input Tidak Lengkap', description: 'Harap isi semua field lokasi (Latitude, Longitude, Radius) atau kosongkan semuanya.', variant: 'destructive'});
+        setIsSavingLocation(false);
+        return;
+      }
+
+      let updateData = {};
+
+      if (allFieldsFilled) {
+        const lat = parseFloat(latStr);
+        const lng = parseFloat(lngStr);
+        const rad = parseInt(radiusStr, 10);
         if (isNaN(lat) || isNaN(lng) || isNaN(rad)) {
             toast({ title: 'Input Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka.', variant: 'destructive' });
             setIsSavingLocation(false);
             return;
         }
+        updateData = { latitude: lat, longitude: lng, radius: rad };
+      } else { // All fields are empty
+        updateData = { latitude: null, longitude: null, radius: null };
+      }
 
-        const settingsRef = doc(db, 'settings', 'location');
-        await setDoc(settingsRef, {
-            latitude: lat,
-            longitude: lng,
-            radius: rad,
-        });
-        toast({ title: 'Pengaturan Lokasi Disimpan', description: 'Pengaturan lokasi absensi telah berhasil diperbarui.'});
+      const settingsRef = doc(db, 'settings', 'location');
+      await setDoc(settingsRef, updateData, { merge: true });
+      toast({ title: 'Pengaturan Lokasi Disimpan', description: 'Pengaturan lokasi absensi telah berhasil diperbarui.'});
+
     } catch (error) {
         console.error('Error saving location settings:', error);
         toast({ title: 'Gagal Menyimpan', description: 'Terjadi kesalahan saat menyimpan pengaturan lokasi.', variant: 'destructive'});

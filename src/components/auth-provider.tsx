@@ -21,7 +21,7 @@ export type User = {
     latitude: number;
     longitude: number;
     radius: number;
-  };
+  } | null;
   faceprint?: string | null;
   department?: string | null;
   employeeId?: string | null;
@@ -56,7 +56,11 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
         lastLocation: userData.lastLocation || null,
-        locationSettings: userData.locationSettings || null,
+        locationSettings: userData.locationSettings ? {
+          latitude: Number(userData.locationSettings.latitude),
+          longitude: Number(userData.locationSettings.longitude),
+          radius: Number(userData.locationSettings.radius),
+        } : null,
         faceprint: userData.faceprint || null,
         department: userData.department || null,
         employeeId: userData.employeeId || null,
@@ -128,7 +132,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     role: role,
                     isProfileComplete: userData.isProfileComplete || false,
                     lastLocation: userData.lastLocation || null,
-                    locationSettings: userData.locationSettings || null,
+                    locationSettings: userData.locationSettings ? {
+                        latitude: Number(userData.locationSettings.latitude),
+                        longitude: Number(userData.locationSettings.longitude),
+                        radius: Number(userData.locationSettings.radius),
+                    } : null,
                     faceprint: userData.faceprint || null,
                     department: userData.department || null,
                     employeeId: userData.employeeId || null,

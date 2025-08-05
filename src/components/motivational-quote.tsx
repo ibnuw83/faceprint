@@ -1,3 +1,4 @@
+
 'use client';
 
 import { getMotivationalQuote } from '@/ai/flows/motivation-generator';
@@ -82,3 +83,4 @@ export default function MotivationalQuote() {
     </div>
   );
 }
+

@@ -26,7 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import MotivationalQuote from './motivational-quote';
+import RequiredLocation from './required-location';
 
 
 type Location = {
@@ -126,7 +126,7 @@ export default function EmployeeDashboard() {
         if (!user) return;
         
         // 1. Determine location settings (user > global)
-        if (user.locationSettings) {
+        if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
             setEffectiveLocationSettings(user.locationSettings);
         } else {
             const globalLocationRef = doc(db, 'settings', 'location');
@@ -168,25 +168,26 @@ export default function EmployeeDashboard() {
         const now = new Date();
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
 
-        let clockInAllowed = true;
-        let clockOutAllowed = true;
+        let clockInEnabled = true;
+        let clockOutEnabled = true;
 
         if (scheduleSettings) {
-            if (scheduleSettings.clockInTime) {
+             if (scheduleSettings.clockInTime) {
                 const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
                 const clockInStartTime = inHours * 60 + inMinutes;
-                const clockInEndTime = clockInStartTime + (4 * 60); // 4 hour window
-                clockInAllowed = currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime;
+                // Allow clocking in for a 4-hour window
+                clockInEnabled = currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInStartTime + (4 * 60);
             }
+
             if (scheduleSettings.clockOutTime) {
                 const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
                 const clockOutStartTime = outHours * 60 + outMinutes;
-                clockOutAllowed = currentTimeInMinutes >= clockOutStartTime;
+                clockOutEnabled = currentTimeInMinutes >= clockOutStartTime;
             }
         }
         
-        setIsClockInAllowed(clockInAllowed);
-        setIsClockOutAllowed(clockOutAllowed);
+        setIsClockInAllowed(clockInEnabled);
+        setIsClockOutAllowed(clockOutEnabled);
     };
     
     updateTimeChecks();
@@ -382,7 +383,7 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
-      <MotivationalQuote />
+      <RequiredLocation />
       <Card className="shadow-lg rounded-xl">
         <CardHeader className='flex-row items-center justify-between'>
           <div>

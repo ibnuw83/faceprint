@@ -70,6 +70,7 @@ export default function EmployeeDashboard() {
 
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
   const [effectiveLocationSettings, setEffectiveLocationSettings] = useState<LocationSettings>(null);
+  const [loadingSettings, setLoadingSettings] = useState(true);
   
   const [isClockInAllowed, setIsClockInAllowed] = useState(true);
   const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
@@ -125,9 +126,9 @@ export default function EmployeeDashboard() {
 
     const setupLocationAndHistory = async () => {
         if (!user) return;
-        
+        setLoadingSettings(true);
         // 1. Determine location settings (user > global)
-        if (user.locationSettings) {
+        if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
             setEffectiveLocationSettings(user.locationSettings);
         } else {
             const globalLocationRef = doc(db, 'settings', 'location');
@@ -147,6 +148,7 @@ export default function EmployeeDashboard() {
                 setEffectiveLocationSettings(null);
             }
         }
+        setLoadingSettings(false);
 
         // 2. Fetch attendance history
         if (user.employeeId) {
@@ -302,6 +304,10 @@ export default function EmployeeDashboard() {
     }
     if (!videoRef.current || !canvasRef.current) {
         toast({ title: 'Error Kamera', description: 'Komponen kamera tidak siap.', variant: 'destructive'});
+        return;
+    }
+    if (loadingSettings) {
+        toast({ title: 'Pengaturan Belum Siap', description: 'Pengaturan lokasi masih dimuat, mohon tunggu sebentar.', variant: 'destructive'});
         return;
     }
 
@@ -502,11 +508,11 @@ export default function EmployeeDashboard() {
             )}
 
           <div className="flex gap-4 w-full flex-col sm:flex-row max-w-sm">
-            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={isProcessing || !hasCameraPermission || !isClockInAllowed}>
+            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={isProcessing || !hasCameraPermission || !isClockInAllowed || loadingSettings}>
               {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk
             </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={isProcessing || !hasCameraPermission || !isClockOutAllowed}>
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={isProcessing || !hasCameraPermission || !isClockOutAllowed || loadingSettings}>
                 {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
               Absen Keluar
             </Button>

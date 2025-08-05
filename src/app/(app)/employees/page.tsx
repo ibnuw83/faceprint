@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -17,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Users, PlusCircle, MoreHorizontal, Trash2, Edit } from 'lucide-react';
+import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
@@ -42,6 +43,10 @@ type User = {
   };
   role: 'admin' | 'employee';
   employeeId?: string;
+  lastLocation?: {
+    latitude: number;
+    longitude: number;
+  };
 };
 
 export default function EmployeesPage() {
@@ -121,7 +126,7 @@ export default function EmployeesPage() {
                   <TableHead>Pengguna</TableHead>
                   <TableHead>Peran</TableHead>
                   <TableHead>Departemen</TableHead>
-                  <TableHead>Tanggal Dibuat</TableHead>
+                  <TableHead>Lokasi Terakhir</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -161,7 +166,21 @@ export default function EmployeesPage() {
                       </TableCell>
                       <TableCell className="capitalize">{user.role}</TableCell>
                       <TableCell>{user.department || 'N/A'}</TableCell>
-                      <TableCell>{new Date(user.createdAt.seconds * 1000).toLocaleDateString('id-ID')}</TableCell>
+                       <TableCell>
+                        {user.lastLocation ? (
+                          <a 
+                            href={`https://www.google.com/maps?q=${user.lastLocation.latitude},${user.lastLocation.longitude}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <MapPin className="h-4 w-4" />
+                            Lihat Peta
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">N/A</span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-right">
                          <DropdownMenu>
                           <DropdownMenuTrigger asChild>

@@ -1,12 +1,18 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Clock, UserCheck, UserX } from 'lucide-react';
+import { Camera, Clock, UserCheck, UserX, MapPin, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
+
+type Location = {
+  latitude: number;
+  longitude: number;
+};
 
 export default function EmployeeDashboard() {
   const { toast } = useToast();
@@ -14,6 +20,8 @@ export default function EmployeeDashboard() {
   const [time, setTime] = useState('');
   const [date, setDate] = useState('');
   const [status, setStatus] = useState<'in' | 'out' | null>(null);
+  const [location, setLocation] = useState<Location | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
 
   useEffect(() => {
     const updateDateTime = () => {
@@ -26,20 +34,65 @@ export default function EmployeeDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleClockIn = () => {
-    setStatus('in');
-    toast({
-      title: 'Absen Masuk Berhasil',
-      description: `Selamat datang, ${user?.name}! Kehadiran Anda telah dicatat pada pukul ${new Date().toLocaleTimeString('id-ID')}.`,
+  const getLocation = (): Promise<Location> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation tidak didukung oleh browser ini.'));
+        return;
+      }
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setIsLocating(false);
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        },
+        (error) => {
+          setIsLocating(false);
+          reject(new Error(`Gagal mendapatkan lokasi: ${error.message}`));
+        }
+      );
     });
   };
 
-  const handleClockOut = () => {
-    setStatus('out');
-    toast({
-      title: 'Absen Keluar Berhasil',
-      description: `Sampai jumpa, ${user?.name}! Kepergian Anda telah dicatat pada pukul ${new Date().toLocaleTimeString('id-ID')}.`,
-    });
+  const handleClockIn = async () => {
+    try {
+      const currentLocation = await getLocation();
+      setLocation(currentLocation);
+      setStatus('in');
+      toast({
+        title: 'Absen Masuk Berhasil',
+        description: `Selamat datang, ${user?.name}! Kehadiran Anda di [${currentLocation.latitude}, ${currentLocation.longitude}] telah dicatat.`,
+      });
+      // Here you would typically save the attendance record with location to your database
+    } catch (error: any) {
+      toast({
+        title: 'Gagal Absen Masuk',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleClockOut = async () => {
+    try {
+      const currentLocation = await getLocation();
+      setLocation(currentLocation);
+      setStatus('out');
+      toast({
+        title: 'Absen Keluar Berhasil',
+        description: `Sampai jumpa, ${user?.name}! Kepergian Anda dari [${currentLocation.latitude}, ${currentLocation.longitude}] telah dicatat.`,
+      });
+       // Here you would typically save the attendance record with location to your database
+    } catch (error: any)       {
+      toast({
+        title: 'Gagal Absen Keluar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -51,7 +104,7 @@ export default function EmployeeDashboard() {
               <Camera className="text-primary" />
               Otentikasi Wajah
             </CardTitle>
-            <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar.</CardDescription>
+            <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-6">
             <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed">
@@ -61,11 +114,13 @@ export default function EmployeeDashboard() {
               </div>
             </div>
             <div className="flex gap-4 w-full flex-col sm:flex-row">
-              <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in'}>
-                <UserCheck className="mr-2" /> Absen Masuk
+              <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in' || isLocating}>
+                {isLocating ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
+                Absen Masuk
               </Button>
-              <Button onClick={handleClockOut} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in'}>
-                <UserX className="mr-2" /> Absen Keluar
+              <Button onClick={handleClockOut} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isLocating}>
+                 {isLocating ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
+                Absen Keluar
               </Button>
             </div>
           </CardContent>
@@ -87,16 +142,16 @@ export default function EmployeeDashboard() {
              </CardHeader>
              <CardContent>
                 {status === 'in' ? (
-                    <div className="flex items-center gap-3 text-green-600 dark:text-green-400">
-                        <UserCheck className="h-8 w-8"/>
+                    <div className="flex items-start gap-3 text-green-600 dark:text-green-400">
+                        <UserCheck className="h-8 w-8 shrink-0"/>
                         <div>
                             <p className="font-bold text-lg">Sudah Absen Masuk</p>
                             <p className="text-sm text-muted-foreground">Anda saat ini sedang bekerja.</p>
                         </div>
                     </div>
                 ) : status === 'out' ? (
-                    <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
-                        <UserX className="h-8 w-8"/>
+                    <div className="flex items-start gap-3 text-red-600 dark:text-red-400">
+                        <UserX className="h-8 w-8 shrink-0"/>
                         <div>
                             <p className="font-bold text-lg">Sudah Absen Keluar</p>
                             <p className="text-sm text-muted-foreground">Anda telah menyelesaikan shift Anda.</p>
@@ -104,6 +159,34 @@ export default function EmployeeDashboard() {
                     </div>
                 ) : (
                      <p className="text-muted-foreground">Anda belum absen masuk hari ini.</p>
+                )}
+             </CardContent>
+          </Card>
+           <Card className="shadow-lg rounded-xl">
+             <CardHeader>
+                <CardTitle className="flex items-center gap-2"><MapPin /> Lokasi Terakhir</CardTitle>
+             </CardHeader>
+             <CardContent>
+                {isLocating ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="animate-spin" />
+                    <span>Mencari lokasi...</span>
+                  </div>
+                ) : location ? (
+                    <div className="text-sm">
+                      <p>Lintang: {location.latitude.toFixed(5)}</p>
+                      <p>Bujur: {location.longitude.toFixed(5)}</p>
+                       <a 
+                          href={`https://www.google.com/maps?q=${location.latitude},${location.longitude}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline text-xs"
+                        >
+                          Lihat di Google Maps
+                        </a>
+                    </div>
+                ) : (
+                     <p className="text-muted-foreground text-sm">Lokasi akan direkam saat Anda absen.</p>
                 )}
              </CardContent>
           </Card>

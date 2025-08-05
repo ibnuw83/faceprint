@@ -17,11 +17,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Loader2, Calendar as CalendarIcon, Download } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar as CalendarIcon, Download, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { collection, getDocs, orderBy, query, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, Timestamp, doc, getDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,6 +33,17 @@ import { format } from 'date-fns';
 import { id as localeID } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 
 type AttendanceRecord = {
@@ -70,6 +81,7 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchAttendanceAndSettings = useCallback(async () => {
     setLoading(true);
@@ -219,6 +231,47 @@ export default function AttendancePage() {
     doc.save(fileName);
   };
 
+   const handleDeleteAttendance = async (employeeId: string, attendanceDate: string) => {
+    setIsDeleting(true);
+    try {
+        const q = query(
+            collection(db, 'attendance'),
+            where('employeeId', '==', employeeId),
+            where('date', '==', attendanceDate)
+        );
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+            toast({ title: 'Tidak ada data untuk dihapus', variant: 'destructive' });
+            return;
+        }
+
+        const batch = writeBatch(db);
+        querySnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        
+        toast({
+            title: 'Absensi Dihapus',
+            description: `Semua catatan untuk ${employeeId} pada tanggal ${attendanceDate} telah dihapus.`,
+        });
+
+        // Refetch data
+        await fetchAttendanceAndSettings();
+
+    } catch (error) {
+        console.error('Error deleting attendance:', error);
+        toast({
+            title: 'Gagal Menghapus',
+            description: 'Terjadi kesalahan saat menghapus catatan absensi.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsDeleting(false);
+    }
+  };
+
 
   if (user?.role !== 'admin') {
      return (
@@ -292,7 +345,8 @@ export default function AttendancePage() {
                   <TableHead>Tanggal</TableHead>
                   <TableHead>Waktu Masuk</TableHead>
                   <TableHead>Waktu Pulang</TableHead>
-                  <TableHead className="text-right">Keterlambatan</TableHead>
+                  <TableHead>Keterlambatan</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -303,7 +357,8 @@ export default function AttendancePage() {
                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                            <TableCell className="text-right"><Skeleton className="h-6 w-24 ml-auto" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
                     ))
                 ) : dailySummaries.length > 0 ? (
@@ -313,7 +368,7 @@ export default function AttendancePage() {
                       <TableCell>{summary.date}</TableCell>
                       <TableCell>{summary.clockInTime || ' - '}</TableCell>
                       <TableCell>{summary.clockOutTime || ' - '}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         {summary.lateMinutes === null ? (
                             <span className="text-muted-foreground">-</span>
                         ) : summary.lateMinutes > 0 ? (
@@ -324,11 +379,37 @@ export default function AttendancePage() {
                             </Badge>
                         )}
                       </TableCell>
+                       <TableCell className="text-right">
+                         <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" disabled={isDeleting}>
+                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Konfirmasi Penghapusan</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Apakah Anda yakin ingin menghapus semua catatan absensi untuk <strong>{summary.employeeName}</strong> pada tanggal <strong>{summary.date}</strong>? Tindakan ini tidak dapat diurungkan.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Batal</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteAttendance(summary.employeeId, summary.date)}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Ya, Hapus
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                             Tidak ada catatan absensi pada rentang tanggal ini.
                         </TableCell>
                      </TableRow>

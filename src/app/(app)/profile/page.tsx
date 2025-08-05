@@ -3,15 +3,62 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
-import { User, Mail, Building, Briefcase, Loader2, MapPin } from 'lucide-react';
+import { User, Mail, Building, Briefcase, Loader2, MapPin, History } from 'lucide-react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { useEffect, useState, useCallback } from 'react';
+import { collection, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+
+type AttendanceRecord = {
+  id: string;
+  date: string;
+  time: string;
+  status: 'Clocked In' | 'Clocked Out';
+  createdAt: Timestamp;
+};
+
 
 export default function ProfilePage() {
   const { user, loading } = useAuth();
+  const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  const fetchHistory = useCallback(async () => {
+    if (!user || !user.employeeId) {
+      setLoadingHistory(false);
+      return;
+    }
+    try {
+      const q = query(
+        collection(db, 'attendance'),
+        where('employeeId', '==', user.employeeId),
+        orderBy('createdAt', 'desc')
+      );
+      const querySnapshot = await getDocs(q);
+      const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      setAttendanceHistory(history);
+    } catch (e) {
+      console.error("Error fetching attendance history: ", e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const statusLocale: Record<string, string> = {
+    'Clocked In': 'Masuk',
+    'Clocked Out': 'Keluar',
+  }
 
   if (loading || !user) {
     return (
@@ -22,7 +69,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8">
+    <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
       <Card className="max-w-4xl mx-auto shadow-lg rounded-xl">
         <CardHeader>
           <div className="flex items-center gap-4">
@@ -108,6 +155,65 @@ export default function ProfilePage() {
                         <p className="text-muted-foreground">Belum ada foto wajah terdaftar.</p>
                     </div>
                  )}
+            </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="max-w-4xl mx-auto shadow-lg rounded-xl">
+        <CardHeader>
+            <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                <History className="text-primary"/>
+                Riwayat Absensi Saya
+            </CardTitle>
+            <CardDescription>Seluruh catatan absensi Anda yang tersimpan di sistem.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="border rounded-lg overflow-y-auto max-h-[60vh]">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead>Waktu</TableHead>
+                        <TableHead className="text-right">Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loadingHistory ? (
+                            Array.from({ length: 5 }).map((_, index) => (
+                                <TableRow key={index}>
+                                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-6 w-20 ml-auto" /></TableCell>
+                                </TableRow>
+                            ))
+                        ) : attendanceHistory.length > 0 ? (
+                        attendanceHistory.map((record) => (
+                            <TableRow key={record.id}>
+                                <TableCell>{record.date}</TableCell>
+                                <TableCell>{record.time}</TableCell>
+                                <TableCell className="text-right">
+                                <Badge
+                                    variant={record.status === 'Clocked In' ? 'default' : 'secondary'}
+                                    className={
+                                    record.status === 'Clocked In'
+                                        ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300'
+                                        : 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300'
+                                    }
+                                >
+                                    {statusLocale[record.status] || record.status}
+                                </Badge>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                                    Belum ada riwayat absensi.
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </div>
         </CardContent>
       </Card>

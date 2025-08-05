@@ -32,23 +32,23 @@ export default function MotivationalQuote() {
   }, []);
 
   return (
-    <div className="w-full bg-card p-3 rounded-lg shadow-md overflow-hidden border">
+    <div className="w-full bg-gradient-to-r from-primary to-accent p-3 rounded-lg shadow-md overflow-hidden border border-primary/20">
       <div className="flex items-center gap-3">
-        <div className="bg-primary/10 p-2 rounded-full">
-            <Lightbulb className="text-primary h-5 w-5" />
+        <div className="bg-white/20 p-2 rounded-full">
+            <Lightbulb className="text-white h-5 w-5" />
         </div>
         <div className="flex-1 overflow-hidden">
             {loading && !quote ? (
-                 <div className="flex items-center gap-2 text-muted-foreground">
+                 <div className="flex items-center gap-2 text-primary-foreground/80">
                     <Loader2 className="h-4 w-4 animate-spin"/>
                     <span>Memuat kutipan motivasi...</span>
                  </div>
             ) : (
                  <div className="relative flex overflow-x-hidden">
-                    <p className="animate-marquee whitespace-nowrap text-sm font-medium text-muted-foreground">
+                    <p className="animate-marquee whitespace-nowrap text-sm font-medium text-white">
                        {quote}
                     </p>
-                    <p className="absolute top-0 animate-marquee2 whitespace-nowrap text-sm font-medium text-muted-foreground">
+                    <p className="absolute top-0 animate-marquee2 whitespace-nowrap text-sm font-medium text-white">
                        {quote}
                     </p>
                 </div>

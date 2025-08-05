@@ -140,8 +140,17 @@ export default function EmployeeDashboard() {
             setScheduleSettings(scheduleSnap.exists() ? scheduleSnap.data() as ScheduleSettings : null);
 
             // 2. Determine effective location settings (user > global)
-            if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null && user.locationSettings.radius != null) {
-                setEffectiveLocationSettings(user.locationSettings);
+            if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
+                // Radius is now always global, so we fetch it separately.
+                const globalLocationRef = doc(db, 'settings', 'location');
+                const globalLocationSnap = await getDoc(globalLocationRef);
+                const globalRadius = globalLocationSnap.exists() ? Number(globalLocationSnap.data().radius) : 0;
+                
+                setEffectiveLocationSettings({
+                    ...user.locationSettings,
+                    radius: globalRadius,
+                });
+
             } else {
                 const globalLocationRef = doc(db, 'settings', 'location');
                 const globalLocationSnap = await getDoc(globalLocationRef);
@@ -357,7 +366,8 @@ export default function EmployeeDashboard() {
       toast({ title: 'Wajah Terverifikasi!', description: 'Memvalidasi lokasi Anda...', variant: 'default' });
       
       const currentLocation = await getLocation();
-
+      
+      /*
       if(effectiveLocationSettings) {
           const distance = calculateDistance(
             currentLocation.latitude,
@@ -372,6 +382,7 @@ export default function EmployeeDashboard() {
       } else {
            toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
+      */
       
       const now = new Date();
       
@@ -553,7 +564,3 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
-
-
-
-

@@ -16,7 +16,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { calculateDistance } from '@/lib/location';
-import { verifyFaces } from '@/ai/flows/face-verifier';
 import Image from 'next/image';
 import {
   Dialog,
@@ -351,18 +350,7 @@ export default function EmployeeDashboard() {
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
       const captureToVerify = canvas.toDataURL('image/jpeg', 0.9);
       
-      toast({ title: 'Memverifikasi Wajah...', description: 'Mohon tunggu, AI sedang memproses gambar Anda.' });
-
-      const verificationResult = await verifyFaces({
-        registeredFace: user.faceprint,
-        captureToVerify: captureToVerify,
-      });
-
-      if (!verificationResult.match) {
-        throw new Error('Verifikasi wajah gagal. Pastikan wajah Anda terlihat jelas dan coba lagi.');
-      }
-      
-      toast({ title: 'Wajah Terverifikasi!', description: 'Memvalidasi lokasi Anda...', variant: 'default' });
+      toast({ title: 'Memvalidasi Lokasi...', description: 'Mohon tunggu sebentar.', variant: 'default' });
       
       const currentLocation = await getLocation();
       
@@ -377,8 +365,6 @@ export default function EmployeeDashboard() {
           if (distance > effectiveLocationSettings.radius) {
             throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${effectiveLocationSettings.radius} meter untuk absen.`);
           }
-      } else {
-           // toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
       
       const now = new Date();
@@ -394,6 +380,8 @@ export default function EmployeeDashboard() {
             longitude: currentLocation.longitude,
         },
         createdAt: Timestamp.fromDate(now),
+        // We could store the captured photo here if needed, e.g., for manual admin review
+        // capturedPhoto: captureToVerify 
       });
 
       const userRef = doc(db, 'users', user.uid);
@@ -402,7 +390,7 @@ export default function EmployeeDashboard() {
       
       toast({
         title: `Absen ${clockStatus === 'Clocked In' ? 'Masuk' : 'Keluar'} Berhasil`,
-        description: `Kehadiran Anda telah dicatat.`,
+        description: `Kehadiran Anda telah dicatat pada pukul ${now.toLocaleTimeString('id-ID')}.`,
       });
 
       if (user.employeeId) {
@@ -438,7 +426,7 @@ export default function EmployeeDashboard() {
           <div>
             <CardTitle className="text-2xl font-bold flex items-center gap-2">
               <Camera className="text-primary" />
-              Otentikasi Wajah
+              Absensi Wajah
             </CardTitle>
             <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar.</CardDescription>
           </div>
@@ -560,3 +548,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    

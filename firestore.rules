@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if a user is an admin
+    function isAdmin(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+             get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
+    }
+
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // Any authenticated user can create their own user document upon signup.
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Users can only read their own data. Admins can read any user's data.
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin(request.auth.uid));
+
+      // Users can only update their own data. Admins can update any user's data.
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin(request.auth.uid));
+      
+      // Deleting users should be handled carefully, maybe only by admins or through a backend process.
+      // For now, we'll disable it directly from the client.
+      allow delete: if false; 
+    }
+
+    // You would add rules for other collections like 'employees' or 'attendance' here.
+    // For example:
+    //
+    // match /employees/{employeeId} {
+    //   allow read: if request.auth != null; // Allow all authenticated users to read employee list
+    //   allow write: if isAdmin(request.auth.uid); // Only admins can add/edit employees
+    // }
+    //
+    // match /attendance/{recordId} {
+    //   allow read: if request.auth != null;
+    //   allow create: if request.auth != null && request.resource.data.employeeId == request.auth.uid; // Users can only clock-in/out for themselves
+    //   allow update, delete: if isAdmin(request.auth.uid); // Only admins can modify records
+    // }
+  }
+}

@@ -26,12 +26,18 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 const fetchUserRole = async (uid: string): Promise<'admin' | 'employee'> => {
-  const userDocRef = doc(db, 'users', uid);
-  const userDoc = await getDoc(userDocRef);
-  if (userDoc.exists()) {
-    return userDoc.data()?.role || 'employee';
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+      return userDoc.data()?.role || 'employee';
+    }
+    console.warn(`No user document found for UID: ${uid}. Defaulting to 'employee'.`);
+    return 'employee';
+  } catch (error) {
+    console.error("Error fetching user role:", error);
+    return 'employee';
   }
-  return 'employee';
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -39,48 +45,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        const role = await fetchUserRole(fbUser.uid);
-        const appUser: User = {
-          uid: fbUser.uid,
-          name: fbUser.displayName,
-          email: fbUser.email,
-          role: role,
-        };
-        setUser(appUser);
-        localStorage.setItem('user', JSON.stringify(appUser));
-      } else {
-        setFirebaseUser(null);
-        setUser(null);
-        localStorage.removeItem('user');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+  const updateUserState = useCallback(async (fbUser: FirebaseUser | null) => {
+    if (fbUser) {
+      setFirebaseUser(fbUser);
+      const role = await fetchUserRole(fbUser.uid);
+      const appUser: User = {
+        uid: fbUser.uid,
+        name: fbUser.displayName,
+        email: fbUser.email,
+        role: role,
+      };
+      setUser(appUser);
+    } else {
+      setFirebaseUser(null);
+      setUser(null);
+    }
+    setLoading(false);
   }, []);
+
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, updateUserState);
+    return () => unsubscribe();
+  }, [updateUserState]);
 
   const login = useCallback(async (email: string, pass: string) => {
     setLoading(true);
     const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-    const fbUser = userCredential.user;
-
-    if (fbUser) {
-        const role = await fetchUserRole(fbUser.uid);
-        const appUser: User = {
-            uid: fbUser.uid,
-            name: fbUser.displayName,
-            email: fbUser.email,
-            role,
-        };
-        setUser(appUser);
-        localStorage.setItem('user', JSON.stringify(appUser));
-    }
-    setLoading(false);
-  }, []);
+    await updateUserState(userCredential.user);
+    // setLoading is handled by updateUserState
+  }, [updateUserState]);
 
   const register = useCallback(async (email: string, pass: string, name: string) => {
     setLoading(true);
@@ -90,7 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await updateProfile(fbUser, { displayName: name });
       
-      const role = 'employee';
+      // Default role is 'employee'. If registering 'admin@visageid.com', set role to 'admin'.
+      const role = email.toLowerCase() === 'admin@visageid.com' ? 'admin' : 'employee';
 
       const userRef = doc(db, "users", fbUser.uid);
       await setDoc(userRef, {
@@ -112,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     setLoading(true);
     await signOut(auth);
+    setUser(null);
+    setFirebaseUser(null);
     setLoading(false);
   }, []);
 

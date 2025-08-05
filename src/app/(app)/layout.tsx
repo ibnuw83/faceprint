@@ -140,7 +140,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     if (!loading) {
       if (!isAuthenticated) {
         router.replace('/login');
-      } else if (user && !user.isProfileComplete && pathname !== '/employees/new') {
+      } else if (user && user.role !== 'admin' && !user.isProfileComplete && pathname !== '/employees/new') {
+        // Only redirect non-admins to complete their profile
         router.replace('/employees/new');
       }
     }
@@ -154,16 +155,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // Hide sidebar on the profile completion page
-  if (!user.isProfileComplete) {
+  // Hide sidebar and force layout for profile completion page
+  if (user.role !== 'admin' && !user.isProfileComplete) {
     return <main>{children}</main>;
   }
-
 
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar />
       <main className="flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-8 md:pl-72">
+        {/* Add a spacer for the mobile header */}
         <div className="h-12 md:hidden" />
         {children}
       </main>

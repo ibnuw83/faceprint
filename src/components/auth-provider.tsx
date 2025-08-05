@@ -43,12 +43,14 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
     }
      console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user.`);
     // This can happen for a brand new user right after registration before the doc is created.
+    // Let's create a default user object based on registration info.
+    const role = fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
     return {
       uid: fbUser.uid,
       name: fbUser.displayName,
       email: fbUser.email,
-      role: 'employee', // Default role
-      isProfileComplete: false,
+      role: role,
+      isProfileComplete: role === 'admin', // Admins are complete by default
     };
   } catch (error) {
     console.error("Error fetching user data:", error);
@@ -75,6 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const checkUserStatus = useCallback(async () => {
+    // This function will re-fetch user data if needed.
+    // It's useful after manual profile updates.
     const fbUser = auth.currentUser;
     setLoading(true);
     await updateUserState(fbUser);
@@ -99,13 +103,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
 
+    // For admins, their profile is complete by default.
+    const isProfileComplete = role === 'admin';
+
     const userRef = doc(db, "users", fbUser.uid);
     await setDoc(userRef, {
       uid: fbUser.uid,
       name: name,
       email: email,
       role: role,
-      isProfileComplete: false, // New users must complete their profile
+      isProfileComplete: isProfileComplete, 
       createdAt: new Date(),
     });
     // onAuthStateChanged will handle the rest

@@ -67,6 +67,7 @@ export default function EmployeeDashboard() {
   
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [lastTodayStatus, setLastTodayStatus] = useState<'Clocked In' | 'Clocked Out' | null>(null);
 
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [effectiveLocationSettings, setEffectiveLocationSettings] = useState<LocationSettings>(null);
@@ -90,6 +91,19 @@ export default function EmployeeDashboard() {
       history.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
 
       setAttendanceHistory(history);
+
+      // Check the last attendance for today
+      if (history.length > 0) {
+        const lastRecord = history[0];
+        const todayStr = new Date().toLocaleDateString('id-ID');
+        if (lastRecord.date === todayStr) {
+            setLastTodayStatus(lastRecord.status);
+        } else {
+            setLastTodayStatus(null);
+        }
+      } else {
+        setLastTodayStatus(null);
+      }
       
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
@@ -404,7 +418,10 @@ export default function EmployeeDashboard() {
     'Clocked Out': 'Keluar',
   }
   
-  const buttonsDisabled = isProcessing || !hasCameraPermission || isLoadingSettings;
+  const baseButtonsDisabled = isProcessing || !hasCameraPermission || isLoadingSettings;
+  const clockInDisabled = baseButtonsDisabled || !isClockInAllowed || lastTodayStatus === 'Clocked In' || lastTodayStatus === 'Clocked Out';
+  const clockOutDisabled = baseButtonsDisabled || !isClockOutAllowed || lastTodayStatus !== 'Clocked In';
+
 
   return (
     <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
@@ -522,11 +539,11 @@ export default function EmployeeDashboard() {
             )}
 
           <div className="flex gap-4 w-full flex-col sm:flex-row max-w-sm">
-            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={buttonsDisabled || !isClockInAllowed}>
+            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={clockInDisabled}>
               {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk
             </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={buttonsDisabled || !isClockOutAllowed}>
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={clockOutDisabled}>
                 {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
               Absen Keluar
             </Button>
@@ -537,5 +554,6 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
 
 

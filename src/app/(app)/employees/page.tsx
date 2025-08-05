@@ -43,6 +43,7 @@ type User = {
   };
   role: 'admin' | 'employee';
   employeeId?: string;
+  faceprint?: string;
   lastLocation?: {
     latitude: number;
     longitude: number;
@@ -158,7 +159,7 @@ export default function EmployeesPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar>
-                            <AvatarImage src={`https://i.pravatar.cc/150?u=${user.email}`} alt={user.name} data-ai-hint="person avatar" />
+                            <AvatarImage src={user.faceprint} alt={user.name} />
                             <AvatarFallback>{user.name?.charAt(0).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div>

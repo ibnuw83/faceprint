@@ -31,9 +31,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -100,23 +101,32 @@ function Sidebar() {
           </div>
           <div className="flex-1 overflow-auto py-2 px-4">{navLinks}</div>
           <div className="mt-auto p-4 border-t">
-             <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                    <Avatar className="h-9 w-9">
+             <div className="flex items-center justify-between gap-2">
+                
+                <Link href="/profile" className="flex items-center gap-3 min-w-0 flex-1 group">
+                    <Avatar className="h-9 w-9 transition-transform group-hover:scale-110">
                         <AvatarImage
                         src={user?.faceprint || undefined}
                         />
                         <AvatarFallback>
-                        {user?.name?.charAt(0).toUpperCase()}
+                         {loading ? <Loader2 className="animate-spin h-4 w-4" /> : user?.name?.charAt(0).toUpperCase()}
                         </AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col min-w-0">
-                        <p className="truncate text-sm font-medium leading-none">{user?.name}</p>
-                        <p className="truncate text-xs leading-none text-muted-foreground">
-                            {user?.email}
-                        </p>
-                    </div>
-                </div>
+                     {loading ? (
+                       <div className="space-y-1.5 min-w-0 flex-1">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-32" />
+                       </div>
+                     ) : (
+                        <div className="flex flex-col min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium leading-none">{user?.name}</p>
+                            <p className="truncate text-xs leading-none text-muted-foreground">
+                                {user?.email}
+                            </p>
+                        </div>
+                     )}
+                </Link>
+
                  <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="shrink-0">

@@ -1,11 +1,3 @@
-export type Employee = {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  imageUrl: string;
-  hireDate: string;
-};
 
 export type AttendanceRecord = {
   id: string;
@@ -15,15 +7,6 @@ export type AttendanceRecord = {
   time: string;
   status: 'Clocked In' | 'Clocked Out';
 };
-
-export const employees: Employee[] = [
-  { id: 'wQ27SFmHQXTwME7Kh7owKCPVsut1', name: 'Admin', email: 'admin@visageid.com', department: 'Administrasi', imageUrl: 'https://placehold.co/100x100', hireDate: '2020-01-01' },
-  { id: 'E001', name: 'Alice Johnson', email: 'alice.j@example.com', department: 'Teknik', imageUrl: 'https://placehold.co/100x100', hireDate: '2022-08-15' },
-  { id: 'E002', name: 'Bob Williams', email: 'bob.w@example.com', department: 'Pemasaran', imageUrl: 'https://placehold.co/100x100', hireDate: '2021-03-20' },
-  { id: 'E003', name: 'Charlie Brown', email: 'charlie.b@example.com', department: 'SDM', imageUrl: 'https://placehold.co/100x100', hireDate: '2023-01-10' },
-  { id: 'E004', name: 'Diana Miller', email: 'diana.m@example.com', department: 'Teknik', imageUrl: 'https://placehold.co/100x100', hireDate: '2022-11-05' },
-  { id: 'E005', name: 'Ethan Davis', email: 'ethan.d@example.com', department: 'Penjualan', imageUrl: 'https://placehold.co/100x100', hireDate: '2023-05-30' },
-];
 
 export const attendanceRecords: AttendanceRecord[] = [
   { id: 'A001', employeeId: 'E001', employeeName: 'Alice Johnson', date: '2024-07-22', time: '09:01:15', status: 'Clocked In' },

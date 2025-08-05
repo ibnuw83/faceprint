@@ -15,10 +15,9 @@ import {
   UserCheck,
   UserX,
   Clock,
-  ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';
-import { attendanceRecords, employees } from '@/lib/mock-data';
+import { attendanceRecords } from '@/lib/mock-data';
 import {
   ChartContainer,
   ChartTooltip,
@@ -26,8 +25,11 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import EmployeeDashboard from '@/components/employee-dashboard';
+import { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 
 const chartConfig = {
@@ -50,13 +52,26 @@ const chartData = [
 ];
 
 function AdminDashboard() {
+  const [totalEmployees, setTotalEmployees] = useState(0);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const usersCollection = collection(db, 'users');
+        const userSnapshot = await getDocs(usersCollection);
+        setTotalEmployees(userSnapshot.size);
+      } catch (error) {
+        console.error("Error fetching user count:", error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
   const presentToday = attendanceRecords.filter(
     (r) =>
       r.status === 'Clocked In' &&
       new Date(r.date).toDateString() === new Date().toDateString()
   ).length;
-
-  const totalEmployees = employees.length;
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-6">
@@ -101,7 +116,7 @@ function AdminDashboard() {
             <UserX className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalEmployees - presentToday}</div>
+            <div className="text-2xl font-bold">{totalEmployees > 0 ? totalEmployees - presentToday : 0}</div>
             <p className="text-xs text-muted-foreground">
               Karyawan yang belum absen
             </p>

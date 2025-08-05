@@ -18,6 +18,15 @@ import { Skeleton } from './ui/skeleton';
 import { calculateDistance } from '@/lib/location';
 import { verifyFaces } from '@/ai/flows/face-verifier';
 import Image from 'next/image';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
 
 type Location = {
   latitude: number;
@@ -73,11 +82,10 @@ export default function EmployeeDashboard() {
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.uid),
-        limit(5)
+        orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
-        .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+      const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
 
       setAttendanceHistory(history);
       
@@ -98,11 +106,21 @@ export default function EmployeeDashboard() {
 
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
-      toast({
-        title: 'Gagal memuat riwayat',
-        description: 'Tidak dapat mengambil data absensi Anda.',
-        variant: 'destructive',
-      });
+      // This is a common error if the composite index is not created yet.
+      // We will show a more helpful message.
+      if ((error as any).code === 'failed-precondition') {
+          toast({
+            title: 'Indeks Firestore Diperlukan',
+            description: 'Fitur riwayat memerlukan indeks. Harap minta admin untuk membuatnya di konsol Firebase.',
+            variant: 'destructive',
+          });
+      } else {
+          toast({
+            title: 'Gagal memuat riwayat',
+            description: 'Tidak dapat mengambil data absensi Anda.',
+            variant: 'destructive',
+          });
+      }
     } finally {
       setLoadingHistory(false);
     }
@@ -152,7 +170,8 @@ export default function EmployeeDashboard() {
             const clockOutStartTime = outHours * 60 + outMinutes;
             setIsClockOutAllowed(currentTimeInMinutes >= clockOutStartTime);
         } else {
-            setIsClockOutAllowed(false); // Default to not allowed if not set
+             // If clock out time is not set, allow clocking out if they are clocked in
+            setIsClockOutAllowed(status === 'in');
         }
 
       }
@@ -196,7 +215,7 @@ export default function EmployeeDashboard() {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [toast, user, fetchAttendanceHistory, scheduleSettings]);
+  }, [toast, user, fetchAttendanceHistory, scheduleSettings, status]);
 
   useEffect(() => {
     if (selectedCamera && hasCameraPermission && videoRef.current) {
@@ -298,32 +317,31 @@ export default function EmployeeDashboard() {
         if (settingsSnap.exists()) {
             locationSettings = settingsSnap.data() as LocationSettings;
         } else {
-             throw new Error('Pengaturan lokasi absensi belum diatur oleh admin.');
+             // If there's no global setting either, we allow attendance from anywhere
+             // This can be changed to a strict denial if required
+             toast({ title: 'Peringatan', description: 'Pengaturan lokasi global tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
         }
       }
-
-      if (!locationSettings) {
-          throw new Error('Pengaturan lokasi absensi tidak ditemukan.');
-      }
       
-      // 4. Get user's current location
+      // 4. Get user's current location & check distance if settings exist
       const currentLocation = await getLocation();
       setLocation(currentLocation);
 
-      // 5. Calculate distance and check if within radius
-      const distance = calculateDistance(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        locationSettings.latitude,
-        locationSettings.longitude
-      );
+      if(locationSettings) {
+          const distance = calculateDistance(
+            currentLocation.latitude,
+            currentLocation.longitude,
+            locationSettings.latitude,
+            locationSettings.longitude
+          );
 
-      if (distance > locationSettings.radius) {
-        throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${locationSettings.radius} meter untuk absen.`);
+          if (distance > locationSettings.radius) {
+            throw new Error(`Anda berada ${distance.toFixed(0)} meter dari lokasi yang diizinkan. Anda harus berada dalam radius ${locationSettings.radius} meter untuk absen.`);
+          }
       }
       
       const now = new Date();
-      // 6. Add record to 'attendance' collection
+      // 5. Add record to 'attendance' collection
       await addDoc(collection(db, 'attendance'), {
         employeeId: user.uid,
         employeeName: user.name,
@@ -334,7 +352,7 @@ export default function EmployeeDashboard() {
         createdAt: Timestamp.fromDate(now),
       });
 
-      // 7. Update user's last location
+      // 6. Update user's last location
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, { lastLocation: currentLocation });
       await checkUserStatus();
@@ -345,7 +363,7 @@ export default function EmployeeDashboard() {
         description: `Kehadiran Anda di [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,
       });
 
-      // 8. Refresh history
+      // 7. Refresh history
       await fetchAttendanceHistory(user);
 
     } catch (error: any) {
@@ -427,14 +445,62 @@ export default function EmployeeDashboard() {
               </div>
             </CardContent>
           </Card>
+        </div>
 
+        <div className="space-y-8">
           <Card className="shadow-lg rounded-xl">
-             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><History /> Riwayat Absensi Anda</CardTitle>
-                <CardDescription>Catatan 5 absensi terakhir Anda.</CardDescription>
-             </CardHeader>
-             <CardContent>
-                <div className="border rounded-lg overflow-x-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Clock /> Waktu Saat Ini</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center">
+              <p className="text-4xl font-bold text-primary">{time || '...'}</p>
+              <p className="text-muted-foreground">{date || '...'}</p>
+            </CardContent>
+          </Card>
+
+          <Dialog>
+             <Card className="shadow-lg rounded-xl">
+                <CardHeader>
+                    <CardTitle>Status Kehadiran</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {loadingHistory ? (
+                        <Skeleton className="h-8 w-48" />
+                    ) : status === 'in' ? (
+                        <div className="flex items-start gap-3 text-green-600 dark:text-green-400">
+                            <UserCheck className="h-8 w-8 shrink-0"/>
+                            <div>
+                                <p className="font-bold text-lg">Sudah Absen Masuk</p>
+                                <p className="text-sm text-muted-foreground">Anda saat ini sedang bekerja.</p>
+                            </div>
+                        </div>
+                    ) : status === 'out' ? (
+                        <div className="flex items-start gap-3 text-red-600 dark:text-red-400">
+                            <UserX className="h-8 w-8 shrink-0"/>
+                            <div>
+                                <p className="font-bold text-lg">Sudah Absen Keluar</p>
+                                <p className="text-sm text-muted-foreground">Anda telah menyelesaikan shift Anda.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-muted-foreground">Anda belum absen masuk hari ini.</p>
+                    )}
+                    <DialogTrigger asChild>
+                        <Button variant="outline" className="w-full">
+                            <History className="mr-2" /> Lihat Riwayat Lengkap
+                        </Button>
+                    </DialogTrigger>
+                </CardContent>
+             </Card>
+
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                <DialogTitle>Riwayat Absensi Anda</DialogTitle>
+                <DialogDescription>
+                    Berikut adalah seluruh catatan absensi Anda yang tersimpan di sistem.
+                </DialogDescription>
+                </DialogHeader>
+                  <div className="border rounded-lg overflow-y-auto max-h-[60vh]">
                     <Table>
                     <TableHeader>
                         <TableRow>
@@ -445,11 +511,11 @@ export default function EmployeeDashboard() {
                     </TableHeader>
                     <TableBody>
                         {loadingHistory ? (
-                            Array.from({ length: 3 }).map((_, index) => (
+                            Array.from({ length: 5 }).map((_, index) => (
                                 <TableRow key={index}>
                                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                 <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                <TableCell className="text-right"><Skeleton className="h-6 w-16 ml-auto" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-6 w-20 ml-auto" /></TableCell>
                                 </TableRow>
                             ))
                         ) : attendanceHistory.length > 0 ? (
@@ -481,48 +547,10 @@ export default function EmployeeDashboard() {
                     </TableBody>
                     </Table>
                 </div>
-             </CardContent>
-          </Card>
-        </div>
+            </DialogContent>
+          </Dialog>
 
-        <div className="space-y-8">
-          <Card className="shadow-lg rounded-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Clock /> Waktu Saat Ini</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <p className="text-4xl font-bold text-primary">{time || '...'}</p>
-              <p className="text-muted-foreground">{date || '...'}</p>
-            </CardContent>
-          </Card>
-          <Card className="shadow-lg rounded-xl">
-             <CardHeader>
-                <CardTitle>Status Kehadiran</CardTitle>
-             </CardHeader>
-             <CardContent>
-                {loadingHistory ? (
-                     <Skeleton className="h-8 w-48" />
-                ) : status === 'in' ? (
-                    <div className="flex items-start gap-3 text-green-600 dark:text-green-400">
-                        <UserCheck className="h-8 w-8 shrink-0"/>
-                        <div>
-                            <p className="font-bold text-lg">Sudah Absen Masuk</p>
-                            <p className="text-sm text-muted-foreground">Anda saat ini sedang bekerja.</p>
-                        </div>
-                    </div>
-                ) : status === 'out' ? (
-                    <div className="flex items-start gap-3 text-red-600 dark:text-red-400">
-                        <UserX className="h-8 w-8 shrink-0"/>
-                        <div>
-                            <p className="font-bold text-lg">Sudah Absen Keluar</p>
-                            <p className="text-sm text-muted-foreground">Anda telah menyelesaikan shift Anda.</p>
-                        </div>
-                    </div>
-                ) : (
-                     <p className="text-muted-foreground">Anda belum absen masuk hari ini.</p>
-                )}
-             </CardContent>
-          </Card>
+
            <Card className="shadow-lg rounded-xl">
              <CardHeader>
                 <CardTitle className="flex items-center gap-2"><MapPin /> Lokasi Terakhir</CardTitle>

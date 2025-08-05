@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,14 +16,15 @@ export default function ReportsPage() {
   const { toast } = useToast();
   const [report, setReport] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (user?.role !== 'admin') {
+    // Redirect if not loading and user is not an admin.
+    if (!authLoading && user && user.role !== 'admin') {
       router.replace('/dashboard');
     }
-  }, [user, router]);
+  }, [user, authLoading, router]);
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
@@ -43,7 +45,9 @@ export default function ReportsPage() {
     }
   };
 
-  if (user?.role !== 'admin') {
+  // Render a loading state while checking for authentication or if the user is not an admin.
+  // This prevents the main content from rendering for unauthorized users and fixes the build error.
+  if (authLoading || !user || user.role !== 'admin') {
     return (
       <div className="flex h-[80vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -51,6 +55,7 @@ export default function ReportsPage() {
     );
   }
 
+  // Render the page content only for admins.
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="grid gap-6">

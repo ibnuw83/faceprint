@@ -35,7 +35,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { cn } from '@/lib/utils';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LiveClock } from '@/components/live-clock';
 
 function Header() {
   const { user, logout, loading } = useAuth();
@@ -123,6 +123,7 @@ function Header() {
       
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4 justify-end">
             {mobileNav}
+            {user?.role === 'employee' && <LiveClock />}
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">

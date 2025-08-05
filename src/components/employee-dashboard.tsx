@@ -55,8 +55,6 @@ type ScheduleSettings = {
 export default function EmployeeDashboard() {
   const { toast } = useToast();
   const { user, checkUserStatus } = useAuth();
-  const [time, setTime] = useState('');
-  const [date, setDate] = useState('');
   const [status, setStatus] = useState<'in' | 'out' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [location, setLocation] = useState<Location | null>(null);
@@ -145,11 +143,8 @@ export default function EmployeeDashboard() {
       fetchAttendanceHistory(user);
     }
     
-    const updateDateTime = () => {
-      const now = new Date();
-      setTime(now.toLocaleTimeString('id-ID'));
-      setDate(now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
-
+    const updateTimeChecks = () => {
+       const now = new Date();
       // Check schedule
       if (scheduleSettings) {
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
@@ -177,8 +172,9 @@ export default function EmployeeDashboard() {
 
       }
     };
-    updateDateTime();
-    const timerId = setInterval(updateDateTime, 1000);
+    
+    updateTimeChecks();
+    const timerId = setInterval(updateTimeChecks, 1000);
 
     const getCameraPermission = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -384,22 +380,20 @@ export default function EmployeeDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-8">
-      
-      <div className="grid gap-4 md:grid-cols-2 items-center">
-         <Card className="shadow-lg rounded-xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Clock /> Waktu Saat Ini</CardTitle>
-            </CardHeader>
-            <CardContent className="text-center">
-              <p className="text-4xl font-bold text-primary">{time || '...'}</p>
-              <p className="text-muted-foreground">{date || '...'}</p>
-            </CardContent>
-          </Card>
+    <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
+      <Card className="shadow-lg rounded-xl">
+        <CardHeader className='flex-row items-center justify-between'>
+          <div>
+            <CardTitle className="text-2xl font-bold flex items-center gap-2">
+              <Camera className="text-primary" />
+              Otentikasi Wajah
+            </CardTitle>
+            <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
+          </div>
            <Dialog>
              <DialogTrigger asChild>
-                <Button variant="outline" className="w-full h-full text-lg">
-                    <History className="mr-2" /> Lihat Riwayat Absensi
+                <Button variant="outline">
+                    <History className="mr-2" /> Lihat Riwayat
                 </Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl">
@@ -458,15 +452,6 @@ export default function EmployeeDashboard() {
                 </div>
             </DialogContent>
           </Dialog>
-      </div>
-
-      <Card className="shadow-lg rounded-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
-            <Camera className="text-primary" />
-            Otentikasi Wajah
-          </CardTitle>
-          <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar. Lokasi Anda akan direkam.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-6">
           <div className="w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed flex items-center justify-center relative">

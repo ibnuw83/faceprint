@@ -81,7 +81,7 @@ export default function EmployeeDashboard() {
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', employeeId),
-        limit(10) // We still limit to avoid fetching too much data
+        limit(10)
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
@@ -340,8 +340,10 @@ export default function EmployeeDashboard() {
         throw new Error('Verifikasi wajah gagal. Pastikan wajah Anda terlihat jelas dan coba lagi.');
       }
       
-       toast({ title: 'Wajah Terverifikasi!', description: 'Sekarang memeriksa lokasi Anda.' });
+      toast({ title: 'Wajah Terverifikasi!', description: 'Mencatat absensi tanpa validasi lokasi (sementara).', variant: 'default' });
       
+      // Temporarily disable location check
+      /*
       const currentLocation = await getLocation();
 
       if(effectiveLocationSettings) {
@@ -358,8 +360,11 @@ export default function EmployeeDashboard() {
       } else {
            toast({ title: 'Peringatan Lokasi', description: 'Pengaturan lokasi tidak ditemukan. Absen dicatat tanpa validasi lokasi.', variant: 'default' });
       }
+      */
       
       const now = new Date();
+      const currentLocation = { latitude: 0, longitude: 0 }; // Dummy location
+
       await addDoc(collection(db, 'attendance'), {
         employeeId: user.employeeId,
         employeeName: user.name,
@@ -376,7 +381,7 @@ export default function EmployeeDashboard() {
       
       toast({
         title: `Absen ${clockStatus === 'Clocked In' ? 'Masuk' : 'Keluar'} Berhasil`,
-        description: `Kehadiran Anda di [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,
+        description: `Kehadiran Anda telah dicatat.`,
       });
 
       if (user.employeeId) {
@@ -532,4 +537,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
 

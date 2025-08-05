@@ -549,36 +549,6 @@ export default function EmployeeDashboard() {
                 </div>
             </DialogContent>
           </Dialog>
-
-
-           <Card className="shadow-lg rounded-xl">
-             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><MapPin /> Lokasi Terakhir</CardTitle>
-             </CardHeader>
-             <CardContent className="min-h-[105px]">
-                {isLocating ? (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="animate-spin" />
-                    <span>Mencari lokasi...</span>
-                  </div>
-                ) : user?.lastLocation ? (
-                    <div className="text-sm">
-                      <p>Lintang: {user.lastLocation.latitude.toFixed(5)}</p>
-                      <p>Bujur: {user.lastLocation.longitude.toFixed(5)}</p>
-                       <a 
-                          href={`https://www.google.com/maps?q=${user.lastLocation.latitude},${user.lastLocation.longitude}`} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline text-xs"
-                        >
-                          Lihat di Google Maps
-                        </a>
-                    </div>
-                ) : (
-                     <p className="text-muted-foreground text-sm">Lokasi akan direkam saat Anda absen.</p>
-                )}
-             </CardContent>
-          </Card>
         </div>
       </div>
     </div>

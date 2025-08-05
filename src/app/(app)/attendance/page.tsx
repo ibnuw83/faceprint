@@ -81,7 +81,7 @@ export default function AttendancePage() {
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>(undefined);
   const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const fetchAttendanceAndSettings = useCallback(async () => {
     setLoading(true);
@@ -231,33 +231,41 @@ export default function AttendancePage() {
     doc.save(fileName);
   };
 
-   const handleDeleteAttendance = async (employeeId: string, attendanceDate: string) => {
-    setIsDeleting(true);
+  const handleDeleteAttendance = async (summaryKey: string) => {
+    setIsDeleting(summaryKey);
     try {
-        const q = query(
-            collection(db, 'attendance'),
-            where('employeeId', '==', employeeId),
-            where('date', '==', attendanceDate)
-        );
-        const querySnapshot = await getDocs(q);
+        const summaryToDelete = dailySummaries.find(s => s.key === summaryKey);
+        if (!summaryToDelete) {
+             toast({ title: 'Data tidak ditemukan', variant: 'destructive' });
+             return;
+        }
+        
+        const { employeeId, date } = summaryToDelete;
 
-        if (querySnapshot.empty) {
-            toast({ title: 'Tidak ada data untuk dihapus', variant: 'destructive' });
+        // Filter locally to find document IDs to delete
+        const docsToDelete = allAttendanceRecords.filter(
+            record => record.employeeId === employeeId && record.date === date
+        );
+
+        if (docsToDelete.length === 0) {
+            toast({ title: 'Tidak ada data untuk dihapus', description: 'Catatan mungkin sudah dihapus.', variant: 'destructive' });
             return;
         }
-
+        
         const batch = writeBatch(db);
-        querySnapshot.docs.forEach(doc => {
-            batch.delete(doc.ref);
+        docsToDelete.forEach(record => {
+            const docRef = doc(db, 'attendance', record.id);
+            batch.delete(docRef);
         });
+
         await batch.commit();
         
         toast({
             title: 'Absensi Dihapus',
-            description: `Semua catatan untuk ${employeeId} pada tanggal ${attendanceDate} telah dihapus.`,
+            description: `Semua catatan untuk ${summaryToDelete.employeeName} pada tanggal ${date} telah dihapus.`,
         });
 
-        // Refetch data
+        // Refetch data from the server
         await fetchAttendanceAndSettings();
 
     } catch (error) {
@@ -268,7 +276,7 @@ export default function AttendancePage() {
             variant: 'destructive',
         });
     } finally {
-        setIsDeleting(false);
+        setIsDeleting(null);
     }
   };
 
@@ -382,8 +390,8 @@ export default function AttendancePage() {
                        <TableCell className="text-right">
                          <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" disabled={isDeleting}>
-                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                             <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" disabled={isDeleting === summary.key}>
+                                {isDeleting === summary.key ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
@@ -396,7 +404,7 @@ export default function AttendancePage() {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Batal</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => handleDeleteAttendance(summary.employeeId, summary.date)}
+                                onClick={() => handleDeleteAttendance(summary.key)}
                                 className="bg-destructive hover:bg-destructive/90"
                               >
                                 Ya, Hapus

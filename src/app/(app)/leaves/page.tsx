@@ -82,7 +82,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
             setMyRequests(requestList);
 
              for (const req of requestList) {
-                if (req.status !== 'Menunggu' && !req.acknowledgedByEmployee) {
+                if ((req.status === 'Disetujui' || req.status === 'Ditolak') && !req.acknowledgedByEmployee) {
                     toast({
                         title: `Pengajuan ${req.leaveType} Anda Diperbarui`,
                         description: `Status pengajuan untuk tanggal ${req.startDate} sekarang: ${req.status}.`,
@@ -123,7 +123,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                 status: 'Menunggu',
                 createdAt: Timestamp.now(),
                 statusUpdatedAt: null,
-                acknowledgedByEmployee: true, // true on creation, reset to false by admin
+                acknowledgedByEmployee: true, // Employee has "seen" it by creating it.
             });
 
             toast({ title: 'Pengajuan Terkirim', description: 'Pengajuan cuti/izin Anda telah berhasil dikirim.'});
@@ -134,7 +134,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
 
         } catch (error) {
             console.error("Error submitting request:", error);
-            toast({ title: 'Gagal Mengirim', variant: 'destructive' });
+            toast({ title: 'Gagal Mengirim', description: 'Terjadi kesalahan saat mengirim pengajuan.', variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
         }
@@ -177,6 +177,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     id="date"
                                     variant={"outline"}
                                     className="w-full justify-start text-left font-normal flex-1"
+                                    disabled={isSubmitting}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                     {dates?.from ? (
@@ -217,7 +218,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                             />
                         </div>
                         <div className='flex justify-end'>
-                            <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting}>
+                            <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || !leaveType || !reason || !dates?.from}>
                                 {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
                                 Kirim Pengajuan
                             </Button>
@@ -244,6 +245,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     <TableHead>Jenis</TableHead>
                                     <TableHead>Tanggal Mulai</TableHead>
                                     <TableHead>Tanggal Selesai</TableHead>
+                                    <TableHead>Alasan</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -254,6 +256,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                     </TableRow>
                                 ))
@@ -263,6 +266,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         <TableCell>{req.leaveType}</TableCell>
                                         <TableCell>{req.startDate}</TableCell>
                                         <TableCell>{req.endDate}</TableCell>
+                                        <TableCell><p className='w-40 truncate'>{req.reason}</p></TableCell>
                                         <TableCell>
                                             <Badge variant={statusBadgeVariant[req.status]}>
                                             {req.status}
@@ -272,7 +276,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                 ))
                                 ) : (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
                                         Belum ada data pengajuan.
                                     </TableCell>
                                 </TableRow>
@@ -290,6 +294,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
 function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
     const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(true);
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
 
     const fetchAllRequests = useCallback(async () => {
         setLoading(true);
@@ -311,6 +316,7 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
     }, [fetchAllRequests]);
 
     const handleUpdateStatus = async (id: string, status: 'Disetujui' | 'Ditolak') => {
+        setUpdatingId(id);
         try {
             const docRef = doc(db, 'leaveRequests', id);
             await updateDoc(docRef, { 
@@ -323,6 +329,8 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
         } catch (error) {
             console.error('Error updating status:', error);
             toast({ title: 'Gagal Memperbarui', variant: 'destructive'});
+        } finally {
+            setUpdatingId(null);
         }
     }
 
@@ -346,8 +354,8 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                             <TableRow>
                                 <TableHead>Nama Karyawan</TableHead>
                                 <TableHead>Jenis</TableHead>
-                                <TableHead>Tanggal Mulai</TableHead>
-                                <TableHead>Tanggal Selesai</TableHead>
+                                <TableHead>Tanggal</TableHead>
+                                <TableHead>Alasan</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
@@ -358,8 +366,8 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                 <TableRow key={index}>
                                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-8 w-28 ml-auto" /></TableCell>
                                 </TableRow>
@@ -369,8 +377,8 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                 <TableRow key={req.id}>
                                     <TableCell className="font-medium">{req.employeeName}</TableCell>
                                     <TableCell>{req.leaveType}</TableCell>
-                                    <TableCell>{req.startDate}</TableCell>
-                                    <TableCell>{req.endDate}</TableCell>
+                                    <TableCell>{req.startDate} - {req.endDate}</TableCell>
+                                    <TableCell><p className='w-40 truncate' title={req.reason}>{req.reason}</p></TableCell>
                                     <TableCell>
                                         <Badge variant={statusBadgeVariant[req.status]}>
                                         {req.status}
@@ -379,8 +387,12 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                     <TableCell className="text-right">
                                         {req.status === 'Menunggu' && (
                                             <div className="flex gap-2 justify-end">
-                                            <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(req.id, 'Ditolak')}>Tolak</Button>
-                                            <Button size="sm" onClick={() => handleUpdateStatus(req.id, 'Disetujui')}>Setujui</Button>
+                                                <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(req.id, 'Ditolak')} disabled={updatingId === req.id}>
+                                                    {updatingId === req.id ? <Loader2 className="animate-spin" /> : 'Tolak'}
+                                                </Button>
+                                                <Button size="sm" onClick={() => handleUpdateStatus(req.id, 'Disetujui')} disabled={updatingId === req.id}>
+                                                    {updatingId === req.id ? <Loader2 className="animate-spin" /> : 'Setujui'}
+                                                </Button>
                                             </div>
                                         )}
                                     </TableCell>
@@ -420,3 +432,5 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
+
+    

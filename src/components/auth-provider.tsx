@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await updateProfile(fbUser, { displayName: name });
       
       // Default role is 'employee'. If registering 'admin@visageid.com', set role to 'admin'.
-      const role = email.toLowerCase() === 'admin@visageid.com' ? 'admin' : 'employee';
+      const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
 
       const userRef = doc(db, "users", fbUser.uid);
       await setDoc(userRef, {

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,35 +13,34 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/use-auth';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 
-export default function LoginPage() {
-  const { login, isAuthenticated, loading } = useAuth();
+export default function RegisterPage() {
+  const { register } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/dashboard');
-    }
-  }, [isAuthenticated, router]);
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await login(email, password);
-      router.push('/dashboard');
-    } catch (error) {
+      await register(email, password, name);
+      toast({
+        title: 'Registration Successful',
+        description: 'You can now log in with your new account.',
+      });
+      router.push('/login');
+    } catch (error: any) {
       console.error(error);
       toast({
-        title: 'Login Failed',
-        description: 'Please check your email and password.',
+        title: 'Registration Failed',
+        description: error.message || 'An unexpected error occurred.',
         variant: 'destructive',
       });
     } finally {
@@ -49,33 +48,37 @@ export default function LoginPage() {
     }
   };
 
-  if (loading && !isSubmitting) {
-    return (
-       <div className="flex h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    )
-  }
-
   return (
     <Card className="w-full max-w-md shadow-2xl">
       <CardHeader className="text-center">
         <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
-          <Camera className="h-8 w-8" />
+          <UserPlus className="h-8 w-8" />
         </div>
-        <CardTitle className="text-3xl font-bold">VisageID</CardTitle>
+        <CardTitle className="text-3xl font-bold">Create an Account</CardTitle>
         <CardDescription>
-          Sign in to your account. Use an email with 'admin' for admin access.
+          Enter your details to get started with VisageID.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleRegister} className="space-y-4">
+           <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="John Doe"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isSubmitting}
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
-              placeholder="admin@example.com"
+              placeholder="user@example.com"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -90,18 +93,18 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter any password"
+              placeholder="Enter a strong password"
               disabled={isSubmitting}
             />
           </div>
           <Button type="submit" className="w-full !mt-6" size="lg" disabled={isSubmitting}>
              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
+            Register
           </Button>
         </form>
       </CardContent>
-       <CardFooter className="text-center text-sm">
-          <p>Don't have an account? <Link href="/register" className="text-primary hover:underline">Register</Link></p>
+      <CardFooter className="text-center text-sm">
+          <p>Already have an account? <Link href="/login" className="text-primary hover:underline">Log In</Link></p>
       </CardFooter>
     </Card>
   );

@@ -2,8 +2,9 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useState, useMemo, useCallback, useEffect } from 'react';
-import { Auth, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile, User as FirebaseUser } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 
 export type User = {
   uid: string;
@@ -16,6 +17,7 @@ interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   login: (email: string, pass: string) => Promise<void>;
+  register: (email: string, pass: string, name: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
@@ -29,19 +31,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setFirebaseUser(firebaseUser);
-        const isAdmin = firebaseUser.email?.toLowerCase().includes('admin') ?? false;
-        const appUser: User = {
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName || firebaseUser.email,
-          email: firebaseUser.email,
-          role: isAdmin ? 'admin' : 'employee'
-        };
-        setUser(appUser);
-        localStorage.setItem('user', JSON.stringify(appUser));
-
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        setFirebaseUser(fbUser);
+        const userRef = doc(db, 'users', fbUser.uid);
+        getDoc(userRef).then(userDoc => {
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                 const appUser: User = {
+                    uid: fbUser.uid,
+                    name: fbUser.displayName,
+                    email: fbUser.email,
+                    role: userData.role || (fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee'),
+                };
+                setUser(appUser);
+                localStorage.setItem('user', JSON.stringify(appUser));
+            }
+        });
       } else {
         setFirebaseUser(null);
         setUser(null);
@@ -53,19 +59,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-
   const login = useCallback(async (email: string, pass: string) => {
     setLoading(true);
     await signInWithEmailAndPassword(auth, email, pass);
-    // onAuthStateChanged will handle setting the user
     setLoading(false);
   }, []);
 
+  const register = useCallback(async (email: string, pass: string, name: string) => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+      const fbUser = userCredential.user;
+      
+      await updateProfile(fbUser, { displayName: name });
+
+      const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
+
+      const userRef = doc(db, "users", fbUser.uid);
+      await setDoc(userRef, {
+        uid: fbUser.uid,
+        name: name,
+        email: email,
+        role: role,
+        createdAt: new Date(),
+      });
+
+    } catch (error) {
+        console.error("Error during registration:", error);
+        throw error;
+    } finally {
+        setLoading(false);
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     setLoading(true);
     await signOut(auth);
-     // onAuthStateChanged will handle clearing the user
     setLoading(false);
   }, []);
 
@@ -74,11 +103,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       firebaseUser,
       login,
+      register,
       logout,
       isAuthenticated: user !== null,
       loading,
     }),
-    [user, firebaseUser, login, logout, loading]
+    [user, firebaseUser, login, register, logout, loading]
   );
 
   return (

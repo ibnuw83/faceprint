@@ -40,8 +40,8 @@ export default function LoginPage() {
     } catch (error) {
       console.error(error);
       toast({
-        title: 'Login Failed',
-        description: 'Please check your email and password.',
+        title: 'Gagal Masuk',
+        description: 'Silakan periksa kembali email dan kata sandi Anda.',
         variant: 'destructive',
       });
     } finally {
@@ -65,7 +65,7 @@ export default function LoginPage() {
         </div>
         <CardTitle className="text-3xl font-bold">VisageID</CardTitle>
         <CardDescription>
-          Sign in to your account. Use an email with 'admin' for admin access.
+          Masuk ke akun Anda. Gunakan email dengan 'admin' untuk akses admin.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -83,25 +83,25 @@ export default function LoginPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Kata Sandi</Label>
             <Input
               id="password"
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter any password"
+              placeholder="Masukkan kata sandi apa saja"
               disabled={isSubmitting}
             />
           </div>
           <Button type="submit" className="w-full !mt-6" size="lg" disabled={isSubmitting}>
              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
+            Masuk
           </Button>
         </form>
       </CardContent>
-       <CardFooter className="text-center text-sm">
-          <p>Don't have an account? <Link href="/register" className="text-primary hover:underline">Register</Link></p>
+       <CardFooter className="flex justify-center text-center text-sm">
+          <p>Belum punya akun? <Link href="/register" className="text-primary hover:underline">Daftar</Link></p>
       </CardFooter>
     </Card>
   );

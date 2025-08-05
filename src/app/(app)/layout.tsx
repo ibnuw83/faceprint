@@ -54,12 +54,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const navItems =
     user.role === 'admin'
       ? [
-          { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          { href: '/attendance', label: 'Attendance', icon: ClipboardList },
-          { href: '/employees', label: 'Employees', icon: Users },
-          { href: '/reports', label: 'Reports', icon: FileText },
+          { href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard },
+          { href: '/attendance', label: 'Absensi', icon: ClipboardList },
+          { href: '/employees', label: 'Karyawan', icon: Users },
+          { href: '/reports', label: 'Laporan', icon: FileText },
         ]
-      : [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }];
+      : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];
 
   return (
     <SidebarProvider>
@@ -105,6 +105,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               size="icon"
               className="ml-auto shrink-0"
               onClick={handleLogout}
+              aria-label="Keluar"
             >
               <LogOut />
             </Button>

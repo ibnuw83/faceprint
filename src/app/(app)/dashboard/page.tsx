@@ -18,8 +18,8 @@ export default function DashboardPage() {
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
-      setTime(now.toLocaleTimeString());
-      setDate(now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+      setTime(now.toLocaleTimeString('id-ID'));
+      setDate(now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
     };
     updateDateTime();
     const timer = setInterval(updateDateTime, 1000);
@@ -29,16 +29,16 @@ export default function DashboardPage() {
   const handleClockIn = () => {
     setStatus('in');
     toast({
-      title: 'Clock In Successful',
-      description: `Welcome, ${user?.name}! Your attendance has been logged at ${new Date().toLocaleTimeString()}.`,
+      title: 'Absen Masuk Berhasil',
+      description: `Selamat datang, ${user?.name}! Kehadiran Anda telah dicatat pada pukul ${new Date().toLocaleTimeString('id-ID')}.`,
     });
   };
 
   const handleClockOut = () => {
     setStatus('out');
     toast({
-      title: 'Clock Out Successful',
-      description: `Goodbye, ${user?.name}! Your departure has been logged at ${new Date().toLocaleTimeString()}.`,
+      title: 'Absen Keluar Berhasil',
+      description: `Sampai jumpa, ${user?.name}! Kepergian Anda telah dicatat pada pukul ${new Date().toLocaleTimeString('id-ID')}.`,
     });
   };
 
@@ -49,23 +49,23 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-2xl font-bold flex items-center gap-2">
               <Camera className="text-primary" />
-              Face Authentication
+              Otentikasi Wajah
             </CardTitle>
-            <CardDescription>Position your face within the frame to clock in or out.</CardDescription>
+            <CardDescription>Posisikan wajah Anda di dalam bingkai untuk absen masuk atau keluar.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-6">
             <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted border-2 border-dashed">
-              <Image src="https://placehold.co/600x400" alt="Camera feed placeholder" layout="fill" objectFit="cover" data-ai-hint="camera feed" />
+              <Image src="https://placehold.co/600x400" alt="Placeholder feed kamera" layout="fill" objectFit="cover" data-ai-hint="camera feed" />
               <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                <p className="text-white/90 font-semibold text-lg backdrop-blur-sm p-2 rounded-md">Camera View</p>
+                <p className="text-white/90 font-semibold text-lg backdrop-blur-sm p-2 rounded-md">Tampilan Kamera</p>
               </div>
             </div>
-            <div className="flex gap-4 w-full">
+            <div className="flex gap-4 w-full flex-col sm:flex-row">
               <Button onClick={handleClockIn} size="lg" className="flex-1" disabled={status === 'in'}>
-                <UserCheck className="mr-2" /> Clock In
+                <UserCheck className="mr-2" /> Absen Masuk
               </Button>
               <Button onClick={handleClockOut} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in'}>
-                <UserX className="mr-2" /> Clock Out
+                <UserX className="mr-2" /> Absen Keluar
               </Button>
             </div>
           </CardContent>
@@ -74,7 +74,7 @@ export default function DashboardPage() {
         <div className="space-y-8">
           <Card className="shadow-lg rounded-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Clock /> Current Time</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Clock /> Waktu Saat Ini</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
               <p className="text-4xl font-bold text-primary">{time || '...'}</p>
@@ -83,27 +83,27 @@ export default function DashboardPage() {
           </Card>
           <Card className="shadow-lg rounded-xl">
              <CardHeader>
-                <CardTitle>Attendance Status</CardTitle>
+                <CardTitle>Status Kehadiran</CardTitle>
              </CardHeader>
              <CardContent>
                 {status === 'in' ? (
                     <div className="flex items-center gap-3 text-green-600 dark:text-green-400">
                         <UserCheck className="h-8 w-8"/>
                         <div>
-                            <p className="font-bold text-lg">Clocked In</p>
-                            <p className="text-sm text-muted-foreground">You are currently on the clock.</p>
+                            <p className="font-bold text-lg">Sudah Absen Masuk</p>
+                            <p className="text-sm text-muted-foreground">Anda saat ini sedang bekerja.</p>
                         </div>
                     </div>
                 ) : status === 'out' ? (
                     <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
                         <UserX className="h-8 w-8"/>
                         <div>
-                            <p className="font-bold text-lg">Clocked Out</p>
-                            <p className="text-sm text-muted-foreground">You have completed your shift.</p>
+                            <p className="font-bold text-lg">Sudah Absen Keluar</p>
+                            <p className="text-sm text-muted-foreground">Anda telah menyelesaikan shift Anda.</p>
                         </div>
                     </div>
                 ) : (
-                     <p className="text-muted-foreground">You have not clocked in today.</p>
+                     <p className="text-muted-foreground">Anda belum absen masuk hari ini.</p>
                 )}
              </CardContent>
           </Card>

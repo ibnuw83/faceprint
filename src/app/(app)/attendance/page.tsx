@@ -18,27 +18,31 @@ import { attendanceRecords } from '@/lib/mock-data';
 import { ClipboardList } from 'lucide-react';
 
 export default function AttendancePage() {
+  const statusLocale: Record<string, string> = {
+    'Clocked In': 'Masuk',
+    'Clocked Out': 'Keluar',
+  }
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <Card className="shadow-lg rounded-xl">
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center gap-2">
             <ClipboardList className="text-primary" />
-            Attendance Log
+            Catatan Absensi
           </CardTitle>
           <CardDescription>
-            A complete record of all employee attendance entries.
+            Catatan lengkap dari semua entri absensi karyawan.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee Name</TableHead>
-                  <TableHead>Employee ID</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
+                  <TableHead>Nama Karyawan</TableHead>
+                  <TableHead>ID Karyawan</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Waktu</TableHead>
                   <TableHead className="text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -47,7 +51,7 @@ export default function AttendancePage() {
                   <TableRow key={record.id}>
                     <TableCell className="font-medium">{record.employeeName}</TableCell>
                     <TableCell>{record.employeeId}</TableCell>
-                    <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(record.date).toLocaleDateString('id-ID')}</TableCell>
                     <TableCell>{record.time}</TableCell>
                     <TableCell className="text-right">
                       <Badge
@@ -58,7 +62,7 @@ export default function AttendancePage() {
                             : 'bg-gray-100 text-gray-800 dark:bg-gray-800/50 dark:text-gray-300'
                         }
                       >
-                        {record.status}
+                        {statusLocale[record.status] || record.status}
                       </Badge>
                     </TableCell>
                   </TableRow>

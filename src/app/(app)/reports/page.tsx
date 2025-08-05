@@ -22,10 +22,10 @@ export default function ReportsPage() {
       const result = await attendanceReportGenerator({ attendanceLogs: logs });
       setReport(result.summaryReport);
     } catch (error) {
-      console.error('Error generating report:', error);
+      console.error('Gagal membuat laporan:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate the report. Please try again.',
+        description: 'Gagal membuat laporan. Silakan coba lagi.',
         variant: 'destructive',
       });
     } finally {
@@ -40,24 +40,24 @@ export default function ReportsPage() {
           <CardHeader>
             <CardTitle className="text-2xl font-bold flex items-center gap-2">
               <FileText className="text-primary" />
-              Attendance Report Generator
+              Generator Laporan Absensi
             </CardTitle>
             <CardDescription>
-              Use AI to analyze attendance logs and generate insightful summary reports.
+              Gunakan AI untuk menganalisis log absensi dan menghasilkan laporan ringkasan yang berwawasan.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-start gap-4">
             <p>
-              Click the button below to process the latest attendance data and generate a report highlighting trends, absences, and punctuality.
+              Klik tombol di bawah untuk memproses data absensi terbaru dan membuat laporan yang menyoroti tren, absensi, dan ketepatan waktu.
             </p>
             <Button onClick={handleGenerateReport} disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
+                  Membuat...
                 </>
               ) : (
-                'Generate Report'
+                'Buat Laporan'
               )}
             </Button>
           </CardContent>
@@ -66,7 +66,7 @@ export default function ReportsPage() {
         {isLoading && (
             <Card className="shadow-lg rounded-xl">
                 <CardHeader>
-                    <CardTitle>Generated Report</CardTitle>
+                    <CardTitle>Laporan yang Dihasilkan</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <Skeleton className="h-4 w-full" />
@@ -81,7 +81,7 @@ export default function ReportsPage() {
         {report && (
           <Card className="shadow-lg rounded-xl">
             <CardHeader>
-              <CardTitle>Generated Summary Report</CardTitle>
+              <CardTitle>Laporan Ringkasan yang Dihasilkan</CardTitle>
             </CardHeader>
             <CardContent>
               <pre className="bg-muted p-4 rounded-lg whitespace-pre-wrap font-code text-sm leading-relaxed">

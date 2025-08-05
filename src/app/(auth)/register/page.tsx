@@ -32,15 +32,15 @@ export default function RegisterPage() {
     try {
       await register(email, password, name);
       toast({
-        title: 'Registration Successful',
-        description: 'You can now log in with your new account.',
+        title: 'Pendaftaran Berhasil',
+        description: 'Anda sekarang dapat masuk dengan akun baru Anda.',
       });
       router.push('/login');
     } catch (error: any) {
       console.error(error);
       toast({
-        title: 'Registration Failed',
-        description: error.message || 'An unexpected error occurred.',
+        title: 'Pendaftaran Gagal',
+        description: error.message || 'Terjadi kesalahan tak terduga.',
         variant: 'destructive',
       });
     } finally {
@@ -54,15 +54,15 @@ export default function RegisterPage() {
         <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
           <UserPlus className="h-8 w-8" />
         </div>
-        <CardTitle className="text-3xl font-bold">Create an Account</CardTitle>
+        <CardTitle className="text-3xl font-bold">Buat Akun</CardTitle>
         <CardDescription>
-          Enter your details to get started with VisageID.
+          Masukkan detail Anda untuk memulai dengan VisageID.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleRegister} className="space-y-4">
            <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
+            <Label htmlFor="name">Nama Lengkap</Label>
             <Input
               id="name"
               type="text"
@@ -86,25 +86,25 @@ export default function RegisterPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">Kata Sandi</Label>
             <Input
               id="password"
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter a strong password"
+              placeholder="Masukkan kata sandi yang kuat"
               disabled={isSubmitting}
             />
           </div>
           <Button type="submit" className="w-full !mt-6" size="lg" disabled={isSubmitting}>
              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Register
+            Daftar
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="text-center text-sm">
-          <p>Already have an account? <Link href="/login" className="text-primary hover:underline">Log In</Link></p>
+      <CardFooter className="flex justify-center text-center text-sm">
+          <p>Sudah punya akun? <Link href="/login" className="text-primary hover:underline">Masuk</Link></p>
       </CardFooter>
     </Card>
   );

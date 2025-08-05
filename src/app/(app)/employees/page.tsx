@@ -27,27 +27,27 @@ export default function EmployeesPage() {
           <div>
             <CardTitle className="text-2xl font-bold flex items-center gap-2">
               <Users className="text-primary" />
-              Employee Management
+              Manajemen Karyawan
             </CardTitle>
             <CardDescription>
-              View, add, or manage employee profiles.
+              Lihat, tambah, atau kelola profil karyawan.
             </CardDescription>
           </div>
           <Button asChild>
             <Link href="/employees/new">
-              <PlusCircle className="mr-2" /> Add Employee
+              <PlusCircle className="mr-2" /> Tambah Karyawan
             </Link>
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>Karyawan</TableHead>
+                  <TableHead>Departemen</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Hire Date</TableHead>
+                  <TableHead>Tanggal Diterima</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -67,7 +67,7 @@ export default function EmployeesPage() {
                     </TableCell>
                     <TableCell>{employee.department}</TableCell>
                     <TableCell>{employee.email}</TableCell>
-                    <TableCell>{new Date(employee.hireDate).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(employee.hireDate).toLocaleDateString('id-ID')}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

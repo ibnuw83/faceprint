@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -31,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/use-auth';
 
 type User = {
   uid: string;
@@ -53,6 +53,7 @@ export default function EmployeesPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user: authUser } = useAuth();
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -74,8 +75,10 @@ export default function EmployeesPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (authUser?.role === 'admin') {
+      fetchUsers();
+    }
+  }, [authUser]);
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini? Tindakan ini tidak dapat diurungkan.')) {

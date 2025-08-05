@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -8,6 +7,8 @@ import { Camera, Clock, UserCheck, UserX, MapPin, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/use-auth';
 import { useState, useEffect } from 'react';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type Location = {
   latitude: number;
@@ -16,7 +17,7 @@ type Location = {
 
 export default function EmployeeDashboard() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, checkUserStatus } = useAuth();
   const [time, setTime] = useState('');
   const [date, setDate] = useState('');
   const [status, setStatus] = useState<'in' | 'out' | null>(null);
@@ -52,21 +53,28 @@ export default function EmployeeDashboard() {
         (error) => {
           setIsLocating(false);
           reject(new Error(`Gagal mendapatkan lokasi: ${error.message}`));
-        }
+        },
+        { enableHighAccuracy: true } // Request more accurate location
       );
     });
   };
 
   const handleClockIn = async () => {
+    if (!user) return;
     try {
       const currentLocation = await getLocation();
       setLocation(currentLocation);
       setStatus('in');
+      
+      // Save location to user's profile in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { lastLocation: currentLocation });
+      await checkUserStatus(); // Refresh auth context
+
       toast({
         title: 'Absen Masuk Berhasil',
-        description: `Selamat datang, ${user?.name}! Kehadiran Anda di [${currentLocation.latitude}, ${currentLocation.longitude}] telah dicatat.`,
+        description: `Selamat datang, ${user?.name}! Kehadiran Anda di [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,
       });
-      // Here you would typically save the attendance record with location to your database
     } catch (error: any) {
       toast({
         title: 'Gagal Absen Masuk',
@@ -77,15 +85,21 @@ export default function EmployeeDashboard() {
   };
 
   const handleClockOut = async () => {
+    if (!user) return;
     try {
       const currentLocation = await getLocation();
       setLocation(currentLocation);
       setStatus('out');
+
+      // Save location to user's profile in Firestore
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { lastLocation: currentLocation });
+      await checkUserStatus(); // Refresh auth context
+
       toast({
         title: 'Absen Keluar Berhasil',
-        description: `Sampai jumpa, ${user?.name}! Kepergian Anda dari [${currentLocation.latitude}, ${currentLocation.longitude}] telah dicatat.`,
+        description: `Sampai jumpa, ${user?.name}! Kepergian Anda dari [${currentLocation.latitude.toFixed(5)}, ${currentLocation.longitude.toFixed(5)}] telah dicatat.`,
       });
-       // Here you would typically save the attendance record with location to your database
     } catch (error: any)       {
       toast({
         title: 'Gagal Absen Keluar',

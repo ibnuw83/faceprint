@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -13,6 +12,10 @@ export type User = {
   email: string | null;
   role: 'admin' | 'employee';
   isProfileComplete: boolean;
+  lastLocation?: {
+    latitude: number,
+    longitude: number
+  };
 };
 
 interface AuthContextType {
@@ -43,6 +46,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         email: fbUser.email,
         role: role,
         isProfileComplete: userData.isProfileComplete || false,
+        lastLocation: userData.lastLocation || null,
       };
     }
      console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user.`);
@@ -81,8 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const checkUserStatus = useCallback(async () => {
-    // This function will re-fetch user data if needed.
-    // It's useful after manual profile updates.
     const fbUser = auth.currentUser;
     setLoading(true);
     await updateUserState(fbUser);
@@ -96,7 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, pass: string) => {
     await signInWithEmailAndPassword(auth, email, pass);
-    // onAuthStateChanged will handle updating the state by calling updateUserState
   }, []);
 
   const register = useCallback(async (email: string, pass: string, name: string) => {
@@ -107,7 +108,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
 
-    // For admins, their profile is complete by default.
     const isProfileComplete = role === 'admin';
 
     const userRef = doc(db, "users", fbUser.uid);
@@ -119,12 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isProfileComplete: isProfileComplete, 
       createdAt: new Date(),
     });
-    // onAuthStateChanged will handle the rest
   }, []);
 
   const logout = useCallback(async () => {
     await signOut(auth);
-    // onAuthStateChanged will clear the state
   }, []);
 
   const authContextValue = useMemo(
@@ -147,5 +145,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-
-    

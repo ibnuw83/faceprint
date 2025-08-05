@@ -49,7 +49,7 @@ import { useRouter } from 'next/navigation';
 type LocationSettings = {
     latitude: number;
     longitude: number;
-    radius: number;
+    radius: number; // This might be unused now on the user object, but we keep it for type consistency with global settings
 }
 
 type User = {
@@ -83,7 +83,6 @@ export default function EmployeesPage() {
   const [editEmployeeId, setEditEmployeeId] = useState('');
   const [editLat, setEditLat] = useState('');
   const [editLng, setEditLng] = useState('');
-  const [editRadius, setEditRadius] = useState('');
 
 
   const fetchUsers = useCallback(async () => {
@@ -140,7 +139,6 @@ export default function EmployeesPage() {
     setEditEmployeeId(user.employeeId || '');
     setEditLat(user.locationSettings?.latitude?.toString() || '');
     setEditLng(user.locationSettings?.longitude?.toString() || '');
-    setEditRadius(user.locationSettings?.radius?.toString() || '');
     setIsDialogOpen(true);
   };
   
@@ -155,27 +153,26 @@ export default function EmployeesPage() {
 
         const latStr = editLat.trim().replace(',', '.');
         const lngStr = editLng.trim().replace(',', '.');
-        const radiusStr = editRadius.trim();
 
-        // Only update location if all three fields are provided
-        if (latStr && lngStr && radiusStr) {
+        // Only update location if both fields are provided
+        if (latStr && lngStr) {
             const lat = Number(latStr);
             const lng = Number(lngStr);
-            const radius = Number(radiusStr);
 
-            if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-                toast({ title: 'Input Lokasi Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka yang valid.', variant: 'destructive' });
+            if (isNaN(lat) || isNaN(lng)) {
+                toast({ title: 'Input Lokasi Tidak Valid', description: 'Pastikan Latitude dan Longitude adalah angka yang valid.', variant: 'destructive' });
                 setIsSaving(false);
                 return;
             }
              updateData.locationSettings = {
                 latitude: lat,
                 longitude: lng,
-                radius: radius,
-            };
-        } else if (latStr || lngStr || radiusStr) {
+                // Radius is now managed globally, but we might store a null or default value
+                // For now, let's just set the required fields. Firestore can handle missing fields.
+             };
+        } else if (latStr || lngStr) {
             // If some but not all fields are filled, show an error
-            toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, semua field (Latitude, Longitude, Radius) harus diisi.', variant: 'destructive' });
+            toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, kedua field (Latitude, Longitude) harus diisi.', variant: 'destructive' });
             setIsSaving(false);
             return;
         } else {
@@ -270,7 +267,6 @@ export default function EmployeesPage() {
                            <div className="text-xs">
                              <p>Lat: {user.locationSettings.latitude.toFixed(4)}</p>
                              <p>Lng: {user.locationSettings.longitude.toFixed(4)}</p>
-                             <p>Radius: {user.locationSettings.radius}m</p>
                            </div>
                         ) : (
                           <span className="text-muted-foreground text-xs italic">Mengikuti Global</span>
@@ -334,10 +330,6 @@ export default function EmployeesPage() {
                      <div className="space-y-2">
                         <Label htmlFor="lng" className="text-xs">Longitude</Label>
                         <Input id="lng" value={editLng} onChange={(e) => setEditLng(e.target.value)} type="text" placeholder="contoh: 106.816666" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="radius" className="text-xs">Radius (meter)</Label>
-                        <Input id="radius" value={editRadius} onChange={(e) => setEditRadius(e.target.value)} type="number" placeholder="contoh: 100" />
                     </div>
                 </div>
             </div>

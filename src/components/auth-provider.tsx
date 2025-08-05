@@ -128,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const role = userData.role || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
                 
                 let locationSettings = null;
+                // This is the critical fix: ensure data from Firestore is converted to Number.
                 if (userData.locationSettings && 
                     userData.locationSettings.latitude != null && 
                     userData.locationSettings.longitude != null && 
@@ -152,7 +153,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     employeeId: userData.employeeId || null,
                 });
             } else {
-                setUser(null);
+                // This might happen for a brand new user before their doc is created.
+                 const role = firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
+                 setUser({
+                    uid: firebaseUser.uid,
+                    name: firebaseUser.displayName,
+                    email: firebaseUser.email,
+                    role: role,
+                    isProfileComplete: role === 'admin', // Admins are complete by default
+                 });
             }
             setLoading(false);
         }, (error) => {

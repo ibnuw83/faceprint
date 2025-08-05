@@ -33,7 +33,7 @@ type Department = {
 export default function DepartmentsPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   
   const [departments, setDepartments] = useState<Department[]>([]);
   const [newDepartmentName, setNewDepartmentName] = useState('');
@@ -61,12 +61,14 @@ export default function DepartmentsPage() {
   }, [toast]);
   
   useEffect(() => {
-    if (user?.role !== 'admin') {
-      router.replace('/dashboard');
-      return;
+    if (!authLoading) {
+      if (user?.role !== 'admin') {
+        router.replace('/dashboard');
+        return;
+      }
+      fetchDepartments();
     }
-    fetchDepartments();
-  }, [user, router, fetchDepartments]);
+  }, [user, authLoading, router, fetchDepartments]);
 
   const handleAddDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,14 +78,14 @@ export default function DepartmentsPage() {
     }
     setIsSubmitting(true);
     try {
-      const docRef = await addDoc(collection(db, 'departments'), { name: newDepartmentName.trim() });
+      await addDoc(collection(db, 'departments'), { name: newDepartmentName.trim() });
       toast({
         title: 'Departemen Berhasil Ditambahkan',
         description: `Departemen "${newDepartmentName.trim()}" telah dibuat.`,
       });
-      // Add to local state immediately for better UX
-      setDepartments(prev => [...prev, {id: docRef.id, name: newDepartmentName.trim()}].sort((a,b) => a.name.localeCompare(b.name)));
       setNewDepartmentName('');
+      // Refetch departments to show the new one
+      await fetchDepartments();
     } catch (error) {
       console.error('Error adding department:', error);
       toast({
@@ -104,7 +106,8 @@ export default function DepartmentsPage() {
         title: 'Departemen Berhasil Dihapus',
         description: 'Departemen yang dipilih telah dihapus.',
       });
-      setDepartments(prev => prev.filter(d => d.id !== departmentId));
+      // Refetch to update list
+      await fetchDepartments();
     } catch (error) {
       console.error('Error deleting department:', error);
       toast({
@@ -117,14 +120,19 @@ export default function DepartmentsPage() {
     }
   };
   
-  if (user?.role !== 'admin') {
-    return null;
+  // Prevent flash of content for non-admins
+  if (authLoading || user?.role !== 'admin') {
+     return (
+       <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+     )
   }
 
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <div className="grid gap-8 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-1 space-y-6">
             <Card className="shadow-lg rounded-xl">
             <CardHeader>
                 <CardTitle className="text-2xl font-bold flex items-center gap-2">
@@ -165,7 +173,7 @@ export default function DepartmentsPage() {
             </Card>
         </div>
 
-        <Card className="shadow-lg rounded-xl h-fit">
+        <Card className="shadow-lg rounded-xl lg:col-span-2 h-fit">
           <CardHeader>
             <CardTitle className="text-2xl font-bold flex items-center gap-2">
               <List className="text-primary" />
@@ -198,7 +206,7 @@ export default function DepartmentsPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Apakah Anda Yakin?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tindakan ini akan menghapus departemen "{dept.name}" secara permanen dan tidak dapat diurungkan.
+                            Tindakan ini akan menghapus departemen "{dept.name}" secara permanen. Pengguna yang terhubung dengan departemen ini tidak akan terhapus tetapi perlu diperbarui.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -220,5 +228,5 @@ export default function DepartmentsPage() {
       </div>
     </div>
   );
-
+}
     

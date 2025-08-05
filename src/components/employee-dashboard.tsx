@@ -78,7 +78,8 @@ export default function EmployeeDashboard() {
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.employeeId),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(10) // Get the last 10 records for performance
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs
@@ -88,17 +89,18 @@ export default function EmployeeDashboard() {
       
       if (history.length > 0) {
         const lastRecord = history[0];
+        // Check if the last record is for today to determine current status
         if (lastRecord.date === new Date().toLocaleDateString('id-ID')) {
             if (lastRecord.status === 'Clocked In') {
                 setStatus('in');
             } else {
-                setStatus('out');
+                setStatus('out'); // Clocked out today
             }
         } else {
-            setStatus(null);
+            setStatus(null); // Last record was from a previous day
         }
       } else {
-        setStatus(null);
+        setStatus(null); // No history at all
       }
 
     } catch (error) {
@@ -124,7 +126,7 @@ export default function EmployeeDashboard() {
   
   // Fetch initial data (history & settings)
   useEffect(() => {
-    const fetchScheduleSettings = async () => {
+    const fetchInitialData = async () => {
         try {
             const scheduleRef = doc(db, 'settings', 'schedule');
             const scheduleSnap = await getDoc(scheduleRef);
@@ -134,12 +136,14 @@ export default function EmployeeDashboard() {
         } catch (error) {
             console.error("Error fetching schedule settings:", error);
         }
-    }
 
-    fetchScheduleSettings();
-    if(user){
-      fetchAttendanceHistory(user);
+        if(user){
+            await fetchAttendanceHistory(user);
+        }
     }
+    
+    fetchInitialData();
+
   }, [user, fetchAttendanceHistory]);
 
   // Effect for handling time-based logic (scheduling)
@@ -398,7 +402,7 @@ export default function EmployeeDashboard() {
                 <DialogHeader>
                 <DialogTitle>Riwayat Absensi Anda</DialogTitle>
                 <DialogDescription>
-                    Berikut adalah seluruh catatan absensi Anda yang tersimpan di sistem.
+                    Berikut adalah 10 catatan absensi terakhir Anda yang tersimpan di sistem.
                 </DialogDescription>
                 </DialogHeader>
                   <div className="border rounded-lg overflow-y-auto max-h-[60vh]">

@@ -38,6 +38,11 @@ type LocationSettings = {
     radius: number;
 }
 
+type ScheduleSettings = {
+    clockInTime: string;
+    clockOutTime: string;
+}
+
 export default function EmployeeDashboard() {
   const { toast } = useToast();
   const { user, checkUserStatus } = useAuth();
@@ -56,13 +61,15 @@ export default function EmployeeDashboard() {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
+  const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
+  const [isClockInAllowed, setIsClockInAllowed] = useState(true);
+  const [isClockOutAllowed, setIsClockOutAllowed] = useState(false);
+
+
   const fetchAttendanceHistory = useCallback(async (currentUser: User) => {
     if (!currentUser) return;
     setLoadingHistory(true);
     try {
-      // NOTE: orderBy('createdAt', 'desc') requires a composite index in Firestore.
-      // It has been removed to prevent query failures if the index doesn't exist.
-      // To re-enable, create the index: (collection: attendance, fields: employeeId ASC, createdAt DESC)
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.uid),
@@ -70,7 +77,6 @@ export default function EmployeeDashboard() {
       );
       const querySnapshot = await getDocs(q);
       const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
-        // Manual sort on the client-side as a fallback
         .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
 
       setAttendanceHistory(history);
@@ -103,6 +109,19 @@ export default function EmployeeDashboard() {
   }, [toast]);
 
   useEffect(() => {
+    const fetchScheduleSettings = async () => {
+        try {
+            const scheduleRef = doc(db, 'settings', 'schedule');
+            const scheduleSnap = await getDoc(scheduleRef);
+            if (scheduleSnap.exists()) {
+                setScheduleSettings(scheduleSnap.data() as ScheduleSettings);
+            }
+        } catch (error) {
+            console.error("Error fetching schedule settings:", error);
+        }
+    }
+
+    fetchScheduleSettings();
     if(user){
       fetchAttendanceHistory(user);
     }
@@ -111,6 +130,19 @@ export default function EmployeeDashboard() {
       const now = new Date();
       setTime(now.toLocaleTimeString('id-ID'));
       setDate(now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+
+      // Check schedule
+      if (scheduleSettings) {
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        
+        const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
+        const clockInStartTime = inHours * 60 + inMinutes;
+        setIsClockInAllowed(currentTime >= clockInStartTime);
+
+        const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
+        const clockOutStartTime = outHours * 60 + outMinutes;
+        setIsClockOutAllowed(currentTime >= clockOutStartTime);
+      }
     };
     updateDateTime();
     const timerId = setInterval(updateDateTime, 1000);
@@ -151,7 +183,7 @@ export default function EmployeeDashboard() {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [toast, user, fetchAttendanceHistory]);
+  }, [toast, user, fetchAttendanceHistory, scheduleSettings]);
 
   useEffect(() => {
     if (selectedCamera && hasCameraPermission && videoRef.current) {
@@ -371,11 +403,11 @@ export default function EmployeeDashboard() {
                 )}
 
               <div className="flex gap-4 w-full flex-col sm:flex-row">
-                <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission}>
+                <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={status === 'in' || isProcessing || !hasCameraPermission || !isClockInAllowed}>
                   {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
                   Absen Masuk
                 </Button>
-                <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission}>
+                <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={status !== 'in' || isProcessing || !hasCameraPermission || !isClockOutAllowed}>
                    {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
                   Absen Keluar
                 </Button>

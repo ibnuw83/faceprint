@@ -80,6 +80,11 @@ export default function SettingsPage() {
   const [attendanceRadius, setAttendanceRadius] = useState('');
   const [isSavingLocation, setIsSavingLocation] = useState(false);
 
+  // Schedule settings
+  const [clockInTime, setClockInTime] = useState('');
+  const [clockOutTime, setClockOutTime] = useState('');
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+
 
   // Apply theme and logo from localStorage on initial load
   useEffect(() => {
@@ -120,21 +125,29 @@ export default function SettingsPage() {
         }
     }
 
-    const fetchLocationSettings = async () => {
-        const settingsRef = doc(db, 'settings', 'location');
-        const docSnap = await getDoc(settingsRef);
-        if (docSnap.exists()) {
-            const data = docSnap.data();
+    const fetchSettings = async () => {
+        const locationRef = doc(db, 'settings', 'location');
+        const locationSnap = await getDoc(locationRef);
+        if (locationSnap.exists()) {
+            const data = locationSnap.data();
             setOfficeLat(data.latitude || '');
             setOfficeLng(data.longitude || '');
             setAttendanceRadius(data.radius || '');
+        }
+
+        const scheduleRef = doc(db, 'settings', 'schedule');
+        const scheduleSnap = await getDoc(scheduleRef);
+        if (scheduleSnap.exists()) {
+            const data = scheduleSnap.data();
+            setClockInTime(data.clockInTime || '');
+            setClockOutTime(data.clockOutTime || '');
         }
     }
 
     applyTheme();
     loadLogo();
     loadAppName();
-    fetchLocationSettings();
+    fetchSettings();
   }, []);
 
   const handleColorChange = (colorType: 'primary' | 'background' | 'accent', value: string) => {
@@ -234,6 +247,27 @@ export default function SettingsPage() {
         toast({ title: 'Gagal Menyimpan', description: 'Terjadi kesalahan saat menyimpan pengaturan lokasi.', variant: 'destructive'});
     } finally {
         setIsSavingLocation(false);
+    }
+  }
+
+  const saveScheduleSettings = async () => {
+    if (!clockInTime || !clockOutTime) {
+        toast({ title: 'Waktu Tidak Lengkap', description: 'Harap isi kedua waktu absensi.', variant: 'destructive' });
+        return;
+    }
+    setIsSavingSchedule(true);
+    try {
+        const settingsRef = doc(db, 'settings', 'schedule');
+        await setDoc(settingsRef, {
+            clockInTime: clockInTime,
+            clockOutTime: clockOutTime,
+        });
+        toast({ title: 'Jadwal Disimpan', description: 'Jadwal absensi telah berhasil diperbarui.'});
+    } catch (error) {
+         console.error('Error saving schedule settings:', error);
+        toast({ title: 'Gagal Menyimpan Jadwal', description: 'Terjadi kesalahan saat menyimpan jadwal.', variant: 'destructive'});
+    } finally {
+        setIsSavingSchedule(false);
     }
   }
 
@@ -405,18 +439,21 @@ export default function SettingsPage() {
                 <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="clockInTime">Waktu Mulai Absen Masuk</Label>
-                        <Input id="clockInTime" type="time" disabled/>
+                        <Input id="clockInTime" type="time" value={clockInTime} onChange={e => setClockInTime(e.target.value)} disabled={isSavingSchedule} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="clockOutTime">Waktu Mulai Absen Keluar</Label>
-                        <Input id="clockOutTime" type="time" disabled/>
+                        <Input id="clockOutTime" type="time" value={clockOutTime} onChange={e => setClockOutTime(e.target.value)} disabled={isSavingSchedule} />
                     </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                    Fitur ini sedang dalam pengembangan. Nantinya, Anda dapat menentukan kapan tombol absen aktif untuk karyawan.
+                    Tentukan kapan tombol absen aktif untuk karyawan.
                 </p>
              <div className="pt-4">
-                 <Button disabled>Simpan Jadwal</Button>
+                 <Button onClick={saveScheduleSettings} disabled={isSavingSchedule}>
+                    {isSavingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                    Simpan Jadwal
+                 </Button>
              </div>
           </div>
         </CardContent>

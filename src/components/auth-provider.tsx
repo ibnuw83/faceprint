@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     uid: fbUser.uid,
                     name: fbUser.displayName,
                     email: fbUser.email,
-                    role: userData.role || (fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee'),
+                    role: userData.role || 'employee',
                 };
                 setUser(appUser);
                 localStorage.setItem('user', JSON.stringify(appUser));
@@ -73,7 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await updateProfile(fbUser, { displayName: name });
 
-      const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
+      // All new users are registered as 'employee' by default.
+      // To make a user an admin, you must manually change their role in the Firestore database.
+      const role = 'employee';
 
       const userRef = doc(db, "users", fbUser.uid);
       await setDoc(userRef, {

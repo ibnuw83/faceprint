@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, MapPin, Loader2 } from 'lucide-react';
+import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -35,7 +35,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
@@ -63,10 +62,6 @@ type User = {
   role: 'admin' | 'employee';
   employeeId?: string;
   faceprint?: string;
-  lastLocation?: {
-    latitude: number;
-    longitude: number;
-  };
   locationSettings?: LocationSettings;
 };
 
@@ -78,10 +73,14 @@ export default function EmployeesPage() {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [lat, setLat] = useState('');
-  const [lng, setLng] = useState('');
-  const [radius, setRadius] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // State for the edit form
+  const [editName, setEditName] = useState('');
+  const [editEmployeeId, setEditEmployeeId] = useState('');
+  const [editLat, setEditLat] = useState('');
+  const [editLng, setEditLng] = useState('');
+  const [editRadius, setEditRadius] = useState('');
 
 
   const fetchUsers = useCallback(async () => {
@@ -90,7 +89,7 @@ export default function EmployeesPage() {
       const usersCollection = collection(db, 'users');
       const userSnapshot = await getDocs(usersCollection);
       const userList = userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
-      setUsers(userList);
+      setUsers(userList.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
     } catch (error) {
       console.error("Error fetching users:", error);
       toast({
@@ -110,7 +109,6 @@ export default function EmployeesPage() {
   }, [authUser, fetchUsers]);
 
   const handleDeleteUser = async (userId: string) => {
-    // Note: This uses the browser's confirm dialog. For a better UX, an AlertDialog could be used.
     if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini? Tindakan ini tidak dapat diurungkan.')) {
       return;
     }
@@ -120,7 +118,7 @@ export default function EmployeesPage() {
         title: 'Pengguna Dihapus',
         description: 'Pengguna telah berhasil dihapus dari sistem.',
       });
-      fetchUsers(); // Refresh user list
+      fetchUsers(); 
     } catch (error) {
        console.error("Error deleting user:", error);
        toast({
@@ -133,40 +131,59 @@ export default function EmployeesPage() {
 
   const handleEditClick = (user: User) => {
     setEditingUser(user);
-    setLat(user.locationSettings?.latitude?.toString() || '');
-    setLng(user.locationSettings?.longitude?.toString() || '');
-    setRadius(user.locationSettings?.radius?.toString() || '');
+    setEditName(user.name || '');
+    setEditEmployeeId(user.employeeId || '');
+    setEditLat(user.locationSettings?.latitude?.toString() || '');
+    setEditLng(user.locationSettings?.longitude?.toString() || '');
+    setEditRadius(user.locationSettings?.radius?.toString() || '');
     setIsDialogOpen(true);
   };
   
-  const handleSaveLocationSettings = async () => {
+  const handleSaveSettings = async () => {
       if (!editingUser) return;
       setIsSaving(true);
       try {
-        const parsedLat = parseFloat(lat);
-        const parsedLng = parseFloat(lng);
-        const parsedRadius = parseInt(radius, 10);
+        const updateData: any = {
+          name: editName,
+          employeeId: editEmployeeId,
+        };
 
-        if (isNaN(parsedLat) || isNaN(parsedLng) || isNaN(parsedRadius)) {
-             toast({ title: 'Input Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka yang valid.', variant: 'destructive' });
-             return;
+        const lat = editLat.trim();
+        const lng = editLng.trim();
+        const radius = editRadius.trim();
+
+        if (lat && lng && radius) {
+            const parsedLat = parseFloat(lat);
+            const parsedLng = parseFloat(lng);
+            const parsedRadius = parseInt(radius, 10);
+            if (isNaN(parsedLat) || isNaN(parsedLng) || isNaN(parsedRadius)) {
+                toast({ title: 'Input Lokasi Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka yang valid.', variant: 'destructive' });
+                setIsSaving(false);
+                return;
+            }
+             updateData.locationSettings = {
+                latitude: parsedLat,
+                longitude: parsedLng,
+                radius: parsedRadius,
+            };
+        } else if (lat || lng || radius) {
+            toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, semua field (Latitude, Longitude, Radius) harus diisi.', variant: 'destructive' });
+            setIsSaving(false);
+            return;
+        } else {
+            // If all location fields are empty, remove the setting
+            updateData.locationSettings = null;
         }
 
         const userRef = doc(db, 'users', editingUser.uid);
-        await updateDoc(userRef, {
-            locationSettings: {
-                latitude: parsedLat,
-                longitude: parsedLng,
-                radius: parsedRadius
-            }
-        });
+        await updateDoc(userRef, updateData);
 
-        toast({ title: 'Pengaturan Disimpan', description: `Lokasi absensi untuk ${editingUser.name} telah diperbarui.` });
-        await fetchUsers(); // Refresh data to show changes
-        setIsDialogOpen(false); // Close dialog
+        toast({ title: 'Pengaturan Disimpan', description: `Data untuk ${editingUser.name} telah diperbarui.` });
+        await fetchUsers();
+        setIsDialogOpen(false);
 
       } catch (error) {
-        console.error("Error saving user location settings:", error);
+        console.error("Error saving user settings:", error);
         toast({ title: 'Gagal Menyimpan', description: 'Terjadi kesalahan saat menyimpan pengaturan.', variant: 'destructive'});
       } finally {
         setIsSaving(false);
@@ -198,9 +215,8 @@ export default function EmployeesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Pengguna</TableHead>
-                  <TableHead>Peran</TableHead>
+                  <TableHead>ID Karyawan</TableHead>
                   <TableHead>Departemen</TableHead>
-                  <TableHead>Lokasi Terakhir</TableHead>
                   <TableHead>Lokasi Absensi</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -221,7 +237,6 @@ export default function EmployeesPage() {
                       <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                     </TableRow>
                   ))
@@ -240,23 +255,8 @@ export default function EmployeesPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="capitalize">{user.role}</TableCell>
+                      <TableCell>{user.employeeId || 'N/A'}</TableCell>
                       <TableCell>{user.department || 'N/A'}</TableCell>
-                       <TableCell>
-                        {user.lastLocation ? (
-                          <a 
-                            href={`https://www.google.com/maps?q=${user.lastLocation.latitude},${user.lastLocation.longitude}`} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-primary hover:underline"
-                          >
-                            <MapPin className="h-4 w-4" />
-                            Lihat Peta
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">N/A</span>
-                        )}
-                      </TableCell>
                        <TableCell>
                         {user.locationSettings ? (
                            <div className="text-xs">
@@ -265,7 +265,7 @@ export default function EmployeesPage() {
                              <p>Radius: {user.locationSettings.radius}m</p>
                            </div>
                         ) : (
-                          <span className="text-muted-foreground text-xs">Global</span>
+                          <span className="text-muted-foreground text-xs italic">Mengikuti Global</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -278,7 +278,7 @@ export default function EmployeesPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => handleEditClick(user)}>
                               <Edit className="mr-2" />
-                              Edit Lokasi Absen
+                              Edit Pengguna
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDeleteUser(user.uid)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                               <Trash2 className="mr-2" />
@@ -297,34 +297,45 @@ export default function EmployeesPage() {
       </Card>
       
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
-                <DialogTitle>Edit Lokasi Absensi</DialogTitle>
+                <DialogTitle>Edit Pengaturan Pengguna</DialogTitle>
                 <DialogDescription>
-                   Atur lokasi dan radius absensi khusus untuk {editingUser?.name}. Biarkan kosong untuk menggunakan pengaturan global.
+                   Ubah detail dan lokasi absensi khusus untuk {editingUser?.name}. Biarkan lokasi kosong untuk menggunakan pengaturan global.
                 </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="lat" className="text-right">Latitude</Label>
-                    <Input id="lat" value={lat} onChange={(e) => setLat(e.target.value)} className="col-span-3" type="number" placeholder="contoh: -6.200000" />
+            <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label htmlFor="name">Nama Lengkap</Label>
+                    <Input id="name" value={editName} onChange={(e) => setEditName(e.target.value)} />
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="lng" className="text-right">Longitude</Label>
-                    <Input id="lng" value={lng} onChange={(e) => setLng(e.target.value)} className="col-span-3" type="number" placeholder="contoh: 106.816666" />
+                 <div className="space-y-2">
+                    <Label htmlFor="employeeId">ID Karyawan</Label>
+                    <Input id="employeeId" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="radius" className="text-right">Radius (m)</Label>
-                    <Input id="radius" value={radius} onChange={(e) => setRadius(e.target.value)} className="col-span-3" type="number" placeholder="contoh: 100" />
+                <div className="space-y-2 pt-4 border-t">
+                     <Label className="font-medium">Lokasi Absensi Khusus</Label>
+                    <div className="space-y-2">
+                        <Label htmlFor="lat" className="text-xs">Latitude</Label>
+                        <Input id="lat" value={editLat} onChange={(e) => setEditLat(e.target.value)} type="number" placeholder="contoh: -6.200000" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="lng" className="text-xs">Longitude</Label>
+                        <Input id="lng" value={editLng} onChange={(e) => setEditLng(e.target.value)} type="number" placeholder="contoh: 106.816666" />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="radius" className="text-xs">Radius (meter)</Label>
+                        <Input id="radius" value={editRadius} onChange={(e) => setEditRadius(e.target.value)} type="number" placeholder="contoh: 100" />
+                    </div>
                 </div>
             </div>
             <DialogFooter>
                 <DialogClose asChild>
                     <Button type="button" variant="secondary">Batal</Button>
                 </DialogClose>
-                <Button type="button" onClick={handleSaveLocationSettings} disabled={isSaving}>
+                <Button type="button" onClick={handleSaveSettings} disabled={isSaving}>
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Simpan
+                    Simpan Perubahan
                 </Button>
             </DialogFooter>
           </DialogContent>

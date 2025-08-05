@@ -68,9 +68,9 @@ export default function EmployeeDashboard() {
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [effectiveLocationSettings, setEffectiveLocationSettings] = useState<LocationSettings>(null);
-  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
   
   const [isClockInAllowed, setIsClockInAllowed] = useState(true);
   const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
@@ -111,58 +111,62 @@ export default function EmployeeDashboard() {
   }, [toast]);
 
 
-  // Effect for fetching initial data and setting up listeners
+  // Effect for fetching all settings and history
   useEffect(() => {
-    const scheduleRef = doc(db, 'settings', 'schedule');
-    const unsubscribeSchedule = onSnapshot(scheduleRef, (doc) => {
-        if (doc.exists() && doc.data()) {
-            setScheduleSettings(doc.data() as ScheduleSettings);
-        } else {
-            setScheduleSettings(null);
-        }
-    }, (error) => {
-        console.error("Error listening to schedule settings:", error);
-    });
+    if (!user) return;
 
-    const setupLocationAndHistory = async () => {
-        if (!user) return;
-        setLoadingSettings(true);
-        // 1. Determine location settings (user > global)
-        if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
-            setEffectiveLocationSettings(user.locationSettings);
-        } else {
-            const globalLocationRef = doc(db, 'settings', 'location');
-            const docSnap = await getDoc(globalLocationRef);
-            if (docSnap.exists() && docSnap.data()) {
-                 const data = docSnap.data();
-                 if (data.latitude != null && data.longitude != null && data.radius != null) {
-                    setEffectiveLocationSettings({
-                        latitude: Number(data.latitude),
-                        longitude: Number(data.longitude),
-                        radius: Number(data.radius),
-                    });
+    const fetchAllSettings = async () => {
+        setIsLoadingSettings(true);
+        try {
+            // 1. Fetch schedule settings
+            const scheduleRef = doc(db, 'settings', 'schedule');
+            const scheduleSnap = await getDoc(scheduleRef);
+            setScheduleSettings(scheduleSnap.exists() ? scheduleSnap.data() as ScheduleSettings : null);
+
+            // 2. Determine effective location settings (user > global)
+            if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
+                setEffectiveLocationSettings(user.locationSettings);
+            } else {
+                const globalLocationRef = doc(db, 'settings', 'location');
+                const globalLocationSnap = await getDoc(globalLocationRef);
+                if (globalLocationSnap.exists()) {
+                    const data = globalLocationSnap.data();
+                    if (data.latitude != null && data.longitude != null && data.radius != null) {
+                        setEffectiveLocationSettings({
+                            latitude: Number(data.latitude),
+                            longitude: Number(data.longitude),
+                            radius: Number(data.radius),
+                        });
+                    } else {
+                        setEffectiveLocationSettings(null);
+                    }
                 } else {
                     setEffectiveLocationSettings(null);
                 }
-            } else {
-                setEffectiveLocationSettings(null);
             }
-        }
-        setLoadingSettings(false);
 
-        // 2. Fetch attendance history
-        if (user.employeeId) {
-            fetchAttendanceHistory(user.employeeId);
-        } else {
-            setLoadingHistory(false);
+            // 3. Fetch attendance history
+            if (user.employeeId) {
+                await fetchAttendanceHistory(user.employeeId);
+            } else {
+                setLoadingHistory(false);
+            }
+
+        } catch (error) {
+            console.error("Failed to load settings:", error);
+            toast({
+                title: "Gagal Memuat Pengaturan",
+                description: "Tidak dapat memuat pengaturan jadwal atau lokasi.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsLoadingSettings(false);
         }
     };
 
-    setupLocationAndHistory();
-    
-    return () => unsubscribeSchedule();
+    fetchAllSettings();
 
-  }, [user, fetchAttendanceHistory]);
+  }, [user, fetchAttendanceHistory, toast]);
 
 
   // Effect for handling time-based logic (scheduling)
@@ -197,6 +201,7 @@ export default function EmployeeDashboard() {
         setIsClockOutAllowed(clockOutEnabled);
     };
     
+    // Run once on load, then set an interval
     updateTimeChecks();
     const timerId = setInterval(updateTimeChecks, 60000); // Check every minute
 
@@ -306,7 +311,7 @@ export default function EmployeeDashboard() {
         toast({ title: 'Error Kamera', description: 'Komponen kamera tidak siap.', variant: 'destructive'});
         return;
     }
-    if (loadingSettings) {
+    if (isLoadingSettings) {
         toast({ title: 'Pengaturan Belum Siap', description: 'Pengaturan lokasi masih dimuat, mohon tunggu sebentar.', variant: 'destructive'});
         return;
     }
@@ -391,6 +396,8 @@ export default function EmployeeDashboard() {
     'Clocked In': 'Masuk',
     'Clocked Out': 'Keluar',
   }
+  
+  const buttonsDisabled = isProcessing || !hasCameraPermission || isLoadingSettings;
 
   return (
     <div className="container mx-auto max-w-4xl p-0 md:p-0 lg:p-0 space-y-8">
@@ -508,12 +515,12 @@ export default function EmployeeDashboard() {
             )}
 
           <div className="flex gap-4 w-full flex-col sm:flex-row max-w-sm">
-            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={isProcessing || !hasCameraPermission || !isClockInAllowed || loadingSettings}>
-              {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
+            <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={buttonsDisabled || !isClockInAllowed}>
+              {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserCheck className="mr-2" />}
               Absen Masuk
             </Button>
-            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={isProcessing || !hasCameraPermission || !isClockOutAllowed || loadingSettings}>
-                {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
+            <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="secondary" disabled={buttonsDisabled || !isClockOutAllowed}>
+                {isProcessing || isLoadingSettings ? <Loader2 className="mr-2 animate-spin" /> : <UserX className="mr-2" />}
               Absen Keluar
             </Button>
           </div>

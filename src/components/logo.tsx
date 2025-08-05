@@ -40,11 +40,11 @@ export function Logo({ className, showTitle = true }: LogoProps) {
       href="/dashboard"
       className={cn('flex items-center gap-2 group', className)}
     >
-      <div className="bg-primary text-primary-foreground p-2 rounded-lg transition-transform group-hover:scale-110 flex items-center justify-center h-10 w-10">
+      <div className="bg-white p-2 rounded-lg transition-transform group-hover:scale-110 flex items-center justify-center h-10 w-10">
         {logoSrc ? (
             <Image src={logoSrc} alt="App Logo" width={24} height={24} className="h-6 w-6 object-contain" />
         ) : (
-            <Camera className="h-6 w-6" />
+            <Camera className="h-6 w-6 text-primary" />
         )}
       </div>
       {showTitle && (

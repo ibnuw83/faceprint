@@ -17,14 +17,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Loader2 } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar as CalendarIcon, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
+import { id as localeID } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 type AttendanceRecord = {
   id: string;
@@ -36,13 +44,19 @@ type AttendanceRecord = {
   createdAt: Timestamp;
 };
 
+// Extend jsPDF with autoTable method
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: any) => jsPDFWithAutoTable;
+}
+
 export default function AttendancePage() {
   const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [allAttendanceRecords, setAllAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState<DateRange | undefined>(undefined);
 
   const fetchAttendanceRecords = useCallback(async () => {
     setLoading(true);
@@ -50,7 +64,7 @@ export default function AttendancePage() {
         const q = query(collection(db, "attendance"), orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
-        setAttendanceRecords(records);
+        setAllAttendanceRecords(records);
     } catch (error) {
         console.error("Error fetching attendance records: ", error);
         toast({
@@ -76,6 +90,62 @@ export default function AttendancePage() {
     'Clocked Out': 'Keluar',
   }
 
+  const filteredAttendanceRecords = useMemo(() => {
+    if (!date?.from) {
+      return allAttendanceRecords;
+    }
+    const from = date.from;
+    const to = date.to || date.from;
+    
+    // Set time to beginning of the day for `from` and end of the day for `to`
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
+
+    return allAttendanceRecords.filter(record => {
+        const recordDate = record.createdAt.toDate();
+        return recordDate >= from && recordDate <= to;
+    });
+  }, [allAttendanceRecords, date]);
+
+  const handleDownloadPdf = () => {
+    if (filteredAttendanceRecords.length === 0) {
+      toast({
+        title: 'Tidak Ada Data',
+        description: 'Tidak ada data untuk diunduh dalam rentang tanggal yang dipilih.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    const doc = new jsPDF() as jsPDFWithAutoTable;
+    
+    const title = 'Laporan Absensi';
+    const dateRange = date?.from ? `${format(date.from, 'd MMMM yyyy', { locale: localeID })} - ${format(date.to || date.from, 'd MMMM yyyy', { locale: localeID })}` : 'Semua Waktu';
+    const fileName = `laporan_absensi_${date?.from ? format(date.from, 'yyyy-MM-dd') : 'all'}.pdf`;
+
+    doc.setFontSize(18);
+    doc.text(title, 14, 22);
+    doc.setFontSize(11);
+    doc.text(`Periode: ${dateRange}`, 14, 30);
+    
+    doc.autoTable({
+        startY: 35,
+        head: [['Nama Karyawan', 'ID Karyawan', 'Tanggal', 'Waktu', 'Status']],
+        body: filteredAttendanceRecords.map(record => [
+            record.employeeName,
+            record.employeeId,
+            record.date,
+            record.time,
+            statusLocale[record.status] || record.status
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], textColor: 255 }
+    });
+    
+    doc.save(fileName);
+  };
+
+
   if (user?.role !== 'admin') {
      return (
        <div className="flex h-[80vh] items-center justify-center">
@@ -88,13 +158,56 @@ export default function AttendancePage() {
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <Card className="shadow-lg rounded-xl">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="text-primary" />
-            Catatan Absensi
-          </CardTitle>
-          <CardDescription>
-            Catatan lengkap dari semua entri absensi karyawan.
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+               <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                <ClipboardList className="text-primary" />
+                Catatan Absensi
+              </CardTitle>
+              <CardDescription>
+                Catatan lengkap dari semua entri absensi karyawan.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+               <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    id="date"
+                    variant={"outline"}
+                    className="w-[260px] justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date?.from ? (
+                      date.to ? (
+                        <>
+                          {format(date.from, "LLL dd, y")} -{" "}
+                          {format(date.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(date.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pilih rentang tanggal</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    initialFocus
+                    mode="range"
+                    defaultMonth={date?.from}
+                    selected={date}
+                    onSelect={setDate}
+                    numberOfMonths={2}
+                  />
+                </PopoverContent>
+              </Popover>
+               <Button onClick={handleDownloadPdf} disabled={loading}>
+                  <Download className="mr-2" /> Unduh PDF
+                </Button>
+            </div>
+          </div>
+         
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg overflow-x-auto">
@@ -119,8 +232,8 @@ export default function AttendancePage() {
                             <TableCell className="text-right"><Skeleton className="h-6 w-16 ml-auto" /></TableCell>
                         </TableRow>
                     ))
-                ) : attendanceRecords.length > 0 ? (
-                  attendanceRecords.map((record) => (
+                ) : filteredAttendanceRecords.length > 0 ? (
+                  filteredAttendanceRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">{record.employeeName}</TableCell>
                       <TableCell>{record.employeeId}</TableCell>
@@ -143,7 +256,7 @@ export default function AttendancePage() {
                 ) : (
                      <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
-                            Belum ada catatan absensi.
+                            Tidak ada catatan absensi pada rentang tanggal ini.
                         </TableCell>
                      </TableRow>
                 )}

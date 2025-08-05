@@ -124,7 +124,7 @@ export default function EmployeeDashboard() {
             setScheduleSettings(scheduleSnap.exists() ? scheduleSnap.data() as ScheduleSettings : null);
 
             // 2. Determine effective location settings (user > global)
-            if (user.locationSettings && user.locationSettings.latitude && user.locationSettings.longitude && user.locationSettings.radius) {
+            if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null && user.locationSettings.radius != null) {
                 setEffectiveLocationSettings(user.locationSettings);
             } else {
                 const globalLocationRef = doc(db, 'settings', 'location');

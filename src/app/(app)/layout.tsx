@@ -118,7 +118,7 @@ function Sidebar() {
                           <Skeleton className="h-3 w-32" />
                        </div>
                      ) : (
-                        <div className="flex flex-col min-w-0 flex-1">
+                        <div className="flex flex-col min-w-0 flex-1 w-full">
                             <p className="truncate text-sm font-medium leading-none">{user?.name}</p>
                             <p className="truncate text-xs leading-none text-muted-foreground">
                                 {user?.email}
@@ -193,7 +193,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar />
-      <main className="flex-1 flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-8 md:pl-72">
+      <main className="flex-1 flex flex-col gap-4 bg-muted/40 p-4 md:gap-8 md:p-8 md:pl-72">
         {/* Add a spacer for the mobile header */}
         <div className="h-12 md:hidden" />
         {children}

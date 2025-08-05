@@ -73,13 +73,9 @@ function AdminDashboard() {
         setPresentToday(uniquePresentIds.size);
 
         // Fetch recent attendance
-        // NOTE: orderBy('createdAt', 'desc') requires a composite index in Firestore.
-        // It has been removed to prevent query failures if the index doesn't exist.
-        const recentQuery = query(collection(db, 'attendance'), limit(5));
+        const recentQuery = query(collection(db, 'attendance'), orderBy('createdAt', 'desc'), limit(5));
         const recentSnapshot = await getDocs(recentQuery);
-        const recentRecords = recentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
-          .sort((a,b) => b.createdAt.seconds - a.createdAt.seconds);
-
+        const recentRecords = recentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
         setRecentAttendance(recentRecords);
 
       } catch (error) {
@@ -95,14 +91,14 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 lg:p-8 space-y-6">
-      <div className="space-y-2">
+    <div className="flex flex-col w-full space-y-6">
+       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Dasbor Admin</h1>
         <p className="text-muted-foreground">
           Ringkasan aktivitas dan data penting dalam sistem.
         </p>
       </div>
-
+      <div className="container mx-auto p-0 space-y-6">
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -207,6 +203,7 @@ function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+      </div>
     </div>
   );
 }
@@ -219,5 +216,3 @@ export default function DashboardPage() {
   }
   return <EmployeeDashboard />;
 }
-
-    

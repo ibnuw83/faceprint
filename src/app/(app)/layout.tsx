@@ -123,7 +123,7 @@ function Header() {
       
         <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4 justify-end">
             {mobileNav}
-            {user?.role === 'employee' && <LiveClock />}
+            <LiveClock />
             <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">

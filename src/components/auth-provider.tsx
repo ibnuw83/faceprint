@@ -25,29 +25,33 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
+const fetchUserRole = async (uid: string): Promise<'admin' | 'employee'> => {
+  const userDocRef = doc(db, 'users', uid);
+  const userDoc = await getDoc(userDocRef);
+  if (userDoc.exists()) {
+    return userDoc.data()?.role || 'employee';
+  }
+  return 'employee';
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         setFirebaseUser(fbUser);
-        const userRef = doc(db, 'users', fbUser.uid);
-        getDoc(userRef).then(userDoc => {
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                 const appUser: User = {
-                    uid: fbUser.uid,
-                    name: fbUser.displayName,
-                    email: fbUser.email,
-                    role: userData.role || 'employee',
-                };
-                setUser(appUser);
-                localStorage.setItem('user', JSON.stringify(appUser));
-            }
-        });
+        const role = await fetchUserRole(fbUser.uid);
+        const appUser: User = {
+          uid: fbUser.uid,
+          name: fbUser.displayName,
+          email: fbUser.email,
+          role: role,
+        };
+        setUser(appUser);
+        localStorage.setItem('user', JSON.stringify(appUser));
       } else {
         setFirebaseUser(null);
         setUser(null);
@@ -61,7 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, pass: string) => {
     setLoading(true);
-    await signInWithEmailAndPassword(auth, email, pass);
+    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+    const fbUser = userCredential.user;
+
+    if (fbUser) {
+        const role = await fetchUserRole(fbUser.uid);
+        const appUser: User = {
+            uid: fbUser.uid,
+            name: fbUser.displayName,
+            email: fbUser.email,
+            role,
+        };
+        setUser(appUser);
+        localStorage.setItem('user', JSON.stringify(appUser));
+    }
     setLoading(false);
   }, []);
 
@@ -72,9 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const fbUser = userCredential.user;
       
       await updateProfile(fbUser, { displayName: name });
-
-      // All new users are registered as 'employee' by default.
-      // To make a user an admin, you must manually change their role in the Firestore database.
+      
       const role = 'employee';
 
       const userRef = doc(db, "users", fbUser.uid);

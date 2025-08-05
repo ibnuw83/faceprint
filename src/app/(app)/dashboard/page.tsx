@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -28,7 +29,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import EmployeeDashboard from '@/components/employee-dashboard';
 import { useEffect, useState } from 'react';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 
@@ -72,9 +73,14 @@ function AdminDashboard() {
         setPresentToday(uniquePresentIds.size);
 
         // Fetch recent attendance
-        const recentQuery = query(collection(db, 'attendance'), orderBy('createdAt', 'desc'), limit(5));
+        // NOTE: orderBy('createdAt', 'desc') requires a composite index in Firestore.
+        // It has been removed to prevent query failures if the index doesn't exist.
+        const recentQuery = query(collection(db, 'attendance'), limit(5));
         const recentSnapshot = await getDocs(recentQuery);
-        setRecentAttendance(recentSnapshot.docs.map(doc => doc.data() as AttendanceRecord));
+        const recentRecords = recentSnapshot.docs.map(doc => doc.data() as AttendanceRecord)
+          .sort((a,b) => b.createdAt.seconds - a.createdAt.seconds);
+
+        setRecentAttendance(recentRecords);
 
       } catch (error) {
         console.error("Error fetching admin dashboard data:", error);
@@ -213,3 +219,5 @@ export default function DashboardPage() {
   }
   return <EmployeeDashboard />;
 }
+
+    

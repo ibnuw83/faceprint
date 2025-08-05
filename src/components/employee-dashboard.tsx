@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Camera, Clock, UserCheck, UserX, MapPin, Loader2, AlertTriangle, History } from 'lucide-react';
 import { useAuth, User } from '@/hooks/use-auth';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy, limit, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, query, where, getDocs, orderBy, limit, getDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,6 +29,7 @@ type AttendanceRecord = {
   date: string;
   time: string;
   status: 'Clocked In' | 'Clocked Out';
+  createdAt: Timestamp;
 };
 
 type LocationSettings = {
@@ -59,32 +60,34 @@ export default function EmployeeDashboard() {
     if (!currentUser) return;
     setLoadingHistory(true);
     try {
+      // NOTE: orderBy('createdAt', 'desc') requires a composite index in Firestore.
+      // It has been removed to prevent query failures if the index doesn't exist.
+      // To re-enable, create the index: (collection: attendance, fields: employeeId ASC, createdAt DESC)
       const q = query(
         collection(db, 'attendance'),
         where('employeeId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc'),
         limit(5)
       );
       const querySnapshot = await getDocs(q);
-      const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      const history = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
+        // Manual sort on the client-side as a fallback
+        .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
+
       setAttendanceHistory(history);
       
-      // Check the last status to set the initial button state
       if (history.length > 0) {
         const lastRecord = history[0];
-         // Only consider today's records for current status
-        if(lastRecord.date === new Date().toLocaleDateString('id-ID')) {
+        if (lastRecord.date === new Date().toLocaleDateString('id-ID')) {
             if (lastRecord.status === 'Clocked In') {
                 setStatus('in');
             } else {
                 setStatus('out');
             }
         } else {
-            // If last record is from another day, they need to clock in today
             setStatus(null);
         }
       } else {
-        setStatus(null); // No history, needs to clock in
+        setStatus(null);
       }
 
     } catch (error) {
@@ -274,7 +277,7 @@ export default function EmployeeDashboard() {
         time: now.toLocaleTimeString('id-ID'),
         status: clockStatus,
         location: currentLocation,
-        createdAt: now,
+        createdAt: Timestamp.fromDate(now),
       });
 
       // 7. Update user's last location
@@ -443,7 +446,9 @@ export default function EmployeeDashboard() {
                 <CardTitle>Status Kehadiran</CardTitle>
              </CardHeader>
              <CardContent>
-                {status === 'in' ? (
+                {loadingHistory ? (
+                     <Skeleton className="h-8 w-48" />
+                ) : status === 'in' ? (
                     <div className="flex items-start gap-3 text-green-600 dark:text-green-400">
                         <UserCheck className="h-8 w-8 shrink-0"/>
                         <div>

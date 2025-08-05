@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -20,7 +21,7 @@ import { ClipboardList, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,6 +33,7 @@ type AttendanceRecord = {
   date: string;
   time: string;
   status: 'Clocked In' | 'Clocked Out';
+  createdAt: Timestamp;
 };
 
 export default function AttendancePage() {
@@ -45,9 +47,12 @@ export default function AttendancePage() {
   const fetchAttendanceRecords = useCallback(async () => {
     setLoading(true);
     try {
-        const q = query(collection(db, "attendance"), orderBy("createdAt", "desc"));
+        // NOTE: orderBy is removed to prevent query failure without a composite index.
+        // The data is sorted client-side instead.
+        const q = query(collection(db, "attendance"));
         const querySnapshot = await getDocs(q);
-        const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+        const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
+          .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
         setAttendanceRecords(records);
     } catch (error) {
         console.error("Error fetching attendance records: ", error);
@@ -153,3 +158,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+    

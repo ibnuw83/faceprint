@@ -10,7 +10,7 @@ import { FileText, Loader2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type AttendanceRecord = {
@@ -20,12 +20,13 @@ type AttendanceRecord = {
   date: string;
   time: string;
   status: 'Clocked In' | 'Clocked Out';
+  createdAt: Timestamp;
 };
 
 export default function ReportsPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, authLoading } = useAuth();
   
   const [report, setReport] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +34,7 @@ export default function ReportsPage() {
 
   const fetchAttendanceRecords = useCallback(async () => {
     try {
-        const q = query(collection(db, "attendance"), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "attendance"));
         const querySnapshot = await getDocs(q);
         const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
         setAttendanceRecords(records);
@@ -150,3 +151,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    

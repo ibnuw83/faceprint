@@ -116,29 +116,6 @@ export default function ProfilePage() {
                         </div>
                      </div>
                 </div>
-
-                <Separator className="my-6" />
-
-                <div className="space-y-4">
-                   <h3 className="font-semibold text-xl border-b pb-2 flex items-center gap-2">
-                     <MapPin />
-                     Lokasi Absensi Khusus
-                   </h3>
-                   {user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null ? (
-                      <div className="space-y-4">
-                         <div className="space-y-1">
-                           <Label htmlFor='latitude'>Latitude</Label>
-                           <Input id='latitude' value={user.locationSettings.latitude} disabled />
-                         </div>
-                         <div className="space-y-1">
-                           <Label htmlFor='longitude'>Longitude</Label>
-                           <Input id='longitude' value={user.locationSettings.longitude} disabled />
-                         </div>
-                      </div>
-                   ) : (
-                      <p className="text-sm text-muted-foreground italic">Mengikuti pengaturan lokasi global.</p>
-                   )}
-                </div>
             </div>
             <div className="space-y-6">
                  <h3 className="font-semibold text-xl border-b pb-2">Foto Wajah Terdaftar</h3>

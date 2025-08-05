@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 // Function to convert HSL string to object
 const hslStringToObj = (hslStr: string | null) => {
@@ -61,12 +62,14 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [primaryColor, setPrimaryColor] = useState('#3F51B5');
   const [backgroundColor, setBackgroundColor] = useState('#F5F5F5');
   const [accentColor, setAccentColor] = useState('#009688');
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
 
-  // Apply theme from localStorage on initial load
+  // Apply theme and logo from localStorage on initial load
   useEffect(() => {
     const applyTheme = () => {
       const storedPrimary = localStorage.getItem('theme-primary');
@@ -89,7 +92,16 @@ export default function SettingsPage() {
         document.documentElement.style.setProperty('--accent', storedAccent);
       }
     };
+    
+    const loadLogo = () => {
+        const storedLogo = localStorage.getItem('app-logo');
+        if (storedLogo) {
+            setLogoSrc(storedLogo);
+        }
+    }
+
     applyTheme();
+    loadLogo();
   }, []);
 
   const handleColorChange = (colorType: 'primary' | 'background' | 'accent', value: string) => {
@@ -105,7 +117,6 @@ export default function SettingsPage() {
   };
   
   const resetColors = () => {
-    // Default values from globals.css
     const defaultPrimary = { h: 231, s: 48, l: 48 };
     const defaultBackground = { h: 0, s: 0, l: 96.1 };
     const defaultAccent = { h: 174, s: 100, l: 29 };
@@ -118,12 +129,38 @@ export default function SettingsPage() {
     localStorage.removeItem('theme-background');
     localStorage.removeItem('theme-accent');
     
-    // Have to manually set it again after removing from localstorage
     document.documentElement.style.setProperty('--primary', `${defaultPrimary.h} ${defaultPrimary.s}% ${defaultPrimary.l}%`);
     document.documentElement.style.setProperty('--background', `${defaultBackground.h} ${defaultBackground.s}% ${defaultBackground.l}%`);
     document.documentElement.style.setProperty('--accent', `${defaultAccent.h} ${defaultAccent.s}% ${defaultAccent.l}%`);
 
     toast({ title: 'Tema Direset', description: 'Warna telah dikembalikan ke pengaturan awal.' });
+  }
+
+  const handleLogoUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        localStorage.setItem('app-logo', base64String);
+        setLogoSrc(base64String);
+        toast({ title: 'Logo Diperbarui', description: 'Logo baru telah disimpan.' });
+        // Dispatch a storage event to notify other components (like the sidebar logo)
+        window.dispatchEvent(new Event('storage'));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const removeLogo = () => {
+    localStorage.removeItem('app-logo');
+    setLogoSrc(null);
+    toast({ title: 'Logo Dihapus', description: 'Logo kustom telah dihapus.' });
+    window.dispatchEvent(new Event('storage'));
   }
 
   useEffect(() => {
@@ -217,13 +254,29 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-4 p-4 border rounded-lg">
              <h3 className="font-semibold text-lg">Logo Aplikasi</h3>
+              <Input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/png, image/jpeg, image/svg+xml"
+              />
              <div className="flex items-end gap-4">
-                <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center">
-                    <p className="text-muted-foreground text-sm">Logo Saat Ini</p>
+                 <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center border overflow-hidden">
+                  {logoSrc ? (
+                    <Image src={logoSrc} alt="Logo Preview" width={96} height={96} className="object-contain" />
+                  ) : (
+                    <p className="text-muted-foreground text-sm text-center px-2">Logo Saat Ini</p>
+                  )}
                 </div>
-                <Button variant="outline"><Upload className="mr-2"/> Unggah Logo Baru</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={handleLogoUploadClick}><Upload className="mr-2"/> Unggah Logo Baru</Button>
+                  {logoSrc && (
+                    <Button variant="destructive" onClick={removeLogo}><Trash2 className="mr-2"/> Hapus Logo</Button>
+                  )}
+                </div>
              </div>
-              <p className="text-xs text-muted-foreground">Unggah file SVG atau PNG. Ukuran yang disarankan: 200x200 piksel.</p>
+              <p className="text-xs text-muted-foreground">Unggah file SVG, PNG, atau JPG. Ukuran yang disarankan: 200x200 piksel.</p>
           </div>
         </CardContent>
       </Card>

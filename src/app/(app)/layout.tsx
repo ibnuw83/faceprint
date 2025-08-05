@@ -56,6 +56,7 @@ function Header() {
           { href: '/attendance', label: 'Absensi', icon: ClipboardList },
           { href: '/employees', label: 'Karyawan', icon: Users },
           { href: '/departments', label: 'Departemen', icon: Building2 },
+          { href: '/leaves', label: 'Cuti & Izin', icon: FileText },
           { href: '/settings', label: 'Pengaturan', icon: Settings },
         ]
       : [{ href: '/dashboard', label: 'Dasbor', icon: LayoutDashboard }];

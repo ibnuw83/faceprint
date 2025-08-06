@@ -11,51 +11,64 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
-
-    // Settings collection:
-    // - landingPage, announcement, and footer are public-read.
-    // - Other settings are admin-only.
-    match /settings/{settingId} {
-        // Publicly readable settings for the landing page, banner, and footer
-        allow read: if settingId in ['landingPage', 'announcement', 'footer'];
-        // Admin-only settings
-        allow read, write: if isAdmin();
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+        return request.auth != null;
     }
 
+    // Settings collection:
+    match /settings/branding {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /settings/landingPage {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    match /settings/announcement {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    match /settings/footer {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    match /settings/location {
+         allow read, write: if isAdmin();
+    }
+     match /settings/schedule {
+         allow read, write: if isAdmin();
+      }
 
     // Users collection:
-    // - Admins can read/write any user document.
-    // - Authenticated users can read their own document.
-    // - Users can complete their own profile once.
     match /users/{userId} {
       allow read, write: if isAdmin();
       allow read: if isOwner(userId);
+      // Allow user to complete their own profile for the first time
       allow update: if isOwner(userId) && request.resource.data.isProfileComplete == true;
     }
 
-    // Departments can be managed only by admins.
+    // Departments:
+    // - Admins can manage them.
+    // - Authenticated users can read them (for profile completion).
     match /departments/{deptId} {
-      allow read, write, create, delete: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write, create, delete: if isAdmin();
     }
 
     // Attendance:
-    // - Admins can read all records.
-    // - Authenticated users can create their own records.
-    // - Users can read their own attendance records (checked by employeeId).
     match /attendance/{attId} {
-        allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+        allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
         allow read, delete: if isAdmin();
-        allow read: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId == resource.data.employeeId;
+        allow read: if isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId == resource.data.employeeId;
     }
     
     // Leave Requests:
-    // - Admins can read/write all requests.
-    // - Authenticated users can create their own requests.
-    // - Users can read their own requests.
     match /leaveRequests/{reqId} {
         allow read, write: if isAdmin();
-        allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
-        allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+        allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+        allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
     }
   }
 }

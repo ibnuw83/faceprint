@@ -42,6 +42,14 @@ type LocationSettings = {
     isSpecific: boolean;
 } | null;
 
+type Department = {
+  id: string;
+  name: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
+};
+
 
 type ScheduleSettings = Record<string, { clockIn: string; clockOut: string }>;
 
@@ -125,14 +133,18 @@ export default function EmployeeDashboard() {
     const fetchAllSettings = async () => {
         setIsLoadingSettings(true);
         try {
-            // 1. Fetch schedule and global location settings in parallel
+            // 1. Fetch all settings in parallel
             const scheduleRef = doc(db, 'settings', 'schedule');
             const globalLocationRef = doc(db, 'settings', 'location');
+            const departmentsRef = collection(db, 'departments');
 
-            const [scheduleSnap, globalLocationSnap] = await Promise.all([
+            const [scheduleSnap, globalLocationSnap, departmentsSnap] = await Promise.all([
                 getDoc(scheduleRef),
-                getDoc(globalLocationRef)
+                getDoc(globalLocationRef),
+                getDocs(departmentsRef)
             ]);
+
+            const allDepartments = departmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
 
             setScheduleSettings(scheduleSnap.exists() ? scheduleSnap.data() as ScheduleSettings : null);
 
@@ -151,19 +163,15 @@ export default function EmployeeDashboard() {
             }
             // Priority 2: Department settings
             else if (user.department) {
-                const deptQuery = query(collection(db, 'departments'), where('name', '==', user.department));
-                const deptSnapshot = await getDocs(deptQuery);
-                if (!deptSnapshot.empty) {
-                    const deptData = deptSnapshot.docs[0].data();
-                    if (deptData.latitude && deptData.longitude && deptData.radius) {
-                        finalSettings = {
-                            latitude: Number(deptData.latitude),
-                            longitude: Number(deptData.longitude),
-                            radius: Number(deptData.radius),
-                            name: deptData.name,
-                            isSpecific: false,
-                        };
-                    }
+                const userDept = allDepartments.find(d => d.name === user.department);
+                if (userDept && userDept.latitude && userDept.longitude && userDept.radius) {
+                    finalSettings = {
+                        latitude: Number(userDept.latitude),
+                        longitude: Number(userDept.longitude),
+                        radius: Number(userDept.radius),
+                        name: userDept.name,
+                        isSpecific: false,
+                    };
                 }
             }
             
@@ -581,6 +589,8 @@ export default function EmployeeDashboard() {
       </div>
     </div>
   );
+
+    
 
     
 

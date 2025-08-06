@@ -96,6 +96,7 @@ export default function EmployeesPage() {
   const [editEmployeeId, setEditEmployeeId] = useState('');
   const [editLat, setEditLat] = useState('');
   const [editLng, setEditLng] = useState('');
+  const [editRadius, setEditRadius] = useState('');
   const [editLocationName, setEditLocationName] = useState('');
 
 
@@ -152,6 +153,7 @@ export default function EmployeesPage() {
     setEditEmployeeId(user.employeeId || '');
     setEditLat(user.locationSettings?.latitude?.toString() || '');
     setEditLng(user.locationSettings?.longitude?.toString() || '');
+    setEditRadius(user.locationSettings?.radius?.toString() || '');
     setEditLocationName(user.locationSettings?.name || '');
     setIsDialogOpen(true);
   };
@@ -167,23 +169,26 @@ export default function EmployeesPage() {
 
         const latStr = editLat.trim().replace(',', '.');
         const lngStr = editLng.trim().replace(',', '.');
+        const radiusStr = editRadius.trim();
 
-        if (latStr && lngStr) {
+        if (latStr && lngStr && radiusStr) {
             const lat = Number(latStr);
             const lng = Number(lngStr);
+            const radius = Number(radiusStr);
 
-            if (isNaN(lat) || isNaN(lng)) {
-                toast({ title: 'Input Lokasi Tidak Valid', description: 'Pastikan Latitude dan Longitude adalah angka yang valid.', variant: 'destructive' });
+            if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+                toast({ title: 'Input Lokasi Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka yang valid.', variant: 'destructive' });
                 setIsSaving(false);
                 return;
             }
              updateData.locationSettings = {
                 latitude: lat,
                 longitude: lng,
+                radius: radius,
                 name: editLocationName.trim() || null,
              };
-        } else if (latStr || lngStr || editLocationName.trim()) {
-            toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, field Latitude dan Longitude harus diisi.', variant: 'destructive' });
+        } else if (latStr || lngStr || radiusStr || editLocationName.trim()) {
+            toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, semua field lokasi (Latitude, Longitude, Radius) harus diisi.', variant: 'destructive' });
             setIsSaving(false);
             return;
         } else {
@@ -279,6 +284,7 @@ export default function EmployeesPage() {
                              <p className='font-bold'>{user.locationSettings.name || 'Lokasi Khusus'}</p>
                              <p>Lat: {user.locationSettings.latitude.toFixed(4)}</p>
                              <p>Lng: {user.locationSettings.longitude.toFixed(4)}</p>
+                             {user.locationSettings.radius && <p>Radius: {user.locationSettings.radius}m</p>}
                            </div>
                         ) : (
                           <span className="text-muted-foreground text-xs italic">Mengikuti Departemen/Global</span>
@@ -374,6 +380,10 @@ export default function EmployeesPage() {
                         <Label htmlFor="lng" className="text-xs">Longitude</Label>
                         <Input id="lng" value={editLng} onChange={(e) => setEditLng(e.target.value)} type="text" placeholder="contoh: 106.816666" />
                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="radius" className="text-xs">Radius (meter)</Label>
+                        <Input id="radius" value={editRadius} onChange={(e) => setEditRadius(e.target.value)} type="number" placeholder="contoh: 100" />
+                    </div>
                 </div>
             </div>
             <DialogFooter>
@@ -391,3 +401,5 @@ export default function EmployeesPage() {
     </div>
   );
 }
+
+    

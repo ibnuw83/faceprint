@@ -1,6 +1,7 @@
+
 'use client';
 
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { Megaphone, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
@@ -10,22 +11,24 @@ export default function AnnouncementBanner() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const announcementRef = doc(db, 'settings', 'announcement');
-    
-    const unsubscribe = onSnapshot(announcementRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const text = docSnap.data()?.text;
-        setAnnouncement(text || null);
-      } else {
-        setAnnouncement(null);
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Failed to fetch announcement:", error);
-      setLoading(false);
-    });
+    const fetchAnnouncement = async () => {
+        const announcementRef = doc(db, 'settings', 'announcement');
+        try {
+            const docSnap = await getDoc(announcementRef);
+            if (docSnap.exists()) {
+                const text = docSnap.data()?.text;
+                setAnnouncement(text || null);
+            } else {
+                setAnnouncement(null);
+            }
+        } catch (error) {
+            console.error("Failed to fetch announcement:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    return () => unsubscribe(); // Cleanup listener on component unmount
+    fetchAnnouncement();
   }, []);
 
   if (loading) {

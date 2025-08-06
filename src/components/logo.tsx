@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type LogoProps = {
@@ -20,26 +20,28 @@ export function Logo({ className, showTitle = true }: LogoProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const brandingRef = doc(db, 'settings', 'branding');
+    const fetchBranding = async () => {
+        const brandingRef = doc(db, 'settings', 'branding');
+        try {
+            const docSnap = await getDoc(brandingRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setLogoUrl(data.logoUrl || null);
+                setAppName(data.appName || 'VisageID');
+                document.title = data.appName || 'VisageID';
+            } else {
+                setLogoUrl(null);
+                setAppName('VisageID');
+                document.title = 'VisageID';
+            }
+        } catch (error) {
+             console.error("Failed to fetch branding settings:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
     
-    const unsubscribe = onSnapshot(brandingRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setLogoUrl(data.logoUrl || null);
-        setAppName(data.appName || 'VisageID');
-        document.title = data.appName || 'VisageID';
-      } else {
-        setLogoUrl(null);
-        setAppName('VisageID');
-         document.title = 'VisageID';
-      }
-      setLoading(false);
-    }, (error) => {
-      console.error("Failed to fetch branding settings:", error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    fetchBranding();
   }, []);
 
 

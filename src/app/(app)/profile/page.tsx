@@ -15,7 +15,6 @@ import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import RequiredLocation from '@/components/required-location';
 
 type AttendanceRecord = {
   id: string;
@@ -132,8 +131,6 @@ export default function ProfilePage() {
             </div>
         </CardContent>
       </Card>
-
-      <RequiredLocation />
       
       <Card className="max-w-4xl mx-auto shadow-lg rounded-xl">
         <CardHeader>

@@ -17,6 +17,7 @@ import { UserPlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
+import { Separator } from '@/components/ui/separator';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -113,8 +114,10 @@ export default function RegisterPage() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex justify-center text-center text-sm">
+      <CardFooter className="flex flex-col gap-4 text-center text-sm">
           <p>Sudah punya akun? <Link href="/login" className="text-primary hover:underline">Masuk</Link></p>
+          <Separator />
+          <Link href="/login" className="text-muted-foreground hover:text-primary hover:underline">Kembali ke Halaman Utama</Link>
       </CardFooter>
     </Card>
   );

@@ -1,67 +1,45 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check for admin role from the user's document
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Helper function to check if the requesting user is the owner of a document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    // Settings can only be read/written by admins
-    match /settings/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Users collection rules
+    // Users can only read/write their own document
     match /users/{userId} {
-      // Admins can do anything
-      allow read, write: if isAdmin();
-      
-      // A user can read their own document
-      allow get: if isOwner(userId);
-
-      // A user can update their own profile (e.g., completing it)
-      allow update: if isOwner(userId);
-      
-      // Allow new users to be created via registration
+      allow read, update: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null;
+
+      // Admins can perform any action on any user document
+      allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Departments can be fully managed by admins
-    match /departments/{deptId} {
-      allow get, list, create, update, delete: if isAdmin();
+    match /attendance/{docId} {
+      // Employees can create their own attendance records
+      allow create: if request.auth != null;
+      // Employees can only list their own attendance records
+      allow list: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      // Admins can read any attendance record
+      allow get, list, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /departments/{departmentId} {
+        // Only admins can manage departments
+        allow get, list, create, update, delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        // Employees can read department list for assigning
+        allow list: if request.auth != null;
     }
     
-    // Attendance rules
-    match /attendance/{attId} {
-        // Admins can manage all attendance records
-        allow read, write: if isAdmin();
-
-        // Employees can create their own attendance record
-        allow create: if request.auth.uid != null && request.resource.data.uid == request.auth.uid;
-
-        // Employees can read their own attendance history
-        allow list: if request.auth.uid != null && request.query.where.size() > 0 && request.query.where[0].field == 'employeeId' && request.query.where[0].value == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId;
+    match /leaveRequests/{requestId} {
+      // Employee can create their own requests and read them
+      allow create, get, list: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      // Admin can manage all leave requests
+      allow get, list, update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Leave Requests rules
-    match /leaveRequests/{reqId} {
-        // Admins can read/write all requests
-        allow read, write: if isAdmin();
-
-        // Employees can create their own requests
-        allow create: if request.auth.uid != null && request.resource.data.uid == request.auth.uid;
-
-        // Employees can read their own requests
-        allow list: if request.auth.uid != null && request.query.where.size() > 0 && request.query.where[0].field == 'uid' && request.query.where[0].value == request.auth.uid;
+    match /settings/{settingId} {
+      // Admins can change settings
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Settings are public and can be read by anyone
+      allow read: if true;
     }
   }
 }

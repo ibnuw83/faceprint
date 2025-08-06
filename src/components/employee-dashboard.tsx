@@ -125,40 +125,37 @@ export default function EmployeeDashboard() {
     const fetchAllSettings = async () => {
         setIsLoadingSettings(true);
         try {
-            // 1. Fetch schedule settings
+            // 1. Fetch schedule and global location settings in parallel
             const scheduleRef = doc(db, 'settings', 'schedule');
-            const scheduleSnap = await getDoc(scheduleRef);
+            const globalLocationRef = doc(db, 'settings', 'location');
+
+            const [scheduleSnap, globalLocationSnap] = await Promise.all([
+                getDoc(scheduleRef),
+                getDoc(globalLocationRef)
+            ]);
+
             setScheduleSettings(scheduleSnap.exists() ? scheduleSnap.data() as ScheduleSettings : null);
 
-            // 2. Determine effective location settings (user > global)
+            // 2. Determine effective location settings (user > department > global)
+            const globalSettings = globalLocationSnap.exists() ? globalLocationSnap.data() : null;
+            const globalRadius = globalSettings?.radius ? Number(globalSettings.radius) : 0;
+
             if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
-                // Radius is now always global, so we fetch it separately.
-                const globalLocationRef = doc(db, 'settings', 'location');
-                const globalLocationSnap = await getDoc(globalLocationRef);
-                const globalRadius = globalLocationSnap.exists() ? Number(globalLocationSnap.data().radius) : 0;
-                
+                // User has specific settings. Use them and combine with global radius.
                 setEffectiveLocationSettings({
                     ...user.locationSettings,
                     radius: globalRadius,
                 });
-
+            } else if (globalSettings && globalSettings.latitude != null && globalSettings.longitude != null) {
+                // User follows global settings.
+                setEffectiveLocationSettings({
+                    latitude: Number(globalSettings.latitude),
+                    longitude: Number(globalSettings.longitude),
+                    radius: globalRadius,
+                });
             } else {
-                const globalLocationRef = doc(db, 'settings', 'location');
-                const globalLocationSnap = await getDoc(globalLocationRef);
-                if (globalLocationSnap.exists()) {
-                    const data = globalLocationSnap.data();
-                    if (data.latitude != null && data.longitude != null && data.radius != null) {
-                        setEffectiveLocationSettings({
-                            latitude: Number(data.latitude),
-                            longitude: Number(data.longitude),
-                            radius: Number(data.radius),
-                        });
-                    } else {
-                        setEffectiveLocationSettings(null);
-                    }
-                } else {
-                    setEffectiveLocationSettings(null);
-                }
+                // No valid location settings found anywhere.
+                setEffectiveLocationSettings(null);
             }
 
             // 3. Fetch attendance history
@@ -470,11 +467,11 @@ export default function EmployeeDashboard() {
                 </div>
               )}
               <div className="flex flex-col sm:flex-row gap-4">
-                  <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="w-full" disabled={clockInDisabled}>
+                  <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={clockInDisabled}>
                     {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserCheck className="mr-2" />}
                     Absen Masuk
                   </Button>
-                  <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="w-full" variant="outline" disabled={clockOutDisabled}>
+                  <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="outline" disabled={clockOutDisabled}>
                     {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserX className="mr-2" />}
                     Absen Keluar
                   </Button>
@@ -549,5 +546,3 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
-
-    

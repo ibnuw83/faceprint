@@ -16,14 +16,12 @@ service cloud.firestore {
     // - landingPage, announcement, and footer are public-read.
     // - Other settings are admin-only.
     match /settings/{settingId} {
-      match /landingPage | /announcement | /footer {
-        allow read: if true;
-        allow write: if isAdmin();
-      }
-      match /location | /schedule {
-         allow read, write: if isAdmin();
-      }
+        // Publicly readable settings for the landing page, banner, and footer
+        allow read: if settingId in ['landingPage', 'announcement', 'footer'];
+        // Admin-only settings
+        allow read, write: if isAdmin();
     }
+
 
     // Users collection:
     // - Admins can read/write any user document.

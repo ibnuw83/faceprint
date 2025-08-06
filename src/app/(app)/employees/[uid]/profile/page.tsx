@@ -45,9 +45,8 @@ export default function UserProfilePage({ params }: { params: { uid: string } })
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const { uid } = params;
-
   const fetchUserDataAndHistory = useCallback(async () => {
+    const { uid } = params;
     if (!uid) {
         setLoading(false);
         return;
@@ -80,7 +79,7 @@ export default function UserProfilePage({ params }: { params: { uid: string } })
     } finally {
       setLoading(false);
     }
-  }, [uid, router]);
+  }, [params, router]);
 
   useEffect(() => {
     if (!authLoading) {

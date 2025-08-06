@@ -105,11 +105,11 @@ export default function EmployeeDashboard() {
       
     } catch (error) {
       console.error("Error fetching attendance history: ", error);
-       if ((error as any).code === 'failed-precondition') {
-          console.error('Firestore index missing. Please create it using the link in the error message.');
+       if ((error as any).code === 'failed-precondition' || (error as any).code === 'permission-denied') {
+          console.error('Firestore index or permissions missing.');
           toast({
             title: 'Gagal Memuat Riwayat',
-            description: 'Indeks Firestore yang diperlukan belum dibuat. Buka konsol developer (F12) untuk melihat link pembuatan indeks.',
+            description: 'Aturan keamanan atau indeks database belum benar. Hubungi admin.',
             variant: 'destructive',
             duration: 10000,
           });
@@ -415,6 +415,7 @@ export default function EmployeeDashboard() {
             longitude: currentLocation.longitude,
         },
         createdAt: Timestamp.fromDate(now),
+        uid: user.uid,
       });
 
       const userRef = doc(db, 'users', user.uid);
@@ -589,9 +590,3 @@ export default function EmployeeDashboard() {
       </div>
     </div>
   );
-
-    
-
-    
-
-    

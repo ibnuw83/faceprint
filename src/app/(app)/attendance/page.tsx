@@ -67,9 +67,7 @@ type DailyAttendanceSummary = {
     dayDate: Date;
 };
 
-type ScheduleSettings = {
-    clockInTime: string;
-};
+type ScheduleSettings = Record<string, { clockIn: string; clockOut: string }>;
 
 
 export default function AttendancePage() {
@@ -158,17 +156,24 @@ export default function AttendancePage() {
             // Only set the first clock in
             if (summary.clockInTime === null) {
                 summary.clockInTime = record.time;
+                
+                if (scheduleSettings) {
+                    const dayIndex = (recordTime.getDay() + 6) % 7;
+                    const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+                    const todayName = daysOfWeek[dayIndex];
+                    const todaySchedule = scheduleSettings[todayName];
 
-                if (scheduleSettings?.clockInTime) {
-                    const [hours, minutes] = scheduleSettings.clockInTime.split(':').map(Number);
-                    const deadline = new Date(recordTime);
-                    deadline.setHours(hours, minutes, 0, 0);
-                    
-                    if (recordTime > deadline) {
-                        const diffMs = recordTime.getTime() - deadline.getTime();
-                        summary.lateMinutes = Math.round(diffMs / 60000);
-                    } else {
-                        summary.lateMinutes = 0; // On time
+                    if (todaySchedule?.clockIn) {
+                        const [hours, minutes] = todaySchedule.clockIn.split(':').map(Number);
+                        const deadline = new Date(recordTime);
+                        deadline.setHours(hours, minutes, 0, 0);
+                        
+                        if (recordTime > deadline) {
+                            const diffMs = recordTime.getTime() - deadline.getTime();
+                            summary.lateMinutes = Math.round(diffMs / 60000);
+                        } else {
+                            summary.lateMinutes = 0; // On time
+                        }
                     }
                 }
             }

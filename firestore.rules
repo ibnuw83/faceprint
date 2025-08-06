@@ -3,56 +3,44 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+  
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
 
     function isEmployee() {
-      // Check if a user is an employee based on the custom claim 'role'.
-      return request.auth.token.role == 'employee';
+      return request.auth != null && !isAdmin();
     }
 
-    function isAdmin() {
-      // Check if a user is an admin based on the custom claim 'role'.
-      return request.auth.token.role == 'admin';
-    }
-    
     match /users/{userId} {
-      // Admins can perform any action on any user document.
-      allow read, write: if isAdmin();
-      
-      // Employees can only read and update their own user document.
-      allow get, update: if request.auth.uid == userId;
+      allow read, update, delete: if request.auth.uid == userId || isAdmin();
+      allow create: if request.auth.uid == userId;
+      allow list: if isAdmin();
     }
-    
-    match /settings/{settingId} {
-        // Settings are public information (app name, colors, etc.)
-        allow read: if true;
-        // Only admins can change settings.
-        allow write: if isAdmin();
+
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
-    
+
     match /departments/{departmentId} {
-        // Only admins can manage departments.
-        allow get, list, create, update, delete: if isAdmin();
+      // Allow any authenticated user to read department list, but only admins can modify.
+      allow get, list: if request.auth != null;
+      allow create, update, delete: if isAdmin();
     }
     
-    match /leaveRequests/{requestId} {
-      // Admins can read all requests and update their status.
-      allow get, list, update: if isAdmin();
-
-      // Employees can create requests for themselves and read their own requests.
+    match /attendance/{attendanceId} {
       allow create: if request.auth.uid == request.resource.data.uid;
-      allow read: if isEmployee() && request.auth.uid == resource.data.uid;
+      // An employee's attendance history is filtered on the client-side using a query.
+      allow list, get: if isEmployee() || isAdmin();
     }
 
-    match /attendance/{attendanceId} {
-      // Any authenticated user can create an attendance record (clock in/out).
-      allow create: if request.auth != null;
-      
-      // An employee can query the attendance list, the query itself should filter by their employeeId.
-      // An admin can also query the list.
-      allow list, get: if isEmployee() || isAdmin();
-
-      // Only an admin can delete attendance records.
-      allow delete: if isAdmin();
+    match /leaveRequests/{requestId} {
+      allow create: if request.auth.uid == request.resource.data.uid;
+      allow read: if request.auth.uid == resource.data.uid || isAdmin();
+      allow list: if isAdmin();
+      allow update: if isAdmin();
     }
   }
 }

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/sheet"
 import { cn } from '@/lib/utils';
 import { LiveClock } from '@/components/live-clock';
+import EmployeeDashboard from '@/components/employee-dashboard';
 
 function Header() {
   const { user, logout, loading } = useAuth();
@@ -130,39 +131,6 @@ function Header() {
   );
 }
 
-function BottomNavBar() {
-    const pathname = usePathname();
-    const navItems = [
-        { href: '/dashboard', label: 'Beranda', icon: Home },
-        { href: '#', label: 'Cari', icon: Search },
-        { href: '#', label: 'Notifikasi', icon: Bell },
-        { href: '/profile', label: 'Akun', icon: UserIcon },
-    ];
-    return (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-background border-t shadow-inner">
-            <div className="flex justify-around items-center h-16">
-                {navItems.map(item => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <Link key={item.href} href={item.href} className="flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors gap-1">
-                           <div className={cn(
-                               "p-2 rounded-full transition-colors",
-                               isActive ? "bg-primary/10" : ""
-                           )}>
-                             <item.icon className={cn("h-6 w-6", isActive ? "text-primary" : "")} />
-                           </div>
-                           <span className={cn(
-                               "text-xs font-medium",
-                               isActive ? "text-primary" : ""
-                           )}>{item.label}</span>
-                        </Link>
-                    )
-                })}
-            </div>
-        </nav>
-    );
-}
-
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { isAuthenticated, user, loading } = useAuth();
@@ -187,31 +155,19 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  // If user is employee but profile is not complete, show only the completion page
   if (user.role === 'employee' && !user.isProfileComplete) {
     return <main>{children}</main>;
   }
 
-  // Admin layout remains with sidebar-like functionality via header dropdown
-  if (user.role === 'admin') {
-      return (
-         <div className="flex min-h-screen w-full flex-col">
-          <Header />
-          <main className="flex flex-1 flex-col bg-muted/40 pt-16">
-            <div className="flex-1 space-y-4 p-4 md:space-y-8 md:p-8">
-              {children}
-            </div>
-          </main>
-        </div>
-      )
-  }
-
-  // New Employee layout with bottom navigation
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <main className="flex-1 bg-background pb-16 md:pb-0">
-        {children}
+      <Header />
+      <main className="flex flex-1 flex-col bg-muted/40 pt-16">
+        <div className="flex-1 space-y-4 p-4 md:space-y-8 md:p-8">
+            {children}
+        </div>
       </main>
-      <BottomNavBar />
     </div>
   );
 }

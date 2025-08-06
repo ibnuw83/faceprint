@@ -12,16 +12,12 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
     
-    // Helper function to check if user is authenticated
+    // Helper function to check if a user is authenticated
     function isAuthenticated() {
         return request.auth != null;
     }
 
     // Settings collection:
-    match /settings/branding {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
     match /settings/landingPage {
         allow read: if true;
         allow write: if isAdmin();
@@ -30,28 +26,30 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isAdmin();
     }
-    match /settings/footer {
+     match /settings/footer {
+        allow read: if true;
+        allow write: if isAdmin();
+    }
+    match /settings/branding {
         allow read: if true;
         allow write: if isAdmin();
     }
     match /settings/location {
-         allow read, write: if isAdmin();
+         allow read: if isAuthenticated();
+         allow write: if isAdmin();
     }
      match /settings/schedule {
-         allow read, write: if isAdmin();
-      }
+         allow read: if isAuthenticated();
+         allow write: if isAdmin();
+    }
 
     // Users collection:
     match /users/{userId} {
       allow read, write: if isAdmin();
-      allow read: if isOwner(userId);
-      // Allow user to complete their own profile for the first time
-      allow update: if isOwner(userId) && request.resource.data.isProfileComplete == true;
+      allow read, update: if isOwner(userId);
     }
 
-    // Departments:
-    // - Admins can manage them.
-    // - Authenticated users can read them (for profile completion).
+    // Departments can be read by authenticated users, managed by admins.
     match /departments/{deptId} {
       allow read: if isAuthenticated();
       allow write, create, delete: if isAdmin();

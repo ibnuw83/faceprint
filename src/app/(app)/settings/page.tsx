@@ -72,10 +72,8 @@ export default function SettingsPage() {
   const [accentColor, setAccentColor] = useState('#009688');
   
   const [logoUrl, setLogoUrl] = useState('');
-  const [isSavingLogo, setIsSavingLogo] = useState(false);
-
-  const [appName, setAppName] = useState('VisageID');
-  const [isSavingName, setIsSavingName] = useState(false);
+  const [appName, setAppName] = useState('');
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
   
   // Location settings
   const [locationName, setLocationName] = useState('');
@@ -127,20 +125,18 @@ export default function SettingsPage() {
         document.documentElement.style.setProperty('--accent', storedAccent);
       }
     };
-    
-    const loadSettingsFromStorage = () => {
-        const storedLogo = localStorage.getItem('app-logo-url');
-        if (storedLogo) {
-            setLogoUrl(storedLogo);
-        }
-        const storedName = localStorage.getItem('app-name');
-        if (storedName) {
-            setAppName(storedName);
-            document.title = storedName;
-        }
-    }
 
     const fetchSettingsFromDb = async () => {
+        const brandingRef = doc(db, 'settings', 'branding');
+        const brandingSnap = await getDoc(brandingRef);
+        if (brandingSnap.exists()) {
+            const data = brandingSnap.data();
+            setAppName(data.appName || 'VisageID');
+            setLogoUrl(data.logoUrl || '');
+        } else {
+             setAppName('VisageID');
+        }
+
         const locationRef = doc(db, 'settings', 'location');
         const locationSnap = await getDoc(locationRef);
         if (locationSnap.exists()) {
@@ -182,7 +178,6 @@ export default function SettingsPage() {
     }
 
     applyTheme();
-    loadSettingsFromStorage();
     fetchSettingsFromDb();
   }, []);
 
@@ -218,36 +213,22 @@ export default function SettingsPage() {
     toast({ title: 'Tema Direset', description: 'Warna telah dikembalikan ke pengaturan awal.' });
   }
 
-  const saveLogo = () => {
-    setIsSavingLogo(true);
-    localStorage.setItem('app-logo-url', logoUrl);
-    window.dispatchEvent(new Event('storage'));
-     setTimeout(() => {
-        toast({ title: 'Logo Disimpan', description: 'URL logo telah diperbarui.' });
-        setIsSavingLogo(false);
-    }, 500)
-  };
-  
-  const removeLogo = () => {
-    localStorage.removeItem('app-logo-url');
-    setLogoUrl('');
-    window.dispatchEvent(new Event('storage'));
-    toast({ title: 'Logo Dihapus', description: 'Logo kustom telah dihapus.' });
-  }
-
-  const handleAppNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAppName(e.target.value);
-  };
-
-  const saveAppName = () => {
-    setIsSavingName(true);
-    localStorage.setItem('app-name', appName);
-    document.title = appName;
-    window.dispatchEvent(new Event('storage'));
-    setTimeout(() => {
-        toast({ title: 'Nama Aplikasi Disimpan', description: `Nama aplikasi telah diubah menjadi "${appName}".` });
-        setIsSavingName(false);
-    }, 500)
+  const saveBrandingSettings = async () => {
+    setIsSavingBranding(true);
+    try {
+        const brandingRef = doc(db, 'settings', 'branding');
+        await setDoc(brandingRef, {
+            appName: appName.trim() || 'VisageID',
+            logoUrl: logoUrl.trim(),
+        }, { merge: true });
+        
+        toast({ title: 'Pengaturan Branding Disimpan', description: 'Nama aplikasi dan logo telah diperbarui.' });
+    } catch (error) {
+        console.error('Error saving branding settings:', error);
+        toast({ title: 'Gagal Menyimpan Branding', variant: 'destructive' });
+    } finally {
+        setIsSavingBranding(false);
+    }
   };
   
   const saveLocationSettings = async () => {
@@ -416,23 +397,41 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-8">
             <div className="space-y-4 p-4 border rounded-lg">
-             <h3 className="font-semibold text-lg flex items-center gap-2"><Text/> Nama Aplikasi</h3>
+             <h3 className="font-semibold text-lg flex items-center gap-2"><Text/> Nama & Logo Aplikasi</h3>
                 <div className="space-y-2">
                     <Label htmlFor="appName">Judul Aplikasi</Label>
-                    <div className='flex items-center gap-2'>
-                        <Input
-                            id="appName"
-                            value={appName}
-                            onChange={handleAppNameChange}
-                            placeholder="e.g. VisageID"
-                        />
-                         <Button onClick={saveAppName} disabled={isSavingName}>
-                            {isSavingName ? <Loader2 className="mr-2 animate-spin"/> : null}
-                            Simpan
-                         </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Judul ini akan ditampilkan di sidebar, halaman login, dan judul tab browser.</p>
+                    <Input
+                        id="appName"
+                        value={appName}
+                        onChange={(e) => setAppName(e.target.value)}
+                        placeholder="e.g. VisageID"
+                    />
                 </div>
+                <div className="space-y-2">
+                    <Label htmlFor="logoUrl">URL Logo</Label>
+                     <div className="flex items-start gap-4">
+                        <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center border overflow-hidden shrink-0">
+                            {logoUrl ? (
+                            <Image src={logoUrl} alt="Logo Preview" width={96} height={96} className="object-contain" unoptimized />
+                            ) : (
+                            <p className="text-muted-foreground text-sm text-center px-2">Logo Saat Ini</p>
+                            )}
+                        </div>
+                         <div className='w-full space-y-2'>
+                            <Input
+                                id="logoUrl"
+                                placeholder="https://example.com/logo.png"
+                                value={logoUrl}
+                                onChange={(e) => setLogoUrl(e.target.value)}
+                            />
+                            <p className="text-xs text-muted-foreground">Masukkan URL gambar (SVG, PNG, JPG). Pastikan domain gambar diizinkan di next.config.ts.</p>
+                         </div>
+                    </div>
+                </div>
+                <Button onClick={saveBrandingSettings} disabled={isSavingBranding}>
+                    {isSavingBranding ? <Loader2 className="mr-2 animate-spin"/> : <Save />}
+                    Simpan Nama & Logo
+                </Button>
             </div>
 
              <div className="space-y-4 p-4 border rounded-lg">
@@ -578,40 +577,6 @@ export default function SettingsPage() {
              <div className="pt-4">
                  <Button onClick={resetColors} variant="outline">Reset Warna</Button>
              </div>
-          </div>
-          <div className="space-y-4 p-4 border rounded-lg">
-             <h3 className="font-semibold text-lg">Logo Aplikasi</h3>
-              <div className="flex items-start gap-4">
-                  <div className="w-24 h-24 rounded-md bg-muted flex items-center justify-center border overflow-hidden shrink-0">
-                    {logoUrl ? (
-                      <Image src={logoUrl} alt="Logo Preview" width={96} height={96} className="object-contain" unoptimized />
-                    ) : (
-                      <p className="text-muted-foreground text-sm text-center px-2">Logo Saat Ini</p>
-                    )}
-                  </div>
-                  <div className='w-full space-y-2'>
-                    <Label htmlFor="logoUrl">URL Logo</Label>
-                    <Input
-                        id="logoUrl"
-                        placeholder="https://example.com/logo.png"
-                        value={logoUrl}
-                        onChange={(e) => setLogoUrl(e.target.value)}
-                        disabled={isSavingLogo}
-                    />
-                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={saveLogo} disabled={isSavingLogo || !logoUrl}>
-                        {isSavingLogo ? <Loader2 className="mr-2 animate-spin"/> : <Save />}
-                        Simpan Logo
-                      </Button>
-                      {logoUrl && (
-                        <Button variant="destructive" onClick={removeLogo} disabled={isSavingLogo}>
-                            <Trash2/> Hapus Logo
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-             </div>
-              <p className="text-xs text-muted-foreground">Masukkan URL gambar (SVG, PNG, JPG). Pastikan domain gambar diizinkan di next.config.ts.</p>
           </div>
           
           <div className="space-y-4 p-4 border rounded-lg">

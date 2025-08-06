@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 type LogoProps = {
   className?: string;
@@ -15,24 +17,29 @@ type LogoProps = {
 export function Logo({ className, showTitle = true }: LogoProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [appName, setAppName] = useState('VisageID');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadData = () => {
-      const storedLogo = localStorage.getItem('app-logo-url');
-      const storedName = localStorage.getItem('app-name');
-      setLogoUrl(storedLogo);
-      if (storedName) {
-          setAppName(storedName);
+    const brandingRef = doc(db, 'settings', 'branding');
+    
+    const unsubscribe = onSnapshot(brandingRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setLogoUrl(data.logoUrl || null);
+        setAppName(data.appName || 'VisageID');
+        document.title = data.appName || 'VisageID';
+      } else {
+        setLogoUrl(null);
+        setAppName('VisageID');
+         document.title = 'VisageID';
       }
-    };
+      setLoading(false);
+    }, (error) => {
+      console.error("Failed to fetch branding settings:", error);
+      setLoading(false);
+    });
 
-    loadData();
-
-    // Listen for changes from the settings page
-    window.addEventListener('storage', loadData);
-    return () => {
-      window.removeEventListener('storage', loadData);
-    };
+    return () => unsubscribe();
   }, []);
 
 

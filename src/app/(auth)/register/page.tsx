@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { Separator } from '@/components/ui/separator';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -30,13 +32,18 @@ export default function RegisterPage() {
   const [appName, setAppName] = useState('VisageID');
 
   useEffect(() => {
-    const storedName = localStorage.getItem('app-name');
-    if(storedName) {
-        setAppName(storedName);
-        document.title = `Register | ${storedName}`;
-    } else {
-        document.title = `Register | VisageID`;
+    const fetchBranding = async () => {
+        const brandingRef = doc(db, 'settings', 'branding');
+        const brandingSnap = await getDoc(brandingRef);
+        if (brandingSnap.exists()) {
+            const name = brandingSnap.data().appName || 'VisageID';
+            setAppName(name);
+            document.title = `Register | ${name}`;
+        } else {
+             document.title = 'Register | VisageID';
+        }
     }
+    fetchBranding();
   }, []);
 
   const handleRegister = async (e: React.FormEvent) => {

@@ -67,7 +67,7 @@ Buka terminal di direktori proyek Anda dan jalankan perintah berikut:
 
 2.  **Buat catatan perubahan (commit):**
     ```bash
-    git commit -m "Deskripsi singkat tentang perubahan yang dibuat"
+    git commit -m "Memperbaiki aturan keamanan untuk penyimpanan profil pengguna baru"
     ```
     *Ganti "Deskripsi singkat..." dengan penjelasan Anda sendiri, contohnya "Memperbaiki tampilan mobile" atau "Menambah fitur pengumuman".*
 

@@ -214,33 +214,35 @@ export default function EmployeeDashboard() {
         const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
         const todayName = daysOfWeek[dayIndex];
 
-        let clockInEnabled = true;
-        let clockOutEnabled = true;
+        let clockInEnabled = false;
+        let clockOutEnabled = false;
 
         if (scheduleSettings && scheduleSettings[todayName]) {
             const todaySchedule = scheduleSettings[todayName];
+            const CLOCK_IN_WINDOW_MINUTES = 4 * 60; // 4 hours
 
+            // Clock-In Logic
             if (todaySchedule.clockIn) {
                 const [inHours, inMinutes] = todaySchedule.clockIn.split(':').map(Number);
                 const clockInStartTime = inHours * 60 + inMinutes;
-                clockInEnabled = currentTimeInMinutes >= clockInStartTime;
-            } else {
-                // If clockIn is not set for today, disable it
-                clockInEnabled = false;
+                const clockInEndTime = clockInStartTime + CLOCK_IN_WINDOW_MINUTES;
+
+                // Button is enabled if current time is within the 4-hour window
+                if (currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInEndTime) {
+                    clockInEnabled = true;
+                }
             }
 
+            // Clock-Out Logic
             if (todaySchedule.clockOut) {
                 const [outHours, outMinutes] = todaySchedule.clockOut.split(':').map(Number);
                 const clockOutStartTime = outHours * 60 + outMinutes;
-                clockOutEnabled = currentTimeInMinutes >= clockOutStartTime;
-            } else {
-                // If clockOut is not set for today, disable it
-                clockOutEnabled = false;
+                
+                // Button is enabled if current time is at or after the clock-out time
+                if (currentTimeInMinutes >= clockOutStartTime) {
+                    clockOutEnabled = true;
+                }
             }
-        } else {
-            // If no schedule settings or no entry for today, disable both
-            clockInEnabled = false;
-            clockOutEnabled = false;
         }
 
         setIsClockInAllowed(clockInEnabled);
@@ -252,7 +254,7 @@ export default function EmployeeDashboard() {
     const timerId = setInterval(updateTimeChecks, 60000); // Check every minute
 
     return () => clearInterval(timerId);
-}, [scheduleSettings]);
+  }, [scheduleSettings]);
 
 
   // Effect for getting camera permissions and listing devices
@@ -579,4 +581,5 @@ export default function EmployeeDashboard() {
       </div>
     </div>
   );
-}
+
+    

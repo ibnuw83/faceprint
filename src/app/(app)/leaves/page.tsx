@@ -23,7 +23,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp, doc, addDoc, where, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -68,7 +68,7 @@ type LeaveRequest = {
   statusUpdatedAt: Timestamp | null;
   acknowledgedByEmployee: boolean;
   attachmentUrl?: string;
-  attachmentFileName?: string;
+  attachmentPath?: string;
 };
 
 
@@ -139,15 +139,16 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
 
         setIsSubmitting(true);
         let fileUrl = '';
-        let fileName = '';
+        let filePath = '';
 
         try {
              if (attachmentFile && leaveType === 'Sakit') {
                 setIsUploading(true);
-                const storageRef = ref(storage, `leave-attachments/${user.uid}/${Date.now()}-${attachmentFile.name}`);
+                const storagePath = `leave-attachments/${user.uid}/${Date.now()}-${attachmentFile.name}`;
+                const storageRef = ref(storage, storagePath);
                 const snapshot = await uploadBytes(storageRef, attachmentFile);
                 fileUrl = await getDownloadURL(snapshot.ref);
-                fileName = attachmentFile.name;
+                filePath = storagePath;
                 setIsUploading(false);
             }
 
@@ -167,7 +168,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
 
             if (fileUrl) {
                 requestData.attachmentUrl = fileUrl;
-                requestData.attachmentFileName = fileName;
+                requestData.attachmentPath = filePath;
             }
 
             await addDoc(collection(db, 'leaveRequests'), requestData);
@@ -177,6 +178,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
             setReason('');
             setDates(undefined);
             setAttachmentFile(null);
+            if(fileInputRef.current) fileInputRef.current.value = "";
             await fetchMyRequests();
 
         } catch (error) {
@@ -194,6 +196,8 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
             // 5MB limit
             if (file.size > 5 * 1024 * 1024) {
                  toast({ title: 'Ukuran File Terlalu Besar', description: 'Ukuran file maksimal adalah 5MB.', variant: 'destructive' });
+                 setAttachmentFile(null);
+                 if (fileInputRef.current) fileInputRef.current.value = "";
                  return;
             }
             setAttachmentFile(file);
@@ -224,7 +228,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="flex flex-col md:flex-row gap-4 items-center">
                             <Label htmlFor="leaveType" className="md:w-40">Jenis Pengajuan</Label>
-                            <Select onValueChange={(value) => { setLeaveType(value); setAttachmentFile(null); }} value={leaveType} disabled={isSubmitting}>
+                            <Select onValueChange={(value) => { setLeaveType(value); setAttachmentFile(null); }} value={leaveType} disabled={isSubmitting || isUploading}>
                                 <SelectTrigger id="leaveType" className="flex-1">
                                     <SelectValue placeholder="Pilih jenis cuti/izin..." />
                                 </SelectTrigger>
@@ -243,7 +247,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     id="date"
                                     variant={"outline"}
                                     className="w-full justify-start text-left font-normal flex-1"
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || isUploading}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                     {dates?.from ? (
@@ -279,7 +283,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                 placeholder="Jelaskan alasan Anda secara singkat..."
                                 value={reason}
                                 onChange={(e) => setReason(e.target.value)}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || isUploading}
                                 className='flex-1'
                             />
                         </div>
@@ -295,11 +299,11 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         onChange={handleFileChange} 
                                         className="hidden"
                                         accept="image/jpeg,image/png,application/pdf"
-                                        disabled={isSubmitting}
+                                        disabled={isSubmitting || isUploading}
                                     />
-                                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
+                                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting || isUploading}>
                                         <Upload className='mr-2'/>
-                                        Pilih File
+                                        Pilih File (Max 5MB)
                                     </Button>
                                     {attachmentFile && <p className="text-sm text-muted-foreground mt-2">File dipilih: {attachmentFile.name}</p>}
                                 </div>
@@ -307,7 +311,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                         )}
 
                         <div className='flex justify-end'>
-                            <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || !leaveType || !reason || !dates?.from}>
+                            <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || isUploading || !leaveType || !reason || !dates?.from}>
                                 {(isSubmitting || isUploading) ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
                                 {submitButtonText()}
                             </Button>
@@ -435,15 +439,31 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
         }
     }
 
-    const handleDeleteRequest = async (id: string) => {
-        setDeletingId(id);
+    const handleDeleteRequest = async (request: LeaveRequest) => {
+        setDeletingId(request.id);
         try {
-            await deleteDoc(doc(db, 'leaveRequests', id));
+            // If there's an attachment, delete it from Storage first
+            if (request.attachmentPath) {
+                const fileRef = ref(storage, request.attachmentPath);
+                await deleteObject(fileRef);
+            }
+
+            // Delete the document from Firestore
+            await deleteDoc(doc(db, 'leaveRequests', request.id));
+            
             toast({ title: 'Pengajuan Dihapus', description: 'Data pengajuan cuti/izin telah berhasil dihapus.' });
-            await fetchAllRequests(); // Refresh list after deletion
-        } catch (error) {
-            console.error('Error deleting request:', error);
-            toast({ title: 'Gagal Menghapus', variant: 'destructive' });
+            await fetchAllRequests();
+        } catch (error: any) {
+            // Handle case where file might not exist in storage but doc does
+            if (error.code === 'storage/object-not-found') {
+                console.warn('File not found in storage, but proceeding to delete firestore doc');
+                await deleteDoc(doc(db, 'leaveRequests', request.id));
+                 toast({ title: 'Pengajuan Dihapus', description: 'Data pengajuan cuti/izin telah berhasil dihapus.' });
+                await fetchAllRequests();
+            } else {
+                console.error('Error deleting request:', error);
+                toast({ title: 'Gagal Menghapus', variant: 'destructive' });
+            }
         } finally {
             setDeletingId(null);
         }
@@ -537,7 +557,7 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
                                                     <AlertDialogCancel>Batal</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteRequest(req.id)} className="bg-destructive hover:bg-destructive/90">
+                                                    <AlertDialogAction onClick={() => handleDeleteRequest(req)} className="bg-destructive hover:bg-destructive/90">
                                                         Ya, Hapus
                                                     </AlertDialogAction>
                                                 </AlertDialogFooter>
@@ -581,5 +601,3 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
-
-    

@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Camera, Upload, Loader2, AlertTriangle, Video, RotateCcw } from 'lucide-react';
+import { UserPlus, Camera, Upload, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, collection, getDocs, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -29,7 +29,7 @@ type Department = {
   name: string;
 };
 
-export default function CompleteProfilePage() {
+export default function NewEmployeePage() {
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: authLoading, checkUserStatus } = useAuth();
@@ -48,15 +48,21 @@ export default function CompleteProfilePage() {
   const [faceprintDataUrl, setFaceprintDataUrl] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
+  // Redirect if not admin and not a new user
   useEffect(() => {
     if (!authLoading && user) {
-      // Pre-fill name from auth, but allow user to change it if needed.
-      setFullName(user.name || '');
+       // Prefill name if available from auth provider
+       setFullName(user.name || '');
+       if (user.role !== 'admin' && user.isProfileComplete) {
+            toast({title: 'Profil sudah lengkap', description: 'Anda telah dialihkan ke dasbor.', variant: 'default'});
+            router.replace('/dashboard');
+       }
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, router, toast]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
+      setLoadingDepartments(true);
       try {
         const departmentsCollection = collection(db, 'departments');
         const departmentSnapshot = await getDocs(departmentsCollection);
@@ -79,16 +85,13 @@ export default function CompleteProfilePage() {
    useEffect(() => {
     const getCameraPermission = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error('Camera not supported on this browser');
         setHasCameraPermission(false);
         return;
       }
       try {
-        // First, get permission
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
         
-        // Then, enumerate devices to get the list of cameras
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         setCameras(videoDevices);
@@ -97,7 +100,6 @@ export default function CompleteProfilePage() {
           setSelectedCamera(frontCamera ? frontCamera.deviceId : videoDevices[0].deviceId);
         }
 
-        // Stop the initial stream, we'll start a new one with the selected device
         stream.getTracks().forEach(track => track.stop());
 
       } catch (error) {
@@ -106,7 +108,7 @@ export default function CompleteProfilePage() {
         toast({
           variant: 'destructive',
           title: 'Akses Kamera Ditolak',
-          description: 'Silakan izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.',
+          description: 'Silakan izinkan akses kamera di pengaturan browser Anda.',
         });
       }
     };
@@ -116,28 +118,29 @@ export default function CompleteProfilePage() {
   }, [toast]);
 
   useEffect(() => {
-    // Effect to start/restart stream when selectedCamera changes
+    let stream: MediaStream;
     if (selectedCamera && hasCameraPermission && videoRef.current && !faceprintDataUrl) {
-        let stream: MediaStream;
         const startStream = async () => {
-             // Stop any existing stream
             if (videoRef.current?.srcObject) {
                 const currentStream = videoRef.current.srcObject as MediaStream;
                 currentStream.getTracks().forEach(track => track.stop());
             }
 
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: { deviceId: { exact: selectedCamera } }
-            });
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { deviceId: { exact: selectedCamera } }
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+            } catch (error) {
+                console.error("Error starting video stream for selected camera:", error);
             }
         };
 
         startStream();
 
         return () => {
-            // Cleanup: stop the stream when component unmounts or selected camera changes
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
             }
@@ -151,32 +154,28 @@ export default function CompleteProfilePage() {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
-      // Draw the current video frame onto the canvas
       const context = canvas.getContext('2d');
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Get the image data as a base64 string
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9); // Use JPEG for smaller size
-      setFaceprintDataUrl(dataUrl);
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        setFaceprintDataUrl(dataUrl);
 
-      // Stop the video stream
-      if(video.srcObject) {
-        const stream = video.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        video.srcObject = null;
+        if(video.srcObject) {
+            const stream = video.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+
+        toast({ title: "Gambar Diambil", description: "Gambar wajah Anda telah berhasil ditangkap." });
       }
-
-      toast({ title: "Gambar Diambil", description: "Gambar wajah Anda telah berhasil ditangkap." });
     }
   };
 
   const handleRetake = () => {
     setFaceprintDataUrl(null);
-    // The useEffect will restart the camera stream since faceprintDataUrl is now null
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -201,22 +200,20 @@ export default function CompleteProfilePage() {
         name: fullName,
         employeeId: employeeId,
         department: department,
-        role: user.role, 
         isProfileComplete: true,
-        faceprint: faceprintDataUrl, // Save the captured face
+        faceprint: faceprintDataUrl,
       });
 
-      // Refresh the auth state to get the latest user data
       await checkUserStatus();
 
       toast({
         title: 'Profil Berhasil Disimpan',
         description: 'Data dan wajah Anda telah berhasil disimpan.',
       });
-      router.push('/dashboard'); // Redirect to dashboard after completion
+      router.push('/dashboard');
 
     } catch (error: any) {
-      console.error('Error memperbarui profil:', error);
+      console.error('Error updating profile:', error);
       toast({
         title: 'Gagal Memperbarui',
         description: error.message || 'Terjadi kesalahan. Silakan coba lagi.',
@@ -227,8 +224,7 @@ export default function CompleteProfilePage() {
     }
   };
   
-  // To avoid flash of content while auth is loading or redirecting
-  if (authLoading || !user) {
+  if (authLoading || !user || (user.role !== 'admin' && user.isProfileComplete)) {
     return (
        <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -236,16 +232,22 @@ export default function CompleteProfilePage() {
     )
   }
 
+  const cardTitle = user.role === 'admin' ? 'Tambah Karyawan Baru' : 'Lengkapi Profil Anda';
+  const cardDescription = user.role === 'admin' 
+    ? 'Buat profil untuk karyawan baru.'
+    : 'Masukkan detail Anda dan daftarkan wajah untuk menyelesaikan pengaturan akun.';
+
+
   return (
     <div className="container mx-auto p-4 md:p-6 lg:p-8">
       <Card className="max-w-4xl mx-auto shadow-lg rounded-xl">
         <CardHeader>
           <CardTitle className="text-2xl font-bold flex items-center gap-2">
             <UserPlus className="text-primary" />
-            Lengkapi Profil Anda
+            {cardTitle}
           </CardTitle>
           <CardDescription>
-            Masukkan detail Anda dan daftarkan wajah untuk menyelesaikan pengaturan akun.
+            {cardDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>

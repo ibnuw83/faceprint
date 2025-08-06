@@ -85,6 +85,12 @@ function Header() {
                           <span>Profil Saya</span>
                         </Link>
                 </DropdownMenuItem>
+                 <DropdownMenuItem asChild>
+                    <Link href="/leaves" className="cursor-pointer">
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span>Cuti & Izin</span>
+                    </Link>
+                </DropdownMenuItem>
                 {user?.role === 'admin' && (
                   <>
                     <DropdownMenuItem asChild>
@@ -103,12 +109,6 @@ function Header() {
                         <Link href="/departments" className="cursor-pointer">
                             <Building2 className="mr-2 h-4 w-4" />
                             <span>Departemen</span>
-                        </Link>
-                    </DropdownMenuItem>
-                     <DropdownMenuItem asChild>
-                        <Link href="/leaves" className="cursor-pointer">
-                            <FileText className="mr-2 h-4 w-4" />
-                            <span>Cuti & Izin</span>
                         </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

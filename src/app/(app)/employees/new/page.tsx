@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Camera, Upload, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { doc, updateDoc, collection, getDocs, addDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -199,13 +199,13 @@ export default function NewEmployeePage() {
 
     try {
       const userRef = doc(db, 'users', user.uid);
-      await updateDoc(userRef, {
+      await setDoc(userRef, {
         name: fullName,
         employeeId: employeeId,
         department: department,
         isProfileComplete: true,
         faceprint: faceprintDataUrl,
-      });
+      }, { merge: true }); // Use setDoc with merge to create or update
 
       await checkUserStatus();
 

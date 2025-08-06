@@ -424,7 +424,7 @@ export default function SettingsPage() {
                     <Label htmlFor="landingImageUrls">URL Gambar Slideshow (satu per baris)</Label>
                     <Textarea
                         id="landingImageUrls"
-                        placeholder="https://example.com/image1.png&#10;https://example.com/image2.png"
+                        placeholder="https://example.com/image1.png\nhttps://example.com/image2.png"
                         value={landingImageUrls}
                         onChange={(e) => setLandingImageUrls(e.target.value)}
                         disabled={isSavingLanding}

@@ -94,6 +94,7 @@ export default function SettingsPage() {
   const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
 
   // Landing page settings
+  const [landingTitle, setLandingTitle] = useState('');
   const [landingDescription, setLandingDescription] = useState('');
   const [landingImageUrls, setLandingImageUrls] = useState('');
   const [isSavingLanding, setIsSavingLanding] = useState(false);
@@ -164,6 +165,7 @@ export default function SettingsPage() {
         const landingPageSnap = await getDoc(landingPageRef);
         if (landingPageSnap.exists()) {
             const data = landingPageSnap.data();
+            setLandingTitle(data.title || '');
             setLandingDescription(data.description || '');
             setLandingImageUrls((data.imageUrls || []).join('\n'));
         }
@@ -348,6 +350,7 @@ export default function SettingsPage() {
       const urls = landingImageUrls.split('\n').map(url => url.trim()).filter(url => url);
       const settingsRef = doc(db, 'settings', 'landingPage');
       await setDoc(settingsRef, {
+        title: landingTitle,
         description: landingDescription,
         imageUrls: urls,
       });
@@ -410,6 +413,16 @@ export default function SettingsPage() {
 
              <div className="space-y-4 p-4 border rounded-lg">
                 <h3 className="font-semibold text-lg flex items-center gap-2"><MonitorPlay /> Pengaturan Halaman Utama</h3>
+                 <div className="space-y-2">
+                    <Label htmlFor="landingTitle">Judul Halaman Utama</Label>
+                    <Input
+                        id="landingTitle"
+                        placeholder="Selamat Datang di Portal Karyawan"
+                        value={landingTitle}
+                        onChange={(e) => setLandingTitle(e.target.value)}
+                        disabled={isSavingLanding}
+                    />
+                </div>
                 <div className="space-y-2">
                     <Label htmlFor="landingDescription">Deskripsi Halaman Utama</Label>
                     <Textarea

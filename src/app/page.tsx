@@ -15,12 +15,14 @@ import Autoplay from "embla-carousel-autoplay"
 
 
 type LandingPageSettings = {
+  title: string;
   description: string;
   imageUrls: string[];
 };
 
 export default function HomePage() {
   const [settings, setSettings] = useState<LandingPageSettings>({
+    title: 'Selamat Datang di Portal Karyawan',
     description: 'Sistem absensi modern berbasis pengenalan wajah. Masuk untuk mencatat kehadiran Anda atau lihat riwayat absensi Anda.',
     imageUrls: ['https://placehold.co/600x600.png'],
   });
@@ -36,6 +38,7 @@ export default function HomePage() {
           // Ensure imageUrls is always an array
           const urls = Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls : ['https://placehold.co/600x600.png'];
           setSettings({
+            title: data.title || 'Selamat Datang di Portal Karyawan',
             description: data.description || 'Sistem absensi modern berbasis pengenalan wajah. Masuk untuk mencatat kehadiran Anda atau lihat riwayat absensi Anda.',
             imageUrls: urls,
           });
@@ -61,11 +64,15 @@ export default function HomePage() {
       <main className="flex-1 flex flex-col items-center justify-center text-center p-4">
         <div className="grid md:grid-cols-2 items-center gap-12 max-w-6xl mx-auto">
           <div className="flex flex-col items-center md:items-start text-center md:text-left gap-6">
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-              Selamat Datang di Portal Karyawan
-            </h1>
+             {loading ? (
+                <Skeleton className="h-12 w-3/4" />
+             ) : (
+                <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+                    {settings.title}
+                </h1>
+             )}
             {loading ? (
-              <div className='space-y-2'>
+              <div className='space-y-2 w-full'>
                 <Skeleton className='h-4 w-full' />
                 <Skeleton className='h-4 w-full' />
                 <Skeleton className='h-4 w-3/4' />

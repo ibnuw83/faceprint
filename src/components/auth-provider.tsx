@@ -20,6 +20,7 @@ export type User = {
   locationSettings?: {
     latitude: number;
     longitude: number;
+    radius: number;
     name?: string;
   } | null;
   faceprint?: string | null;
@@ -53,11 +54,13 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
       if (rawSettings) {
         const lat = Number(rawSettings.latitude);
         const lng = Number(rawSettings.longitude);
+        const radius = Number(rawSettings.radius);
 
-        if (!isNaN(lat) && !isNaN(lng)) {
+        if (!isNaN(lat) && !isNaN(lng) && !isNaN(radius)) {
             locationSettings = {
                 latitude: lat,
                 longitude: lng,
+                radius: radius,
                 name: rawSettings.name || undefined,
             };
         }
@@ -111,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
       setFirebaseUser(fbUser);
+      // When auth state changes, if there's no user, we are done loading.
       if (!fbUser) {
           setUser(null);
           setLoading(false);
@@ -121,6 +125,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // This effect now correctly depends on firebaseUser.
+    // If firebaseUser is null, it does nothing.
     if (firebaseUser) {
         setLoading(true);
         const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -132,13 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 
                 let locationSettings = null;
                 const rawSettings = userData.locationSettings;
-                if (rawSettings) {
+                 if (rawSettings && rawSettings.latitude && rawSettings.longitude && rawSettings.radius) {
                     const lat = Number(rawSettings.latitude);
                     const lng = Number(rawSettings.longitude);
-                    if (!isNaN(lat) && !isNaN(lng)) {
+                    const radius = Number(rawSettings.radius);
+                    if (!isNaN(lat) && !isNaN(lng) && !isNaN(radius)) {
                         locationSettings = {
                             latitude: lat,
                             longitude: lng,
+                            radius: radius,
                             name: rawSettings.name || undefined,
                         };
                     }
@@ -175,6 +183,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return () => unsubscribeUser();
     } else {
+        // If there's no firebaseUser, ensure loading is false and user is null.
+        setUser(null);
         setLoading(false);
     }
 }, [firebaseUser]);

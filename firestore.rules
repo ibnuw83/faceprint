@@ -1,64 +1,60 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     // Helper function to check for admin role
     function isAdmin() {
-      return request.auth != null && request.auth.token.role == 'admin';
-    }
-
-    // Helper function to check if the request is from the owner of the document
-    function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
-    }
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Admins can do anything
-      // Users can read and update their own profile
-      allow read, update: if isAdmin() || isOwner(userId);
-      // Only admins can create or delete users
-      allow create, delete: if isAdmin();
-    }
-
-    // Rules for settings documents
-    match /settings/{settingId} {
-      // Only admins can read or write settings
-      allow read, write: if isAdmin();
+      return request.auth.token.role == 'admin';
     }
     
-    // Rules for the 'departments' collection
-    match /departments/{departmentId} {
-      // Any authenticated user can read the department list
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users Collection
+    // Admin: Can read/write any user document.
+    // Employee: Can read/update their own document.
+    match /users/{userId} {
+      allow read, update: if isAdmin() || isOwner(userId);
+      allow create: if request.auth != null; // Anyone authenticated can create their user record initially
+      allow delete: if isAdmin();
+    }
+
+    // Attendance Collection
+    // Admin: Can read/write any attendance record.
+    // Employee: Can create records for themselves, and read their own history.
+    match /attendance/{docId} {
+      allow read: if isAdmin() || request.auth.token.employeeId == resource.data.employeeId;
+      allow create: if request.auth.token.employeeId == request.resource.data.employeeId;
+      allow write: if isAdmin(); // Includes update and delete for admin
+    }
+    
+    // Departments Collection
+    // Admin: Can read/write all department data.
+    // Employee: Can only read department data.
+    match /departments/{docId} {
       allow read: if request.auth != null;
-      // Only admins can write to departments
       allow write: if isAdmin();
     }
-
-    // Rules for the 'attendance' collection
-    match /attendance/{attendanceId} {
-      // Admin can read all attendance records
-      // Employees can read their own attendance records
-      allow read: if isAdmin() || (request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId == resource.data.employeeId);
-      // Authenticated users can create their own attendance records
-      allow create: if request.auth != null;
-      // Only admins can update or delete records
+    
+    // Leave Requests Collection
+    // Admin: Can read/write any leave request.
+    // Employee: Can create for themselves, and read their own requests.
+    match /leaveRequests/{docId} {
+      allow read: if isAdmin() || isOwner(resource.data.uid);
+      allow create: if isOwner(request.resource.data.uid);
       allow update, delete: if isAdmin();
     }
-
-    // Rules for the 'leaveRequests' collection
-    match /leaveRequests/{requestId} {
-       // Admin can read all requests
-       // Employees can read their own requests
-      allow read: if isAdmin() || isOwner(resource.data.uid);
-      // Authenticated users can create requests for themselves
-      allow create: if request.auth != null && isOwner(request.resource.data.uid);
-      // Admins can update (approve/reject)
-      // Employees can update their own request (e.g. to acknowledge it)
-      allow update: if isAdmin() || isOwner(resource.data.uid);
-      // Only admins can delete
-      allow delete: if isAdmin();
+    
+    // Settings Collection
+    // Admin: Can read/write all settings.
+    // Employee: Can read settings.
+    match /settings/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
   }
 }

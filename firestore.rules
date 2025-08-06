@@ -4,83 +4,77 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if user is authenticated
+    // =================================
+    // Helper Functions
+    // =================================
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is an admin
-    function isAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Helper function to check if the user is the owner of the data
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Admins can manage any user.
-      // Users can get their own data.
-      allow read: if isAdmin() || isOwner(userId);
-      
-      // A new user whose profile is not complete can update their own document.
-      allow update: if isOwner(userId) && resource.data.isProfileComplete == false;
-      
-      // Only admins can create or delete users through the app.
-      // Note: User creation on registration is handled differently.
-      allow create, delete: if isAdmin();
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // Rules for the 'attendance' collection
-    match /attendance/{docId} {
-      // Admins can read all attendance.
-      // Users can only read their own attendance records.
-      allow read: if isAdmin() || (isAuthenticated() && request.query.where.size > 0 && request.query.where[0][0] == 'employeeId' && request.query.where[0][2] == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId);
-      
-      // Authenticated users can create their own attendance records.
-      allow create: if isAuthenticated() && request.resource.data.employeeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId;
-
-      // Only admins can delete attendance records.
-      allow delete: if isAdmin();
-      
-      // No updates allowed to attendance records.
-      allow update: if false;
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
     }
 
-    // Rules for 'departments' collection
-    match /departments/{deptId} {
-      // All authenticated users can read the list of departments.
+    // =================================
+    // Collections Rules
+    // =================================
+
+    // Settings can be read by any authenticated user but only written by admins.
+    match /settings/{docId} {
       allow read: if isAuthenticated();
-      // Only admins can create, update, or delete departments.
       allow write: if isAdmin();
+    }
+
+    // Users can read/update their own data. Admins can manage anyone.
+    // New users can create their profile. Incomplete profiles can be updated.
+    match /users/{userId} {
+      allow get, update: if isOwner(userId);
+      allow create: if !exists(/databases/$(database)/documents/users/$(userId));
+      allow write: if isAdmin(); // Covers create, update, delete for admins.
+
+      // Allow a user to complete their own profile once.
+      allow update: if isOwner(userId) && existingData().isProfileComplete == false;
+    }
+
+    // Employees can create their own attendance and read their own history.
+    // Admins can read all attendance records.
+    match /attendance/{docId} {
+      // Allow create if the employee ID in the new document matches the user's employee ID
+      allow create: if isAuthenticated() && request.resource.data.employeeId == getUserData().employeeId;
+      // Allow read if admin, OR if the employee ID in the doc matches the user's employee ID
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.employeeId == getUserData().employeeId);
+      allow delete: if isAdmin();
+    }
+
+    // Employees can create and read their own leave requests.
+    // Admins can read and update (approve/reject) any leave request.
+    match /leaveRequests/{docId} {
+      // User must be creator of the request
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      // User can read their own requests, admin can read all
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.uid == request.auth.uid);
+      // Only admins can update status
+      allow update: if isAdmin();
+    }
+
+    // Departments can be read by any authenticated user (needed for profile completion).
+    // Only admins can manage departments.
+    match /departments/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if isAdmin();
     }
     
-    // Rules for 'leaveRequests' collection
-    match /leaveRequests/{reqId} {
-        // User can create their own request.
-        allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
-        // User can read their own requests. Admins can read all.
-        allow read: if isAdmin() || (isAuthenticated() && get(/databases/$(database)/documents/leaveRequests/$(reqId)).data.uid == request.auth.uid);
-        // User can update their own request if they are acknowledging a status change.
-        // Admin can update any request (to approve/deny).
-        allow update: if isAdmin() || (isAuthenticated() && isOwner(resource.data.uid));
-        // No one can delete leave requests from the app.
-        allow delete: if false;
-    }
-
-    // Rules for general app settings
-    match /settings/{settingId} {
-      // Location and Schedule settings are readable by any authenticated user
-      // so the client can apply necessary logic (e.g., location checks, button visibility).
-      allow read: if (settingId == 'location' || settingId == 'schedule' || settingId == 'branding' || settingId == 'announcement' || settingId == 'landingPage' || settingId == 'footer') && isAuthenticated();
-      
-      // Public landing page and footer content can be read by anyone.
-      allow read: if (settingId == 'landingPage' || settingId == 'footer' || settingId == 'branding');
-
-      // Only admins can change any settings.
-      allow write: if isAdmin();
+    // Helper function to get existing data for a document on update/delete
+    function existingData() {
+      return resource.data;
     }
   }
 }

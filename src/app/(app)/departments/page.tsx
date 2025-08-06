@@ -39,6 +39,7 @@ type Department = {
   name: string;
   latitude?: number;
   longitude?: number;
+  radius?: number;
 };
 
 export default function DepartmentsPage() {
@@ -53,6 +54,7 @@ export default function DepartmentsPage() {
   const [newDepartmentName, setNewDepartmentName] = useState('');
   const [newLat, setNewLat] = useState('');
   const [newLng, setNewLng] = useState('');
+  const [newRadius, setNewRadius] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State for editing
@@ -60,6 +62,7 @@ export default function DepartmentsPage() {
   const [editName, setEditName] = useState('');
   const [editLat, setEditLat] = useState('');
   const [editLng, setEditLng] = useState('');
+  const [editRadius, setEditRadius] = useState('');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
@@ -94,20 +97,21 @@ export default function DepartmentsPage() {
     }
   }, [user, authLoading, router, fetchDepartments]);
 
-  const validateCoordinates = (latStr: string, lngStr: string) => {
-    if (!latStr && !lngStr) return { valid: true, data: {} };
+  const validateLocationData = (latStr: string, lngStr: string, radiusStr: string) => {
+    if (!latStr && !lngStr && !radiusStr) return { valid: true, data: {} };
 
-    if (latStr && lngStr) {
+    if (latStr && lngStr && radiusStr) {
       const lat = Number(latStr.replace(',', '.'));
       const lng = Number(lngStr.replace(',', '.'));
-      if (isNaN(lat) || isNaN(lng)) {
-        toast({ title: 'Koordinat Tidak Valid', description: 'Latitude dan Longitude harus berupa angka.', variant: 'destructive' });
+      const radius = Number(radiusStr);
+      if (isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+        toast({ title: 'Data Lokasi Tidak Valid', description: 'Latitude, Longitude, dan Radius harus berupa angka.', variant: 'destructive' });
         return { valid: false };
       }
-      return { valid: true, data: { latitude: lat, longitude: lng } };
+      return { valid: true, data: { latitude: lat, longitude: lng, radius: radius } };
     }
     
-    toast({ title: 'Koordinat Tidak Lengkap', description: 'Harap isi kedua field Latitude dan Longitude, atau kosongkan keduanya.', variant: 'destructive' });
+    toast({ title: 'Data Lokasi Tidak Lengkap', description: 'Harap isi semua field lokasi (Latitude, Longitude, Radius), atau kosongkan semuanya.', variant: 'destructive' });
     return { valid: false };
   };
 
@@ -118,17 +122,18 @@ export default function DepartmentsPage() {
       return;
     }
     
-    const validation = validateCoordinates(newLat, newLng);
+    const validation = validateLocationData(newLat, newLng, newRadius);
     if (!validation.valid) return;
 
     setIsSubmitting(true);
     try {
-      const docData: { name: string, latitude?: number, longitude?: number } = {
+      const docData: { name: string, latitude?: number, longitude?: number, radius?: number } = {
         name: newDepartmentName.trim(),
       };
       if (validation.data && 'latitude' in validation.data) {
         docData.latitude = validation.data.latitude;
         docData.longitude = validation.data.longitude;
+        docData.radius = validation.data.radius;
       }
 
       await addDoc(collection(db, 'departments'), docData);
@@ -139,6 +144,7 @@ export default function DepartmentsPage() {
       setNewDepartmentName('');
       setNewLat('');
       setNewLng('');
+      setNewRadius('');
       await fetchDepartments();
     } catch (error) {
       console.error('Error adding department:', error);
@@ -157,6 +163,7 @@ export default function DepartmentsPage() {
     setEditName(dept.name);
     setEditLat(dept.latitude?.toString() || '');
     setEditLng(dept.longitude?.toString() || '');
+    setEditRadius(dept.radius?.toString() || '');
     setIsEditDialogOpen(true);
   };
   
@@ -166,22 +173,24 @@ export default function DepartmentsPage() {
       return;
     }
 
-    const validation = validateCoordinates(editLat, editLng);
+    const validation = validateLocationData(editLat, editLng, editRadius);
     if (!validation.valid) return;
     
     setIsSavingEdit(true);
     try {
       const docRef = doc(db, 'departments', editingDepartment.id);
-      const updateData: { name: string, latitude?: number, longitude?: number } = {
+      const updateData: { name: string, latitude?: number, longitude?: number, radius?: number } = {
         name: editName.trim(),
       };
 
       if (validation.data && 'latitude' in validation.data) {
         updateData.latitude = validation.data.latitude;
         updateData.longitude = validation.data.longitude;
+        updateData.radius = validation.data.radius;
       } else {
         updateData.latitude = undefined;
         updateData.longitude = undefined;
+        updateData.radius = undefined;
       }
 
       await updateDoc(docRef, { ...updateData });
@@ -261,6 +270,10 @@ export default function DepartmentsPage() {
                       <Label htmlFor="newLng">Longitude (Opsional)</Label>
                       <Input id="newLng" value={newLng} onChange={(e) => setNewLng(e.target.value)} placeholder="contoh: 106.816666" disabled={isSubmitting}/>
                   </div>
+                   <div className="space-y-2">
+                      <Label htmlFor="newRadius">Radius (meter, Opsional)</Label>
+                      <Input id="newRadius" type="number" value={newRadius} onChange={(e) => setNewRadius(e.target.value)} placeholder="contoh: 100" disabled={isSubmitting}/>
+                  </div>
                   <Button type="submit" className="w-full" disabled={isSubmitting || !newDepartmentName.trim()}>
                       {isSubmitting ? (
                       <>
@@ -305,7 +318,7 @@ export default function DepartmentsPage() {
                       {dept.latitude && dept.longitude ? (
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
                           <MapPin className="h-3 w-3" />
-                          <span>Lat: {dept.latitude.toFixed(4)}, Lng: {dept.longitude.toFixed(4)}</span>
+                          <span>Lat: {dept.latitude.toFixed(4)}, Lng: {dept.longitude.toFixed(4)}, Radius: {dept.radius}m</span>
                         </div>
                       ) : (
                          <p className="text-xs text-muted-foreground/70 italic mt-1">Lokasi mengikuti global</p>
@@ -369,6 +382,10 @@ export default function DepartmentsPage() {
                  <div className="space-y-2">
                     <Label htmlFor="editLng">Longitude (Kosongkan untuk global)</Label>
                     <Input id="editLng" value={editLng} onChange={(e) => setEditLng(e.target.value)} disabled={isSavingEdit} />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="editRadius">Radius (meter)</Label>
+                    <Input id="editRadius" type="number" value={editRadius} onChange={(e) => setEditRadius(e.target.value)} disabled={isSavingEdit} />
                 </div>
             </div>
             <DialogFooter>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -38,6 +37,8 @@ type LocationSettings = {
     latitude: number;
     longitude: number;
     radius: number;
+    name?: string;
+    isSpecific: boolean;
 } | null;
 
 
@@ -138,25 +139,48 @@ export default function EmployeeDashboard() {
 
             // 2. Determine effective location settings (user > department > global)
             const globalSettings = globalLocationSnap.exists() ? globalLocationSnap.data() : null;
-            const globalRadius = globalSettings?.radius ? Number(globalSettings.radius) : 0;
+            let finalSettings: LocationSettings = null;
 
-            if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
-                // User has specific settings. Use them and combine with global radius.
-                setEffectiveLocationSettings({
+            // Priority 1: User-specific settings
+            if (user.locationSettings?.latitude && user.locationSettings?.longitude) {
+                 finalSettings = {
                     ...user.locationSettings,
-                    radius: globalRadius,
-                });
-            } else if (globalSettings && globalSettings.latitude != null && globalSettings.longitude != null) {
-                // User follows global settings.
-                setEffectiveLocationSettings({
+                    radius: globalSettings?.radius ? Number(globalSettings.radius) : 50,
+                    name: user.locationSettings.name || 'Lokasi Khusus Anda',
+                    isSpecific: true,
+                };
+            }
+            // Priority 2: Department settings
+            else if (user.department) {
+                const deptQuery = query(collection(db, 'departments'), where('name', '==', user.department));
+                const deptSnapshot = await getDocs(deptQuery);
+                if (!deptSnapshot.empty) {
+                    const deptData = deptSnapshot.docs[0].data();
+                    if (deptData.latitude && deptData.longitude && deptData.radius) {
+                        finalSettings = {
+                            latitude: Number(deptData.latitude),
+                            longitude: Number(deptData.longitude),
+                            radius: Number(deptData.radius),
+                            name: deptData.name,
+                            isSpecific: false,
+                        };
+                    }
+                }
+            }
+            
+            // Priority 3: Global settings (if no specific settings found yet)
+            if (!finalSettings && globalSettings?.latitude && globalSettings?.longitude && globalSettings?.radius) {
+                 finalSettings = {
                     latitude: Number(globalSettings.latitude),
                     longitude: Number(globalSettings.longitude),
-                    radius: globalRadius,
-                });
-            } else {
-                // No valid location settings found anywhere.
-                setEffectiveLocationSettings(null);
+                    radius: Number(globalSettings.radius),
+                    name: globalSettings.name || 'Lokasi Kantor Pusat',
+                    isSpecific: false,
+                };
             }
+            
+            setEffectiveLocationSettings(finalSettings);
+
 
             // 3. Fetch attendance history
             if (user.employeeId) {
@@ -466,7 +490,7 @@ export default function EmployeeDashboard() {
                   </Select>
                 </div>
               )}
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex gap-4 sm:flex-row">
                   <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={clockInDisabled}>
                     {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserCheck className="mr-2" />}
                     Absen Masuk
@@ -480,7 +504,7 @@ export default function EmployeeDashboard() {
         </Card>
         
         <div className="space-y-6">
-            <LocationStatus />
+            <LocationStatus effectiveLocation={effectiveLocationSettings} loading={isLoadingSettings} />
             <Card className="shadow-lg rounded-xl">
                 <CardHeader>
                     <CardTitle className="text-xl font-semibold flex items-center gap-2">

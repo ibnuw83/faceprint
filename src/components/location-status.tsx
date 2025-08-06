@@ -7,9 +7,6 @@ import { Loader2, MapPin, Wifi, WifiOff } from 'lucide-react';
 import { calculateDistance } from '@/lib/location';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
-import { useAuth } from '@/hooks/use-auth';
-import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 type LocationSettings = {
     latitude: number;
@@ -24,91 +21,16 @@ type Location = {
     longitude: number;
 };
 
-export default function LocationStatus() {
-    const { user, loading: authLoading } = useAuth();
-    const [effectiveLocation, setEffectiveLocation] = useState<LocationSettings>(null);
-    const [loadingSettings, setLoadingSettings] = useState(true);
+type LocationStatusProps = {
+    effectiveLocation: LocationSettings;
+    loading: boolean;
+};
 
+export default function LocationStatus({ effectiveLocation, loading: loadingSettings }: LocationStatusProps) {
     const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [loadingLocation, setLoadingLocation] = useState(true);
-
-    useEffect(() => {
-        if (authLoading || !user) return;
-
-        const fetchAllSettings = async () => {
-            setLoadingSettings(true);
-            try {
-                // 1. Check for user-specific settings first
-                if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
-                    const globalSettingsDoc = await getDoc(doc(db, 'settings', 'location'));
-                    const radius = globalSettingsDoc.exists() ? Number(globalSettingsDoc.data()?.radius) : 50;
-                    setEffectiveLocation({
-                        ...user.locationSettings,
-                        radius: radius,
-                        name: user.locationSettings.name || 'Lokasi Khusus Anda',
-                        isSpecific: true,
-                    });
-                    setLoadingSettings(false);
-                    return;
-                }
-
-                // 2. Fetch department and global settings in parallel
-                let departmentSettings: any = null;
-                if (user.department) {
-                    const q = query(collection(db, 'departments'), where('name', '==', user.department));
-                    const deptSnapshot = await getDocs(q);
-                    if (!deptSnapshot.empty) {
-                        const deptDoc = deptSnapshot.docs[0].data();
-                        if (deptDoc.latitude && deptDoc.longitude && deptDoc.radius) {
-                            departmentSettings = {
-                                latitude: Number(deptDoc.latitude),
-                                longitude: Number(deptDoc.longitude),
-                                radius: Number(deptDoc.radius),
-                                name: deptDoc.name,
-                                isSpecific: false
-                            };
-                        }
-                    }
-                }
-
-                if(departmentSettings) {
-                    setEffectiveLocation(departmentSettings);
-                    setLoadingSettings(false);
-                    return;
-                }
-
-                // 3. Fallback to global settings
-                const globalSettingsDoc = await getDoc(doc(db, 'settings', 'location'));
-                if (globalSettingsDoc.exists()) {
-                    const globalData = globalSettingsDoc.data();
-                    if (globalData.latitude && globalData.longitude && globalData.radius) {
-                        setEffectiveLocation({
-                            latitude: Number(globalData.latitude),
-                            longitude: Number(globalData.longitude),
-                            radius: Number(globalData.radius),
-                            name: globalData.name || 'Lokasi Kantor Pusat',
-                            isSpecific: false
-                        });
-                        setLoadingSettings(false);
-                        return;
-                    }
-                }
-                
-                // 4. No settings found
-                setEffectiveLocation(null);
-
-            } catch(error) {
-                console.error("Error loading location settings:", error);
-            } finally {
-                setLoadingSettings(false);
-            }
-        };
-
-        fetchAllSettings();
-
-    }, [user, authLoading]);
-
+    
     useEffect(() => {
         if (!navigator.geolocation) {
             setLocationError('Geolocation tidak didukung oleh browser ini.');

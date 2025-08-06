@@ -1,4 +1,3 @@
-
 'use client';
 
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -88,4 +87,3 @@ export default function AnnouncementBanner() {
     </div>
   );
 }
-

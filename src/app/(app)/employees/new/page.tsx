@@ -154,13 +154,16 @@ export default function NewEmployeePage() {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      const targetWidth = 480;
+      const scale = targetWidth / video.videoWidth;
+      canvas.width = targetWidth;
+      canvas.height = video.videoHeight * scale;
       
       const context = canvas.getContext('2d');
       if (context) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        // Compress image to reduce file size significantly
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
         setFaceprintDataUrl(dataUrl);
 
         if(video.srcObject) {
@@ -364,4 +367,6 @@ export default function NewEmployeePage() {
     </div>
   );
 }
+    
+
     

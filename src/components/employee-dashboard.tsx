@@ -469,12 +469,12 @@ export default function EmployeeDashboard() {
                   </Select>
                 </div>
               )}
-              <div className="flex flex-col gap-4">
-                  <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={clockInDisabled}>
+              <div className="flex flex-col sm:flex-row gap-4">
+                  <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="w-full" disabled={clockInDisabled}>
                     {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserCheck className="mr-2" />}
                     Absen Masuk
                   </Button>
-                  <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="flex-1" variant="outline" disabled={clockOutDisabled}>
+                  <Button onClick={() => recordAttendance('Clocked Out')} size="lg" className="w-full" variant="outline" disabled={clockOutDisabled}>
                     {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserX className="mr-2" />}
                     Absen Keluar
                   </Button>
@@ -549,3 +549,5 @@ export default function EmployeeDashboard() {
     </div>
   );
 }
+
+    

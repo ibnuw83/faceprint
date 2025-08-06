@@ -160,11 +160,34 @@ export default function EmployeesPage() {
   
   const handleSaveSettings = async () => {
       if (!editingUser) return;
+      
+      const newEmployeeId = editEmployeeId.trim();
+      if (!newEmployeeId) {
+        toast({ title: 'ID Karyawan Wajib Diisi', description: 'ID Karyawan tidak boleh kosong.', variant: 'destructive'});
+        return;
+      }
+
       setIsSaving(true);
       try {
+        // Check for duplicate employee ID if it has changed
+        if (newEmployeeId !== editingUser.employeeId) {
+            const q = query(collection(db, 'users'), where('employeeId', '==', newEmployeeId));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                toast({
+                    title: 'ID Karyawan Sudah Ada',
+                    description: `ID Karyawan "${newEmployeeId}" sudah digunakan oleh pengguna lain.`,
+                    variant: 'destructive',
+                });
+                setIsSaving(false);
+                return;
+            }
+        }
+
+
         const updateData: any = {
           name: editName,
-          employeeId: editEmployeeId,
+          employeeId: newEmployeeId,
         };
 
         const latStr = editLat.trim().replace(',', '.');
@@ -192,7 +215,7 @@ export default function EmployeesPage() {
             setIsSaving(false);
             return;
         } else {
-            // If all location fields are empty, remove the setting
+            // If all location fields are empty, remove the setting by setting it to null
             updateData.locationSettings = null;
         }
 
@@ -401,5 +424,3 @@ export default function EmployeesPage() {
     </div>
   );
 }
-
-    

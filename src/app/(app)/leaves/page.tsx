@@ -124,7 +124,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                 endDate: dates.to ? format(dates.to, 'yyyy-MM-dd') : format(dates.from, 'yyyy-MM-dd'),
                 status: 'Menunggu',
                 createdAt: Timestamp.now(),
-                statusUpdatedAt: null,
                 acknowledgedByEmployee: true, // Employee has "seen" it by creating it.
             });
 
@@ -434,3 +433,5 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
+
+    

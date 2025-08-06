@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ import { Logo } from '@/components/logo';
 import { Separator } from '@/components/ui/separator';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import type { FirebaseError } from 'firebase/app';
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -58,11 +60,19 @@ export default function RegisterPage() {
       router.push('/login');
     } catch (error: any) {
       console.error(error);
-      toast({
-        title: 'Pendaftaran Gagal',
-        description: error.message || 'Terjadi kesalahan tak terduga.',
-        variant: 'destructive',
-      });
+      if (error.code === 'auth/email-already-in-use') {
+         toast({
+          title: 'Email Sudah Terdaftar',
+          description: 'Email yang Anda masukkan sudah digunakan. Silakan gunakan email lain atau masuk.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+            title: 'Pendaftaran Gagal',
+            description: error.message || 'Terjadi kesalahan tak terduga.',
+            variant: 'destructive',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }

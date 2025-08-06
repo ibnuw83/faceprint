@@ -209,18 +209,17 @@ export default function NewEmployeePage() {
     setIsLoading(true);
 
     try {
-      // Check for duplicate employee ID in the same department
+      // Check for duplicate employee ID across all users
       const q = query(
         collection(db, 'users'),
-        where('employeeId', '==', employeeId),
-        where('department', '==', department)
+        where('employeeId', '==', employeeId)
       );
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
         toast({
           title: 'ID Karyawan Sudah Ada',
-          description: `ID Karyawan "${employeeId}" sudah digunakan di departemen "${department}".`,
+          description: `ID Karyawan "${employeeId}" sudah digunakan oleh pengguna lain.`,
           variant: 'destructive',
         });
         setIsLoading(false);

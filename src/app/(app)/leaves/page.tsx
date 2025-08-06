@@ -201,6 +201,12 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
     };
 
     const statusBadgeVariant = { 'Menunggu': 'secondary', 'Disetujui': 'default', 'Ditolak': 'destructive' } as const;
+    
+    const submitButtonText = () => {
+        if(isUploading) return "Mengunggah file...";
+        if(isSubmitting) return "Mengirim pengajuan...";
+        return "Kirim Pengajuan";
+    }
 
     return (
         <div className="flex flex-1 flex-col gap-8">
@@ -302,8 +308,8 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
 
                         <div className='flex justify-end'>
                             <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || !leaveType || !reason || !dates?.from}>
-                                {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
-                                Kirim Pengajuan
+                                {(isSubmitting || isUploading) ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
+                                {submitButtonText()}
                             </Button>
                         </div>
                     </form>
@@ -575,3 +581,5 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
+
+    

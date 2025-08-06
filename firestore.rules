@@ -1,52 +1,58 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Aturan untuk koleksi "users"
+
+    function isEmployee() {
+      // Check if a user is an employee based on the custom claim 'role'.
+      return request.auth.token.role == 'employee';
+    }
+
+    function isAdmin() {
+      // Check if a user is an admin based on the custom claim 'role'.
+      return request.auth.token.role == 'admin';
+    }
+    
     match /users/{userId} {
-      // Siapa saja yang terotentikasi dapat membuat data profil mereka sendiri.
-      allow create: if request.auth != null;
-      // Pengguna hanya bisa membaca atau memperbarui data mereka sendiri.
-      // Admin bisa membaca atau memperbarui data siapa saja.
-      allow read, update: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-      // Admin bisa menghapus pengguna.
-      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Admins can perform any action on any user document.
+      allow read, write: if isAdmin();
+      
+      // Employees can only read and update their own user document.
+      allow get, update: if request.auth.uid == userId;
     }
     
-    // Aturan untuk koleksi "attendance"
-    match /attendance/{docId} {
-       // Pengguna yang terotentikasi dapat membuat catatan absensi
-       allow create: if request.auth != null;
-       // Pengguna hanya bisa melihat riwayat absensi mereka sendiri (berdasarkan employeeId)
-       // Admin bisa melihat semua riwayat
-       allow list, get: if resource.data.employeeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-       // Admin dapat menghapus catatan absensi
-       allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Aturan untuk koleksi "departments"
-    match /departments/{docId} {
-        // Hanya admin yang bisa mengelola departemen
-        allow get, list, create, update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Aturan untuk koleksi "leaveRequests"
-    match /leaveRequests/{docId} {
-        // Pengguna bisa membuat pengajuan untuk diri mereka sendiri
-        allow create: if request.resource.data.uid == request.auth.uid;
-        // Pengguna bisa membaca pengajuan mereka sendiri, admin bisa membaca semua
-        allow read: if resource.data.uid == request.auth.uid || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-        // Hanya admin yang bisa menyetujui/menolak (update)
-        allow update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Aturan untuk dokumen pengaturan
     match /settings/{settingId} {
-      // Siapa saja boleh membaca pengaturan (termasuk yang belum login)
-      allow read: if true;
-      // Hanya admin yang bisa mengubah pengaturan
-      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        // Settings are public information (app name, colors, etc.)
+        allow read: if true;
+        // Only admins can change settings.
+        allow write: if isAdmin();
+    }
+    
+    match /departments/{departmentId} {
+        // Only admins can manage departments.
+        allow get, list, create, update, delete: if isAdmin();
+    }
+    
+    match /leaveRequests/{requestId} {
+      // Admins can read all requests and update their status.
+      allow get, list, update: if isAdmin();
+
+      // Employees can create requests for themselves and read their own requests.
+      allow create: if request.auth.uid == request.resource.data.uid;
+      allow read: if isEmployee() && request.auth.uid == resource.data.uid;
+    }
+
+    match /attendance/{attendanceId} {
+      // Any authenticated user can create an attendance record (clock in/out).
+      allow create: if request.auth != null;
+      
+      // An employee can query the attendance list, the query itself should filter by their employeeId.
+      // An admin can also query the list.
+      allow list, get: if isEmployee() || isAdmin();
+
+      // Only an admin can delete attendance records.
+      allow delete: if isAdmin();
     }
   }
 }

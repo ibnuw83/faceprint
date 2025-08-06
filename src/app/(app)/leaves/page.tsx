@@ -191,8 +191,15 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
     };
     
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
+            if (!allowedTypes.includes(file.type)) {
+                toast({ title: 'Tipe File Tidak Diizinkan', description: 'Harap unggah file dengan format JPG, PNG, atau PDF.', variant: 'destructive' });
+                setAttachmentFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                return;
+            }
             // 5MB limit
             if (file.size > 5 * 1024 * 1024) {
                  toast({ title: 'Ukuran File Terlalu Besar', description: 'Ukuran file maksimal adalah 5MB.', variant: 'destructive' });
@@ -303,7 +310,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     />
                                     <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting || isUploading}>
                                         <Upload className='mr-2'/>
-                                        Pilih File (Max 5MB)
+                                        Pilih File (JPG, PNG, PDF)
                                     </Button>
                                     {attachmentFile && <p className="text-sm text-muted-foreground mt-2">File dipilih: {attachmentFile.name}</p>}
                                 </div>

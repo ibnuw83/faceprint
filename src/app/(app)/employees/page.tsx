@@ -38,6 +38,17 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
@@ -77,6 +88,7 @@ export default function EmployeesPage() {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // State for the edit form
@@ -113,11 +125,7 @@ export default function EmployeesPage() {
   }, [authUser, fetchUsers]);
 
   const handleDeleteUser = async (userId: string) => {
-    // A confirmation dialog is better than confirm() for UI consistency,
-    // but for simplicity, we use confirm() here.
-    if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini? Tindakan ini tidak dapat diurungkan.')) {
-      return;
-    }
+    setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'users', userId));
       toast({
@@ -132,6 +140,8 @@ export default function EmployeesPage() {
         description: 'Terjadi kesalahan. Pengguna tidak dapat dihapus.',
         variant: 'destructive',
       });
+    } finally {
+        setIsDeleting(false);
     }
   }
 
@@ -289,10 +299,31 @@ export default function EmployeesPage() {
                                 <History className="mr-2"/>
                                 Lihat Riwayat Absensi
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteUser(user.uid)} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
-                              <Trash2 className="mr-2" />
-                              Hapus
-                            </DropdownMenuItem>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                     <button className="relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive focus:bg-destructive/10 focus:text-destructive">
+                                        <Trash2 className="mr-2" /> Hapus
+                                    </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                    <AlertDialogTitle>Konfirmasi Penghapusan</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Apakah Anda yakin ingin menghapus pengguna <strong>{user.name}</strong>? Tindakan ini tidak dapat diurungkan dan akan menghapus semua data terkait.
+                                    </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() => handleDeleteUser(user.uid)}
+                                        className="bg-destructive hover:bg-destructive/90"
+                                        disabled={isDeleting}
+                                    >
+                                        {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Ya, Hapus'}
+                                    </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

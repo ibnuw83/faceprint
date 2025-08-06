@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to upload their leave request attachments
+    match /leave-attachments/{userId}/{fileName} {
+      // User can only write to their own folder
+      allow create: if request.auth != null && request.auth.uid == userId
+                    // Limit file size to 5MB
+                    && request.resource.size < 5 * 1024 * 1024
+                    // Allow only images and PDFs
+                    && request.resource.contentType.matches('image/.*|application/pdf');
+    }
+
+    // Allow admins to read any attachment
+    match /leave-attachments/{userId}/{fileName} {
+        allow read: if request.auth != null && exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+                       get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}

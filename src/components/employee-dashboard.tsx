@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog"
 import LocationStatus from './location-status';
 import AnnouncementBanner from './announcement-banner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 type Location = {
@@ -74,6 +75,7 @@ export default function EmployeeDashboard() {
   
   const [isClockInAllowed, setIsClockInAllowed] = useState(true);
   const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
+  const isMobile = useIsMobile();
 
   const fetchAttendanceHistory = useCallback(async (employeeId: string) => {
     setLoadingHistory(true);
@@ -246,7 +248,8 @@ export default function EmployeeDashboard() {
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         setCameras(videoDevices);
         if (videoDevices.length > 0) {
-          setSelectedCamera(videoDevices[0].deviceId);
+          const frontCamera = videoDevices.find(device => device.label.toLowerCase().includes('front'));
+          setSelectedCamera(frontCamera ? frontCamera.deviceId : videoDevices[0].deviceId);
         }
         
         stream.getTracks().forEach(track => track.stop());
@@ -452,7 +455,7 @@ export default function EmployeeDashboard() {
                     </div>
                   )}
               </div>
-              {cameras.length > 1 && hasCameraPermission && (
+              {cameras.length > 1 && hasCameraPermission && !isMobile && (
                 <div className="space-y-2">
                   <Label htmlFor="cameraSelect">Pilih Kamera</Label>
                   <Select value={selectedCamera} onValueChange={setSelectedCamera}>

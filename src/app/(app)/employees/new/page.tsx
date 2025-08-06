@@ -21,6 +21,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import Image from 'next/image';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 type Department = {
@@ -45,6 +46,7 @@ export default function CompleteProfilePage() {
   const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>('');
   const [faceprintDataUrl, setFaceprintDataUrl] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -91,7 +93,8 @@ export default function CompleteProfilePage() {
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         setCameras(videoDevices);
         if (videoDevices.length > 0) {
-          setSelectedCamera(videoDevices[0].deviceId);
+          const frontCamera = videoDevices.find(d => d.label.toLowerCase().includes('front'));
+          setSelectedCamera(frontCamera ? frontCamera.deviceId : videoDevices[0].deviceId);
         }
 
         // Stop the initial stream, we'll start a new one with the selected device
@@ -309,7 +312,7 @@ export default function CompleteProfilePage() {
                     </div>
                   )}
               </div>
-               {cameras.length > 1 && hasCameraPermission && !faceprintDataUrl && (
+               {cameras.length > 1 && hasCameraPermission && !faceprintDataUrl && !isMobile && (
                 <div className="space-y-2">
                   <Label htmlFor="cameraSelect">Pilih Kamera</Label>
                   <Select value={selectedCamera} onValueChange={setSelectedCamera}>

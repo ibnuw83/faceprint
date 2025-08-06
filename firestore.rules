@@ -1,58 +1,67 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Default: Deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
-    }
-    
-    // Helper function to check for admin role
+    // Helper function to check for admin role from the user's document
     function isAdmin() {
-      return request.auth.token.role == 'admin';
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
-    // Helper function to check ownership
+    // Helper function to check if the requesting user is the owner of a document
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Settings can only be read and written by admins.
-    match /settings/{settingId} {
-        allow read, write: if isAdmin();
-    }
-    
-    // Departments can only be managed by admins.
-    match /departments/{deptId} {
-        allow read, write: if isAdmin();
+    // Settings can only be read/written by admins
+    match /settings/{docId} {
+      allow read, write: if isAdmin();
     }
 
     // Users collection rules
     match /users/{userId} {
-      allow read, update: if isOwner(userId) || isAdmin();
-      allow write: if isAdmin(); // Admins can create/delete users
+      // Admins can do anything
+      allow read, write: if isAdmin();
+      
+      // A user can read their own document
+      allow get: if isOwner(userId);
+
+      // A user can update their own profile (e.g., completing it)
+      allow update: if isOwner(userId);
+      
+      // Allow new users to be created via registration
+      allow create: if request.auth != null;
+    }
+
+    // Departments can be fully managed by admins
+    match /departments/{deptId} {
+      allow get, list, create, update, delete: if isAdmin();
     }
     
     // Attendance rules
-    match /attendance/{attendanceId} {
-      // Employees can create their own attendance records.
-      allow create: if request.auth.uid != null;
-      // Employees can read their own history. Admins can read all history.
-      allow list: if isAdmin() || (request.auth.uid != null && request.query.where.employeeId == request.auth.token.employeeId);
-      // Only admins can delete attendance records.
-      allow delete: if isAdmin();
-      // No one can update an attendance record once created.
-      allow update: if false;
-       // Allow get for individual record access if needed
-      allow get: if isAdmin() || (request.auth.uid != null && resource.data.uid == request.auth.uid);
+    match /attendance/{attId} {
+        // Admins can manage all attendance records
+        allow read, write: if isAdmin();
+
+        // Employees can create their own attendance record
+        allow create: if request.auth.uid != null && request.resource.data.uid == request.auth.uid;
+
+        // Employees can read their own attendance history
+        allow list: if request.auth.uid != null && request.query.where.size() > 0 && request.query.where[0].field == 'employeeId' && request.query.where[0].value == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId;
     }
-    
+
     // Leave Requests rules
-    match /leaveRequests/{requestId} {
-      allow create: if request.auth.uid != null && request.resource.data.uid == request.auth.uid;
-      allow read: if isAdmin() || (request.auth.uid != null && resource.data.uid == request.auth.uid);
-      allow update: if isAdmin(); // Only admins can approve/reject
+    match /leaveRequests/{reqId} {
+        // Admins can read/write all requests
+        allow read, write: if isAdmin();
+
+        // Employees can create their own requests
+        allow create: if request.auth.uid != null && request.resource.data.uid == request.auth.uid;
+
+        // Employees can read their own requests
+        allow list: if request.auth.uid != null && request.query.where.size() > 0 && request.query.where[0].field == 'uid' && request.query.where[0].value == request.auth.uid;
     }
   }
 }

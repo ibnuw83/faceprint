@@ -8,7 +8,7 @@ import { calculateDistance } from '@/lib/location';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
-import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type LocationSettings = {

@@ -469,7 +469,7 @@ export default function EmployeeDashboard() {
                   </Select>
                 </div>
               )}
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-4">
                   <Button onClick={() => recordAttendance('Clocked In')} size="lg" className="flex-1" disabled={clockInDisabled}>
                     {isProcessing ? <Loader2 className="mr-2 animate-spin"/> : <UserCheck className="mr-2" />}
                     Absen Masuk

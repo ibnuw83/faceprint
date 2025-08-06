@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Camera, Upload, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -198,6 +198,24 @@ export default function NewEmployeePage() {
     setIsLoading(true);
 
     try {
+      // Check for duplicate employee ID in the same department
+      const q = query(
+        collection(db, 'users'),
+        where('employeeId', '==', employeeId),
+        where('department', '==', department)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        toast({
+          title: 'ID Karyawan Sudah Ada',
+          description: `ID Karyawan "${employeeId}" sudah digunakan di departemen "${department}".`,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+      
       const userRef = doc(db, 'users', user.uid);
       await setDoc(userRef, {
         name: fullName,
@@ -205,7 +223,7 @@ export default function NewEmployeePage() {
         department: department,
         isProfileComplete: true,
         faceprint: faceprintDataUrl,
-      }, { merge: true }); // Use setDoc with merge to create or update
+      }, { merge: true });
 
       await checkUserStatus();
 

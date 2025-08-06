@@ -20,6 +20,7 @@ export type User = {
   locationSettings?: {
     latitude: number;
     longitude: number;
+    name?: string;
   } | null;
   faceprint?: string | null;
   department?: string | null;
@@ -48,7 +49,6 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
       const role = userData.role || (fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
       
       let locationSettings = null;
-      // Critical fix: Ensure data is converted to Number before being checked and used.
       const rawSettings = userData.locationSettings;
       if (rawSettings) {
         const lat = Number(rawSettings.latitude);
@@ -58,6 +58,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
             locationSettings = {
                 latitude: lat,
                 longitude: lng,
+                name: rawSettings.name || undefined,
             };
         }
       }
@@ -130,17 +131,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const role = userData.role || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
                 
                 let locationSettings = null;
-                 // Critical fix: Ensure data is converted to Number before being checked and used.
                 const rawSettings = userData.locationSettings;
                 if (rawSettings) {
                     const lat = Number(rawSettings.latitude);
                     const lng = Number(rawSettings.longitude);
-
-                    // Only set the locationSettings object if all values are valid numbers.
                     if (!isNaN(lat) && !isNaN(lng)) {
                         locationSettings = {
                             latitude: lat,
                             longitude: lng,
+                            name: rawSettings.name || undefined,
                         };
                     }
                 }
@@ -159,14 +158,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     employeeId: userData.employeeId || null,
                 });
             } else {
-                // This might happen for a brand new user before their doc is created.
                  const role = firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
                  setUser({
                     uid: firebaseUser.uid,
                     name: firebaseUser.displayName,
                     email: firebaseUser.email,
                     role: role,
-                    isProfileComplete: role === 'admin', // Admins are complete by default
+                    isProfileComplete: role === 'admin',
                  });
             }
             setLoading(false);

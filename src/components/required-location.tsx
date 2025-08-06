@@ -13,7 +13,8 @@ type LocationSettings = {
     latitude: number;
     longitude: number;
     radius: number;
-    isSpecific: boolean; // To differentiate between user-specific and global settings
+    name?: string;
+    isSpecific: boolean; 
 }
 
 export default function RequiredLocation() {
@@ -28,7 +29,6 @@ export default function RequiredLocation() {
         const fetchSettings = async () => {
              // Priority 1: User-specific location settings
             if (user?.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
-                // Radius is always global. We must fetch it.
                 const globalLocRef = doc(db, 'settings', 'location');
                 const globalLocSnap = await getDoc(globalLocRef);
                 const radius = globalLocSnap.exists() ? Number(globalLocSnap.data().radius) : 0;
@@ -36,6 +36,7 @@ export default function RequiredLocation() {
                 setEffectiveLocation({
                     ...user.locationSettings,
                     radius: radius,
+                    name: user.locationSettings.name,
                     isSpecific: true
                 });
                 setLoading(false);
@@ -52,6 +53,7 @@ export default function RequiredLocation() {
                        latitude: Number(data.latitude),
                        longitude: Number(data.longitude),
                        radius: Number(data.radius),
+                       name: data.name,
                        isSpecific: false,
                    });
                 } else {
@@ -87,9 +89,9 @@ export default function RequiredLocation() {
         return null;
     }
 
-    const title = effectiveLocation.isSpecific 
-        ? 'Lokasi Absen Wajib (Khusus Pengguna)'
-        : 'Lokasi Absen Wajib (Kantor)';
+    const title = effectiveLocation.name || (effectiveLocation.isSpecific 
+        ? 'Lokasi Absen Khusus' 
+        : 'Lokasi Absen Kantor');
 
     return (
         <Card className="shadow-md rounded-xl border-primary/20 bg-primary/5">

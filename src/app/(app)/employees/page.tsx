@@ -49,7 +49,8 @@ import { useRouter } from 'next/navigation';
 type LocationSettings = {
     latitude: number;
     longitude: number;
-    radius: number; // This might be unused now on the user object, but we keep it for type consistency with global settings
+    radius: number;
+    name?: string;
 }
 
 type User = {
@@ -83,6 +84,7 @@ export default function EmployeesPage() {
   const [editEmployeeId, setEditEmployeeId] = useState('');
   const [editLat, setEditLat] = useState('');
   const [editLng, setEditLng] = useState('');
+  const [editLocationName, setEditLocationName] = useState('');
 
 
   const fetchUsers = useCallback(async () => {
@@ -139,6 +141,7 @@ export default function EmployeesPage() {
     setEditEmployeeId(user.employeeId || '');
     setEditLat(user.locationSettings?.latitude?.toString() || '');
     setEditLng(user.locationSettings?.longitude?.toString() || '');
+    setEditLocationName(user.locationSettings?.name || '');
     setIsDialogOpen(true);
   };
   
@@ -154,7 +157,6 @@ export default function EmployeesPage() {
         const latStr = editLat.trim().replace(',', '.');
         const lngStr = editLng.trim().replace(',', '.');
 
-        // Only update location if both fields are provided
         if (latStr && lngStr) {
             const lat = Number(latStr);
             const lng = Number(lngStr);
@@ -167,12 +169,10 @@ export default function EmployeesPage() {
              updateData.locationSettings = {
                 latitude: lat,
                 longitude: lng,
-                // Radius is now managed globally, but we might store a null or default value
-                // For now, let's just set the required fields. Firestore can handle missing fields.
+                name: editLocationName.trim() || null,
              };
-        } else if (latStr || lngStr) {
-            // If some but not all fields are filled, show an error
-            toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, kedua field (Latitude, Longitude) harus diisi.', variant: 'destructive' });
+        } else if (latStr || lngStr || editLocationName) {
+            toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, field Latitude dan Longitude harus diisi.', variant: 'destructive' });
             setIsSaving(false);
             return;
         } else {
@@ -265,6 +265,7 @@ export default function EmployeesPage() {
                        <TableCell>
                         {user.locationSettings ? (
                            <div className="text-xs">
+                             <p className='font-bold'>{user.locationSettings.name || 'Lokasi Khusus'}</p>
                              <p>Lat: {user.locationSettings.latitude.toFixed(4)}</p>
                              <p>Lng: {user.locationSettings.longitude.toFixed(4)}</p>
                            </div>
@@ -321,8 +322,12 @@ export default function EmployeesPage() {
                     <Label htmlFor="employeeId">ID Karyawan</Label>
                     <Input id="employeeId" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
                 </div>
-                <div className="space-y-2 pt-4 border-t">
+                <div className="space-y-4 pt-4 border-t">
                      <Label className="font-medium">Lokasi Absensi Khusus</Label>
+                     <div className="space-y-2">
+                        <Label htmlFor="locName" className="text-xs">Nama Lokasi</Label>
+                        <Input id="locName" value={editLocationName} onChange={(e) => setEditLocationName(e.target.value)} type="text" placeholder="contoh: Kantor Cabang" />
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="lat" className="text-xs">Latitude</Label>
                         <Input id="lat" value={editLat} onChange={(e) => setEditLat(e.target.value)} type="text" placeholder="contoh: -6.200000" />

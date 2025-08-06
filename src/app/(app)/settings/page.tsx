@@ -78,6 +78,7 @@ export default function SettingsPage() {
   const [isSavingName, setIsSavingName] = useState(false);
   
   // Location settings
+  const [locationName, setLocationName] = useState('');
   const [officeLat, setOfficeLat] = useState('');
   const [officeLng, setOfficeLng] = useState('');
   const [attendanceRadius, setAttendanceRadius] = useState('');
@@ -134,6 +135,7 @@ export default function SettingsPage() {
         const locationSnap = await getDoc(locationRef);
         if (locationSnap.exists()) {
             const data = locationSnap.data();
+            setLocationName(data.name || '');
             setOfficeLat(data.latitude?.toString() || '');
             setOfficeLng(data.longitude?.toString() || '');
             setAttendanceRadius(data.radius?.toString() || '');
@@ -230,29 +232,34 @@ export default function SettingsPage() {
       const lngStr = officeLng.trim().replace(',', '.');
       const radiusStr = attendanceRadius.trim();
 
-      const allFieldsEmpty = !latStr && !lngStr && !radiusStr;
-      const allFieldsFilled = latStr && lngStr && radiusStr;
+      const allFieldsEmpty = !latStr && !lngStr && !radiusStr && !locationName.trim();
+      const coordFieldsFilled = latStr && lngStr && radiusStr;
 
-      if (!allFieldsEmpty && !allFieldsFilled) {
-        toast({ title: 'Input Tidak Lengkap', description: 'Harap isi semua field lokasi (Latitude, Longitude, Radius) atau kosongkan semuanya.', variant: 'destructive'});
+      if (!allFieldsEmpty && !coordFieldsFilled) {
+        toast({ title: 'Input Koordinat Tidak Lengkap', description: 'Harap isi semua field koordinat (Latitude, Longitude, Radius) atau kosongkan semuanya.', variant: 'destructive'});
         setIsSavingLocation(false);
         return;
       }
 
       let updateData = {};
 
-      if (allFieldsFilled) {
+      if (coordFieldsFilled) {
         const lat = Number(latStr);
         const lng = Number(lngStr);
         const rad = Number(radiusStr);
         if (isNaN(lat) || isNaN(lng) || isNaN(rad)) {
-            toast({ title: 'Input Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka.', variant: 'destructive' });
+            toast({ title: 'Input Koordinat Tidak Valid', description: 'Pastikan Latitude, Longitude, dan Radius adalah angka.', variant: 'destructive' });
             setIsSavingLocation(false);
             return;
         }
-        updateData = { latitude: lat, longitude: lng, radius: rad };
-      } else { // All fields are empty
-        updateData = { latitude: null, longitude: null, radius: null };
+        updateData = { 
+            name: locationName.trim() || null,
+            latitude: lat,
+            longitude: lng,
+            radius: rad 
+        };
+      } else { 
+        updateData = { name: null, latitude: null, longitude: null, radius: null };
       }
 
       const settingsRef = doc(db, 'settings', 'location');
@@ -491,6 +498,10 @@ export default function SettingsPage() {
           <div className="space-y-4 p-4 border rounded-lg">
              <h3 className="font-semibold text-lg flex items-center gap-2"><MapPin/> Pengaturan Lokasi Absensi</h3>
              <p className="text-sm text-muted-foreground">Tentukan lokasi kantor dan radius yang diizinkan untuk absensi. Karyawan harus berada dalam radius ini untuk bisa absen.</p>
+                 <div className="space-y-2">
+                    <Label htmlFor="locationName">Nama Lokasi</Label>
+                    <Input id="locationName" type="text" placeholder="Kantor Pusat Jakarta" value={locationName} onChange={(e) => setLocationName(e.target.value)} disabled={isSavingLocation}/>
+                </div>
                 <div className="grid md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor="officeLat">Latitude Kantor</Label>

@@ -15,6 +15,7 @@ type LocationSettings = {
     latitude: number;
     longitude: number;
     radius: number;
+    name?: string;
     isSpecific: boolean;
 } | null;
 
@@ -35,8 +36,6 @@ export default function LocationStatus() {
     useEffect(() => {
         if (authLoading || !user) return;
         
-        // This function determines the effective location settings (user-specific or global)
-        // and listens to the global settings for real-time updates.
         const unsubscribe = onSnapshot(doc(db, 'settings', 'location'), async (globalSettingsDoc) => {
             setLoadingSettings(true);
             const globalSettings = globalSettingsDoc.exists() ? globalSettingsDoc.data() : null;
@@ -46,6 +45,7 @@ export default function LocationStatus() {
                 setEffectiveLocation({
                     ...user.locationSettings,
                     radius: Number(globalSettings?.radius) || 0,
+                    name: user.locationSettings.name || 'Lokasi Khusus',
                     isSpecific: true,
                 });
             } else if (globalSettings && globalSettings.latitude != null && globalSettings.longitude != null && globalSettings.radius != null) {
@@ -54,6 +54,7 @@ export default function LocationStatus() {
                     latitude: Number(globalSettings.latitude),
                     longitude: Number(globalSettings.longitude),
                     radius: Number(globalSettings.radius),
+                    name: globalSettings.name || 'Lokasi Kantor',
                     isSpecific: false,
                 });
             } else {
@@ -66,12 +67,10 @@ export default function LocationStatus() {
             setLoadingSettings(false);
         });
 
-        // Cleanup the listener when the component unmounts or user changes.
         return () => unsubscribe();
     }, [user, authLoading]);
 
     useEffect(() => {
-        // This effect watches for the user's current physical location.
         if (!navigator.geolocation) {
             setLocationError('Geolocation tidak didukung oleh browser ini.');
             setLoadingLocation(false);
@@ -116,7 +115,7 @@ export default function LocationStatus() {
     }
 
     if (!effectiveLocation) {
-        return null; // Don't render if there are no location settings configured by the admin.
+        return null;
     }
 
     const distance = currentLocation ? calculateDistance(
@@ -128,9 +127,9 @@ export default function LocationStatus() {
 
     const isInRange = distance !== null && distance <= effectiveLocation.radius;
     
-    const title = effectiveLocation.isSpecific 
-        ? 'Lokasi Absen Wajib (Khusus Pengguna)'
-        : 'Lokasi Absen Wajib (Kantor)';
+    const title = effectiveLocation.name || (effectiveLocation.isSpecific 
+        ? 'Lokasi Absen Khusus'
+        : 'Lokasi Absen Kantor');
 
     const renderContent = () => {
         if (locationError) {

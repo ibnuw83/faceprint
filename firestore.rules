@@ -1,80 +1,82 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+  
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-
-    function isAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
     
     function isOwner(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
-    }
-
-    match /users/{userId} {
-      allow read;
-      // Allow user creation for anyone
-      allow create; 
-      
-      // Allow profile completion
-      allow update: if isOwner(userId) && resource.data.isProfileComplete == false;
-      
-      // Allow admin to update any user
-      allow update: if isAdmin();
-      
-      // Allow owner to update their own profile if it's already complete
-      allow update: if isOwner(userId) && resource.data.isProfileComplete == true;
-      
-      // Allow admin to delete any user
-      allow delete: if isAdmin();
+      return request.auth.uid == uid;
     }
     
-    match /departments/{departmentId} {
-        // Any authenticated user can read the list of departments
-        allow read: if isAuthenticated();
-        // Only admin can create or delete departments
+    function isAdmin() {
+      // Ensure the user document exists before checking the role
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // USERS collection
+    match /users/{uid} {
+      // Admins can manage any user
+      allow read, write: if isAdmin();
+      
+      // Users can read their own profile
+      allow get: if isAuthenticated() && isOwner(uid);
+
+      // Users can create their profile or update it if it's incomplete
+      allow create, update: if isAuthenticated() && isOwner(uid) && (
+        !exists(/databases/$(database)/documents/users/$(uid)) || 
+        get(/databases/$(database)/documents/users/$(uid)).data.isProfileComplete == false
+      );
+    }
+
+    // DEPARTMENTS collection
+    match /departments/{deptId} {
+      // All authenticated users can read departments (needed for new employee form)
+      allow get, list: if isAuthenticated();
+      // Only admins can create, update, or delete departments
+      allow write: if isAdmin();
+    }
+
+    // SETTINGS collection
+    match /settings/{docId} {
+        // Admins can change any settings
         allow write: if isAdmin();
+
+        // Anyone can read settings for the public landing page and app layout
+        allow get: if docId in ['branding', 'landingPage', 'footer', 'announcement', 'location', 'schedule'];
+        allow list: if docId in ['branding', 'landingPage', 'footer', 'announcement', 'location', 'schedule'];
     }
 
-    match /settings/{settingId} {
-        // Admin can change any settings
-        allow write: if isAdmin();
-        
-        // Any authenticated user can read schedule and location for the app to function
-        allow read: if isAuthenticated() && (settingId == 'location' || settingId == 'schedule');
-
-        // Allow any authenticated user to read branding, announcement, and footer settings
-        allow read: if isAuthenticated() && (settingId == 'branding' || settingId == 'announcement' || settingId == 'footer' || settingId == 'landingPage');
-    }
-
-    match /attendance/{attendanceId} {
-        // Admins can read all attendance records
-        allow read, delete: if isAdmin();
-        
-        // Employees can create their own attendance
-        allow create: if isOwner(request.resource.data.uid);
-        
-        // Employees can read their own attendance history
-        allow list: if isAuthenticated() && request.query.where.field == 'employeeId' && request.query.where.value == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId;
-    }
-    
+    // LEAVE REQUESTS collection
     match /leaveRequests/{requestId} {
-        // Admin can read and update any request
-        allow read, update: if isAdmin();
-        
-        // Users can create their own requests
-        allow create: if isOwner(request.resource.data.uid);
+      // Admins can read and update all requests
+      allow read, update: if isAdmin();
 
-        // Users can read their own requests
-        allow read: if isOwner(get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid);
-
-        // User can update their own 'acknowledgedByEmployee' status
-        allow update: if isOwner(get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid)
-                      && request.resource.data.keys().hasOnly(['acknowledgedByEmployee']);
+      // Employees can create requests for themselves
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      
+      // Employees can read their own requests (using list/get with a where clause)
+      allow read: if isAuthenticated() && getUserData().employeeId == resource.data.employeeId;
+    }
+    
+    // ATTENDANCE collection
+    match /attendance/{recordId} {
+      // Admins can manage all attendance records
+      allow read, delete: if isAdmin();
+      
+      // Employees can create their own attendance records
+      allow create: if isAuthenticated();
+      
+      // Employees can read their own attendance history
+      allow read: if isAuthenticated() && getUserData().employeeId == resource.data.employeeId;
     }
   }
 }

@@ -181,7 +181,7 @@ export default function EmployeesPage() {
                 longitude: lng,
                 name: editLocationName.trim() || null,
              };
-        } else if (latStr || lngStr || editLocationName) {
+        } else if (latStr || lngStr || editLocationName.trim()) {
             toast({ title: 'Input Lokasi Tidak Lengkap', description: 'Untuk mengatur lokasi, field Latitude dan Longitude harus diisi.', variant: 'destructive' });
             setIsSaving(false);
             return;
@@ -273,14 +273,14 @@ export default function EmployeesPage() {
                       <TableCell>{user.employeeId || 'N/A'}</TableCell>
                       <TableCell>{user.department || 'N/A'}</TableCell>
                        <TableCell>
-                        {user.locationSettings ? (
+                        {user.locationSettings?.latitude ? (
                            <div className="text-xs">
                              <p className='font-bold'>{user.locationSettings.name || 'Lokasi Khusus'}</p>
                              <p>Lat: {user.locationSettings.latitude.toFixed(4)}</p>
                              <p>Lng: {user.locationSettings.longitude.toFixed(4)}</p>
                            </div>
                         ) : (
-                          <span className="text-muted-foreground text-xs italic">Mengikuti Global</span>
+                          <span className="text-muted-foreground text-xs italic">Mengikuti Departemen/Global</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
@@ -345,7 +345,7 @@ export default function EmployeesPage() {
             <DialogHeader>
                 <DialogTitle>Edit Pengaturan Pengguna</DialogTitle>
                 <DialogDescription>
-                   Ubah detail dan lokasi absensi khusus untuk {editingUser?.name}. Biarkan lokasi kosong untuk menggunakan pengaturan global.
+                   Ubah detail dan lokasi absensi khusus untuk {editingUser?.name}. Ini akan menimpa pengaturan departemen.
                 </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -358,7 +358,7 @@ export default function EmployeesPage() {
                     <Input id="employeeId" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
                 </div>
                 <div className="space-y-4 pt-4 border-t">
-                     <Label className="font-medium">Lokasi Absensi Khusus</Label>
+                     <Label className="font-medium">Lokasi Absensi Khusus (Override)</Label>
                      <div className="space-y-2">
                         <Label htmlFor="locName" className="text-xs">Nama Lokasi</Label>
                         <Input id="locName" value={editLocationName} onChange={(e) => setEditLocationName(e.target.value)} type="text" placeholder="contoh: Kantor Cabang" />

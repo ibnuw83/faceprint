@@ -27,6 +27,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 type Department = {
   id: string;
   name: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export default function NewEmployeePage() {
@@ -47,6 +49,7 @@ export default function NewEmployeePage() {
   const [selectedCamera, setSelectedCamera] = useState<string>('');
   const [faceprintDataUrl, setFaceprintDataUrl] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const [selectedDepartmentData, setSelectedDepartmentData] = useState<Department | null>(null);
 
   // Redirect if not admin and not a new user
   useEffect(() => {
@@ -180,6 +183,14 @@ export default function NewEmployeePage() {
   const handleRetake = () => {
     setFaceprintDataUrl(null);
   };
+  
+  const handleDepartmentChange = (departmentId: string) => {
+    const selectedDept = departments.find(d => d.id === departmentId);
+    if (selectedDept) {
+        setDepartment(selectedDept.name);
+        setSelectedDepartmentData(selectedDept);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,13 +228,23 @@ export default function NewEmployeePage() {
       }
       
       const userRef = doc(db, 'users', user.uid);
-      await setDoc(userRef, {
+      const userData: any = {
         name: fullName,
         employeeId: employeeId,
         department: department,
         isProfileComplete: true,
         faceprint: faceprintDataUrl,
-      }, { merge: true });
+      };
+
+      if (selectedDepartmentData?.latitude && selectedDepartmentData?.longitude) {
+        userData.locationSettings = {
+          latitude: selectedDepartmentData.latitude,
+          longitude: selectedDepartmentData.longitude,
+          name: `Lokasi ${selectedDepartmentData.name}`,
+        };
+      }
+
+      await setDoc(userRef, userData, { merge: true });
 
       await checkUserStatus();
 
@@ -291,14 +312,14 @@ export default function NewEmployeePage() {
                 {loadingDepartments ? (
                   <Skeleton className="h-10 w-full" />
                 ) : (
-                  <Select onValueChange={setDepartment} value={department} disabled={isLoading}>
+                  <Select onValueChange={handleDepartmentChange} disabled={isLoading}>
                     <SelectTrigger id="department">
                       <SelectValue placeholder="Pilih departemen..." />
                     </SelectTrigger>
                     <SelectContent>
                       {departments.length > 0 ? (
                         departments.map((dept) => (
-                          <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                          <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
                         ))
                       ) : (
                         <SelectItem value="-" disabled>Tidak ada departemen tersedia</SelectItem>
@@ -385,5 +406,3 @@ export default function NewEmployeePage() {
     </div>
   );
 }
-
-    

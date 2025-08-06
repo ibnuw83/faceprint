@@ -32,7 +32,7 @@ export default function LocationStatus({ effectiveLocation, loading: loadingSett
     const [loadingLocation, setLoadingLocation] = useState(true);
     
     useEffect(() => {
-        if (!navigator.geolocation) {
+        if (typeof window === 'undefined' || !navigator.geolocation) {
             setLocationError('Geolocation tidak didukung oleh browser ini.');
             setLoadingLocation(false);
             return;
@@ -144,3 +144,5 @@ export default function LocationStatus({ effectiveLocation, loading: loadingSett
         </Card>
     );
 }
+
+    

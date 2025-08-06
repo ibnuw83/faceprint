@@ -141,10 +141,10 @@ export default function EmployeeDashboard() {
             let finalSettings: LocationSettings = null;
 
             // Priority 1: User-specific settings
-            if (user.locationSettings?.latitude && user.locationSettings?.longitude) {
+            if (user.locationSettings?.latitude && user.locationSettings?.longitude && user.locationSettings?.radius) {
                  finalSettings = {
                     ...user.locationSettings,
-                    radius: globalSettings?.radius ? Number(globalSettings.radius) : 50,
+                    radius: Number(user.locationSettings.radius),
                     name: user.locationSettings.name || 'Lokasi Khusus Anda',
                     isSpecific: true,
                 };
@@ -581,5 +581,7 @@ export default function EmployeeDashboard() {
       </div>
     </div>
   );
+
+    
 
     

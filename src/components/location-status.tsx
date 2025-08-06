@@ -8,7 +8,7 @@ import { calculateDistance } from '@/lib/location';
 import { Badge } from './ui/badge';
 import { Skeleton } from './ui/skeleton';
 import { useAuth } from '@/hooks/use-auth';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 type LocationSettings = {
@@ -35,39 +35,78 @@ export default function LocationStatus() {
 
     useEffect(() => {
         if (authLoading || !user) return;
-        
-        const unsubscribe = onSnapshot(doc(db, 'settings', 'location'), async (globalSettingsDoc) => {
+
+        const fetchAllSettings = async () => {
             setLoadingSettings(true);
-            const globalSettings = globalSettingsDoc.exists() ? globalSettingsDoc.data() : null;
+            try {
+                // 1. Check for user-specific settings first
+                if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
+                    const globalSettingsDoc = await getDoc(doc(db, 'settings', 'location'));
+                    const radius = globalSettingsDoc.exists() ? Number(globalSettingsDoc.data()?.radius) : 50;
+                    setEffectiveLocation({
+                        ...user.locationSettings,
+                        radius: radius,
+                        name: user.locationSettings.name || 'Lokasi Khusus Anda',
+                        isSpecific: true,
+                    });
+                    setLoadingSettings(false);
+                    return;
+                }
 
-            if (user.locationSettings && user.locationSettings.latitude != null && user.locationSettings.longitude != null) {
-                // User has specific settings. Use them but take the radius from global settings.
-                setEffectiveLocation({
-                    ...user.locationSettings,
-                    radius: Number(globalSettings?.radius) || 0,
-                    name: user.locationSettings.name || 'Lokasi Khusus',
-                    isSpecific: true,
-                });
-            } else if (globalSettings && globalSettings.latitude != null && globalSettings.longitude != null && globalSettings.radius != null) {
-                // User follows global settings.
-                setEffectiveLocation({
-                    latitude: Number(globalSettings.latitude),
-                    longitude: Number(globalSettings.longitude),
-                    radius: Number(globalSettings.radius),
-                    name: globalSettings.name || 'Lokasi Kantor',
-                    isSpecific: false,
-                });
-            } else {
-                // No valid settings found.
+                // 2. Fetch department and global settings in parallel
+                let departmentSettings: any = null;
+                if (user.department) {
+                    const q = query(collection(db, 'departments'), where('name', '==', user.department));
+                    const deptSnapshot = await getDocs(q);
+                    if (!deptSnapshot.empty) {
+                        const deptDoc = deptSnapshot.docs[0].data();
+                        if (deptDoc.latitude && deptDoc.longitude && deptDoc.radius) {
+                            departmentSettings = {
+                                latitude: Number(deptDoc.latitude),
+                                longitude: Number(deptDoc.longitude),
+                                radius: Number(deptDoc.radius),
+                                name: deptDoc.name,
+                                isSpecific: false
+                            };
+                        }
+                    }
+                }
+
+                if(departmentSettings) {
+                    setEffectiveLocation(departmentSettings);
+                    setLoadingSettings(false);
+                    return;
+                }
+
+                // 3. Fallback to global settings
+                const globalSettingsDoc = await getDoc(doc(db, 'settings', 'location'));
+                if (globalSettingsDoc.exists()) {
+                    const globalData = globalSettingsDoc.data();
+                    if (globalData.latitude && globalData.longitude && globalData.radius) {
+                        setEffectiveLocation({
+                            latitude: Number(globalData.latitude),
+                            longitude: Number(globalData.longitude),
+                            radius: Number(globalData.radius),
+                            name: globalData.name || 'Lokasi Kantor Pusat',
+                            isSpecific: false
+                        });
+                        setLoadingSettings(false);
+                        return;
+                    }
+                }
+                
+                // 4. No settings found
                 setEffectiveLocation(null);
-            }
-            setLoadingSettings(false);
-        }, (error) => {
-            console.error("Error listening to location settings:", error);
-            setLoadingSettings(false);
-        });
 
-        return () => unsubscribe();
+            } catch(error) {
+                console.error("Error loading location settings:", error);
+            } finally {
+                setLoadingSettings(false);
+            }
+        };
+
+        fetchAllSettings();
+
     }, [user, authLoading]);
 
     useEffect(() => {
@@ -127,9 +166,7 @@ export default function LocationStatus() {
 
     const isInRange = distance !== null && distance <= effectiveLocation.radius;
     
-    const title = effectiveLocation.name || (effectiveLocation.isSpecific 
-        ? 'Lokasi Absen Khusus'
-        : 'Lokasi Absen Kantor');
+    const title = effectiveLocation.name || 'Lokasi Absen';
 
     const renderContent = () => {
         if (locationError) {

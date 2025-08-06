@@ -3,44 +3,41 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+    
     function isAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isEmployee() {
-      return request.auth != null && !isAdmin();
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee';
     }
 
     match /users/{userId} {
-      allow read, update, delete: if request.auth.uid == userId || isAdmin();
-      allow create: if request.auth.uid == userId;
+      allow read, update, create: if request.auth.uid == userId;
+      allow delete: if isAdmin();
       allow list: if isAdmin();
     }
 
-    match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
     match /departments/{departmentId} {
-      // Allow any authenticated user to read department list, but only admins can modify.
       allow get, list: if request.auth != null;
       allow create, update, delete: if isAdmin();
     }
     
-    match /attendance/{attendanceId} {
-      allow create: if request.auth.uid == request.resource.data.uid;
-      // An employee's attendance history is filtered on the client-side using a query.
-      allow list, get: if isEmployee() || isAdmin();
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
+    match /attendance/{attendanceId} {
+      allow create: if request.auth.uid == request.resource.data.uid;
+      allow list, get: if isEmployee() || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
     match /leaveRequests/{requestId} {
       allow create: if request.auth.uid == request.resource.data.uid;
-      allow read: if request.auth.uid == resource.data.uid || isAdmin();
-      allow list: if isAdmin();
-      allow update: if isAdmin();
+      allow list, get: if isEmployee() || isAdmin();
+      allow update, delete: if isAdmin();
     }
   }
 }

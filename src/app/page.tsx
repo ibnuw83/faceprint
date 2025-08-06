@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import Image from 'next/image';
@@ -11,6 +11,8 @@ import { db } from '@/lib/firebase';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import Autoplay from "embla-carousel-autoplay"
+
 
 type LandingPageSettings = {
   description: string;
@@ -47,6 +49,10 @@ export default function HomePage() {
     fetchSettings();
   }, []);
 
+  const plugin = useRef(
+    Autoplay({ delay: 3000, stopOnInteraction: true })
+  )
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="p-4 md:p-6">
@@ -82,7 +88,13 @@ export default function HomePage() {
              {loading ? (
                 <Skeleton className="w-full aspect-square rounded-xl" />
              ) : (
-               <Carousel className="w-full" opts={{ loop: true }}>
+               <Carousel 
+                  className="w-full" 
+                  opts={{ loop: true }}
+                  plugins={[plugin.current]}
+                  onMouseEnter={plugin.current.stop}
+                  onMouseLeave={plugin.current.reset}
+                >
                   <CarouselContent>
                     {settings.imageUrls.map((url, index) => (
                       <CarouselItem key={index}>

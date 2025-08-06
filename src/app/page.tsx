@@ -26,15 +26,22 @@ export default function HomePage() {
     description: 'Sistem absensi modern berbasis pengenalan wajah. Masuk untuk mencatat kehadiran Anda atau lihat riwayat absensi Anda.',
     imageUrls: ['https://placehold.co/600x600.png'],
   });
+  const [footerText, setFooterText] = useState('© ' + new Date().getFullYear() + ' VisageID. All rights reserved.');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const settingsRef = doc(db, 'settings', 'landingPage');
-        const docSnap = await getDoc(settingsRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+        const landingRef = doc(db, 'settings', 'landingPage');
+        const footerRef = doc(db, 'settings', 'footer');
+
+        const [landingSnap, footerSnap] = await Promise.all([
+          getDoc(landingRef),
+          getDoc(footerRef)
+        ]);
+        
+        if (landingSnap.exists()) {
+          const data = landingSnap.data();
           // Ensure imageUrls is always an array
           const urls = Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls : ['https://placehold.co/600x600.png'];
           setSettings({
@@ -43,6 +50,11 @@ export default function HomePage() {
             imageUrls: urls,
           });
         }
+        
+        if (footerSnap.exists()) {
+          setFooterText(footerSnap.data().text || '© ' + new Date().getFullYear() + ' VisageID. All rights reserved.');
+        }
+
       } catch (error) {
         console.error("Error fetching landing page settings:", error);
       } finally {
@@ -129,7 +141,7 @@ export default function HomePage() {
         </div>
       </main>
       <footer className="p-4 text-center text-muted-foreground text-sm">
-        © {new Date().getFullYear()} VisageID. All rights reserved.
+        {loading ? <Skeleton className="h-4 w-1/3 mx-auto" /> : footerText}
       </footer>
     </div>
   );

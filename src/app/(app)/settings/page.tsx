@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw, Megaphone, Save, MonitorPlay } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw, Megaphone, Save, MonitorPlay, Footprints } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -99,6 +99,10 @@ export default function SettingsPage() {
   const [landingImageUrls, setLandingImageUrls] = useState('');
   const [isSavingLanding, setIsSavingLanding] = useState(false);
 
+  // Footer settings
+  const [footerText, setFooterText] = useState('');
+  const [isSavingFooter, setIsSavingFooter] = useState(false);
+
 
   // Apply theme and settings from localStorage/Firestore on initial load
   useEffect(() => {
@@ -168,6 +172,12 @@ export default function SettingsPage() {
             setLandingTitle(data.title || '');
             setLandingDescription(data.description || '');
             setLandingImageUrls((data.imageUrls || []).join('\n'));
+        }
+
+        const footerRef = doc(db, 'settings', 'footer');
+        const footerSnap = await getDoc(footerRef);
+        if (footerSnap.exists()) {
+            setFooterText(footerSnap.data().text || '');
         }
     }
 
@@ -363,6 +373,20 @@ export default function SettingsPage() {
     }
   };
 
+  const saveFooterText = async () => {
+    setIsSavingFooter(true);
+    try {
+      const footerRef = doc(db, 'settings', 'footer');
+      await setDoc(footerRef, { text: footerText });
+      toast({ title: 'Teks Footer Disimpan', description: 'Teks footer telah berhasil diperbarui.' });
+    } catch (error) {
+      console.error('Error saving footer text:', error);
+      toast({ title: 'Gagal Menyimpan', variant: 'destructive' });
+    } finally {
+      setIsSavingFooter(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!authLoading && user?.role !== 'admin') {
@@ -448,6 +472,27 @@ export default function SettingsPage() {
                     {isSavingLanding ? <Loader2 className="mr-2 animate-spin" /> : <Save />}
                     Simpan Pengaturan Halaman Utama
                 </Button>
+            </div>
+
+            <div className="space-y-4 p-4 border rounded-lg">
+              <h3 className="font-semibold text-lg flex items-center gap-2"><Footprints /> Pengaturan Footer</h3>
+              <div className="space-y-2">
+                <Label htmlFor="footerText">Teks Footer</Label>
+                <div className='flex items-center gap-2'>
+                  <Input
+                    id="footerText"
+                    value={footerText}
+                    onChange={(e) => setFooterText(e.target.value)}
+                    placeholder="© 2024 Nama Perusahaan. All rights reserved."
+                    disabled={isSavingFooter}
+                  />
+                  <Button onClick={saveFooterText} disabled={isSavingFooter}>
+                    {isSavingFooter ? <Loader2 className="mr-2 animate-spin" /> : <Save />}
+                    Simpan
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">Teks ini akan ditampilkan di bagian bawah halaman utama.</p>
+              </div>
             </div>
 
 

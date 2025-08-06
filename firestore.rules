@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -13,11 +14,16 @@ service cloud.firestore {
     }
 
     // Settings collection:
-    // - landingPage and announcement are public-read for the landing page and banner.
+    // - landingPage, announcement, and footer are public-read.
     // - Other settings are admin-only.
     match /settings/{settingId} {
-       allow read: if true; // Allow public read for settings like landing page, announcement, app name, logo etc
-       allow write: if isAdmin();
+      match /landingPage | /announcement | /footer {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      match /location | /schedule {
+         allow read, write: if isAdmin();
+      }
     }
 
     // Users collection:

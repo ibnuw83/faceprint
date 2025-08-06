@@ -112,7 +112,7 @@ export default function LoginPage() {
        <CardFooter className="flex flex-col gap-4 text-center text-sm">
           <p>Belum punya akun? <Link href="/register" className="text-primary hover:underline">Daftar</Link></p>
           <Separator />
-          <Link href="/login" className="text-muted-foreground hover:text-primary hover:underline">Kembali ke Halaman Utama</Link>
+          <Link href="/" className="text-muted-foreground hover:text-primary hover:underline">Kembali ke Halaman Utama</Link>
       </CardFooter>
     </Card>
   );

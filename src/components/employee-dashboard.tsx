@@ -199,7 +199,7 @@ export default function EmployeeDashboard() {
                 const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
                 const clockInStartTime = inHours * 60 + inMinutes;
                 // Allow clocking in for a 4-hour window
-                clockInEnabled = currentTimeInMinutes >= clockInStartTime && currentTimeInMinutes <= clockInStartTime + (4 * 60);
+                clockInEnabled = currentTimeInMinutes >= clockInStartTime;
             } else {
                  clockInEnabled = true;
             }

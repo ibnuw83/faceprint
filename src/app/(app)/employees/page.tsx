@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2, History, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc, query, where, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   DropdownMenu,
@@ -88,7 +88,7 @@ export default function EmployeesPage() {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // State for the edit form
@@ -124,46 +124,24 @@ export default function EmployeesPage() {
     }
   }, [authUser, fetchUsers]);
 
-  const handleDeleteUser = async (userToDelete: User) => {
-    if (!userToDelete) return;
-    setDeletingUser(userToDelete);
-    
+  const handleDeleteUser = async (userId: string) => {
+    setDeletingId(userId);
     try {
-        const batch = writeBatch(db);
-
-        // 1. Delete attendance records
-        if (userToDelete.employeeId) {
-            const attendanceQuery = query(collection(db, 'attendance'), where('employeeId', '==', userToDelete.employeeId));
-            const attendanceSnapshot = await getDocs(attendanceQuery);
-            attendanceSnapshot.forEach(doc => batch.delete(doc.ref));
-        }
-
-        // 2. Delete leave requests
-        const leaveQuery = query(collection(db, 'leaveRequests'), where('uid', '==', userToDelete.uid));
-        const leaveSnapshot = await getDocs(leaveQuery);
-        leaveSnapshot.forEach(doc => batch.delete(doc.ref));
-
-        // 3. Delete the user document itself
-        const userRef = doc(db, 'users', userToDelete.uid);
-        batch.delete(userRef);
-
-        await batch.commit();
-
-        toast({
-            title: 'Pengguna Dihapus',
-            description: `Profil dan data terkait untuk ${userToDelete.name} telah berhasil dihapus dari Firestore.`,
-        });
-        
-        await fetchUsers(); // Refresh the list
+      await deleteDoc(doc(db, 'users', userId));
+      toast({
+        title: 'Pengguna Dihapus',
+        description: 'Profil pengguna telah berhasil dihapus dari Firestore.',
+      });
+      await fetchUsers(); // Refresh the list
     } catch (error) {
-        console.error("Error deleting user and their data:", error);
-        toast({
-            title: 'Gagal Menghapus Pengguna',
-            description: 'Terjadi kesalahan. Data pengguna tidak dapat dihapus sepenuhnya.',
-            variant: 'destructive',
-        });
+      console.error("Error deleting user:", error);
+      toast({
+        title: 'Gagal Menghapus Pengguna',
+        description: 'Pengguna tidak dapat dihapus saat ini. Silakan coba lagi.',
+        variant: 'destructive',
+      });
     } finally {
-        setDeletingUser(null);
+      setDeletingId(null);
     }
   };
 
@@ -336,7 +314,7 @@ export default function EmployeesPage() {
                                     <AlertDialogHeader>
                                     <AlertDialogTitle>Konfirmasi Penghapusan</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Apakah Anda yakin ingin menghapus pengguna <strong>{user.name}</strong>? Tindakan ini akan menghapus profil pengguna, riwayat absensi, dan riwayat cuti mereka dari database.
+                                        Apakah Anda yakin ingin menghapus pengguna <strong>{user.name}</strong>? Tindakan ini tidak dapat diurungkan dan akan menghapus profil pengguna dari Firestore.
                                         <br/><br/>
                                         <strong className="text-destructive">Penting:</strong> Tindakan ini tidak menghapus akun login pengguna. Untuk menghapus akun secara permanen, Anda harus melakukannya melalui Firebase Console.
                                     </AlertDialogDescription>
@@ -344,11 +322,11 @@ export default function EmployeesPage() {
                                     <AlertDialogFooter>
                                     <AlertDialogCancel>Batal</AlertDialogCancel>
                                     <AlertDialogAction
-                                        onClick={() => handleDeleteUser(user)}
+                                        onClick={() => handleDeleteUser(user.uid)}
                                         className="bg-destructive hover:bg-destructive/90"
-                                        disabled={!!deletingUser}
+                                        disabled={!!deletingId}
                                     >
-                                        {deletingUser?.uid === user.uid ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Ya, Hapus Data'}
+                                        {deletingId === user.uid ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : 'Ya, Hapus'}
                                     </AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>

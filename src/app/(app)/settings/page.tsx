@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw, Megaphone, Save } from 'lucide-react';
+import { Loader2, Palette, Upload, Trash2, Text, Clock, MapPin, RotateCcw, Megaphone, Save, MonitorPlay } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -93,6 +93,11 @@ export default function SettingsPage() {
   const [announcement, setAnnouncement] = useState('');
   const [isSavingAnnouncement, setIsSavingAnnouncement] = useState(false);
 
+  // Landing page settings
+  const [landingDescription, setLandingDescription] = useState('');
+  const [landingImageUrls, setLandingImageUrls] = useState('');
+  const [isSavingLanding, setIsSavingLanding] = useState(false);
+
 
   // Apply theme and settings from localStorage/Firestore on initial load
   useEffect(() => {
@@ -153,6 +158,14 @@ export default function SettingsPage() {
         const announcementSnap = await getDoc(announcementRef);
         if (announcementSnap.exists()) {
             setAnnouncement(announcementSnap.data().text || '');
+        }
+
+        const landingPageRef = doc(db, 'settings', 'landingPage');
+        const landingPageSnap = await getDoc(landingPageRef);
+        if (landingPageSnap.exists()) {
+            const data = landingPageSnap.data();
+            setLandingDescription(data.description || '');
+            setLandingImageUrls((data.imageUrls || []).join('\n'));
         }
     }
 
@@ -328,6 +341,24 @@ export default function SettingsPage() {
         setIsSavingSchedule(false);
     }
   };
+  
+  const saveLandingPageSettings = async () => {
+    setIsSavingLanding(true);
+    try {
+      const urls = landingImageUrls.split('\n').map(url => url.trim()).filter(url => url);
+      const settingsRef = doc(db, 'settings', 'landingPage');
+      await setDoc(settingsRef, {
+        description: landingDescription,
+        imageUrls: urls,
+      });
+      toast({ title: 'Pengaturan Halaman Utama Disimpan', description: 'Konten halaman utama telah diperbarui.' });
+    } catch (error) {
+      console.error('Error saving landing page settings:', error);
+      toast({ title: 'Gagal Menyimpan', variant: 'destructive' });
+    } finally {
+      setIsSavingLanding(false);
+    }
+  };
 
 
   useEffect(() => {
@@ -376,6 +407,36 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">Judul ini akan ditampilkan di sidebar, halaman login, dan judul tab browser.</p>
                 </div>
             </div>
+
+             <div className="space-y-4 p-4 border rounded-lg">
+                <h3 className="font-semibold text-lg flex items-center gap-2"><MonitorPlay /> Pengaturan Halaman Utama</h3>
+                <div className="space-y-2">
+                    <Label htmlFor="landingDescription">Deskripsi Halaman Utama</Label>
+                    <Textarea
+                        id="landingDescription"
+                        placeholder="Jelaskan aplikasi Anda kepada pengunjung..."
+                        value={landingDescription}
+                        onChange={(e) => setLandingDescription(e.target.value)}
+                        disabled={isSavingLanding}
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="landingImageUrls">URL Gambar Slideshow (satu per baris)</Label>
+                    <Textarea
+                        id="landingImageUrls"
+                        placeholder="https://example.com/image1.png&#10;https://example.com/image2.png"
+                        value={landingImageUrls}
+                        onChange={(e) => setLandingImageUrls(e.target.value)}
+                        disabled={isSavingLanding}
+                        rows={4}
+                    />
+                </div>
+                <Button onClick={saveLandingPageSettings} disabled={isSavingLanding}>
+                    {isSavingLanding ? <Loader2 className="mr-2 animate-spin" /> : <Save />}
+                    Simpan Pengaturan Halaman Utama
+                </Button>
+            </div>
+
 
             <div className="space-y-4 p-4 border rounded-lg">
              <h3 className="font-semibold text-lg flex items-center gap-2"><Megaphone /> Pengumuman Berjalan</h3>

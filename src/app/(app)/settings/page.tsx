@@ -62,6 +62,13 @@ const hslToHex = (h: number, s: number, l: number) => {
   return `#${f(0)}${f(8)}${f(4)}`;
 };
 
+const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+const initialSchedule: Record<string, { clockIn: string; clockOut: string }> = daysOfWeek.reduce((acc, day) => {
+    acc[day] = { clockIn: '', clockOut: '' };
+    return acc;
+}, {} as Record<string, { clockIn: string; clockOut: string }>);
+
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
@@ -83,8 +90,7 @@ export default function SettingsPage() {
   const [isSavingLocation, setIsSavingLocation] = useState(false);
 
   // Schedule settings
-  const [clockInTime, setClockInTime] = useState('');
-  const [clockOutTime, setClockOutTime] = useState('');
+  const [schedule, setSchedule] = useState(initialSchedule);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
   // Announcement settings
@@ -151,8 +157,14 @@ export default function SettingsPage() {
         const scheduleSnap = await getDoc(scheduleRef);
         if (scheduleSnap.exists()) {
             const data = scheduleSnap.data();
-            setClockInTime(data.clockInTime || '');
-            setClockOutTime(data.clockOutTime || '');
+            // Ensure all days are present in the state
+            const newSchedule = { ...initialSchedule };
+            for (const day of daysOfWeek) {
+                if (data[day]) {
+                    newSchedule[day] = data[day];
+                }
+            }
+            setSchedule(newSchedule);
         }
 
         const announcementRef = doc(db, 'settings', 'announcement');
@@ -280,19 +292,22 @@ export default function SettingsPage() {
     }
   }
 
+  const handleScheduleChange = (day: string, type: 'clockIn' | 'clockOut', value: string) => {
+    setSchedule(prev => ({
+        ...prev,
+        [day]: {
+            ...prev[day],
+            [type]: value,
+        },
+    }));
+  };
+
   const saveScheduleSettings = async () => {
-    if (!clockInTime || !clockOutTime) {
-        toast({ title: 'Waktu Tidak Lengkap', description: 'Harap isi kedua waktu absensi.', variant: 'destructive' });
-        return;
-    }
     setIsSavingSchedule(true);
     try {
         const settingsRef = doc(db, 'settings', 'schedule');
-        await setDoc(settingsRef, {
-            clockInTime: clockInTime,
-            clockOutTime: clockOutTime,
-        });
-        toast({ title: 'Jadwal Disimpan', description: 'Jadwal absensi telah berhasil diperbarui.'});
+        await setDoc(settingsRef, schedule);
+        toast({ title: 'Jadwal Disimpan', description: 'Jadwal absensi mingguan telah berhasil diperbarui.'});
     } catch (error) {
          console.error('Error saving schedule settings:', error);
         toast({ title: 'Gagal Menyimpan Jadwal', description: 'Terjadi kesalahan saat menyimpan jadwal.', variant: 'destructive'});
@@ -300,6 +315,23 @@ export default function SettingsPage() {
         setIsSavingSchedule(false);
     }
   }
+  
+  const handleResetSchedule = async () => {
+      setIsSavingSchedule(true);
+      try {
+          const newSchedule = { ...initialSchedule };
+          setSchedule(newSchedule);
+          const settingsRef = doc(db, 'settings', 'schedule');
+          await setDoc(settingsRef, newSchedule);
+          toast({ title: 'Jadwal Direset', description: 'Semua pengaturan jadwal mingguan telah dihapus.'});
+      } catch (error) {
+          console.error('Error resetting schedule:', error);
+          toast({ title: 'Gagal Mereset Jadwal', variant: 'destructive' });
+      } finally {
+          setIsSavingSchedule(false);
+      }
+  };
+
 
   const saveAnnouncement = async () => {
     setIsSavingAnnouncement(true);
@@ -315,25 +347,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleResetSchedule = async () => {
-    setIsSavingSchedule(true);
-    try {
-        setClockInTime('');
-        setClockOutTime('');
-        const settingsRef = doc(db, 'settings', 'schedule');
-        // Setting the fields to empty strings or null to clear them
-        await setDoc(settingsRef, {
-            clockInTime: '',
-            clockOutTime: '',
-        });
-        toast({ title: 'Jadwal Direset', description: 'Pengaturan jadwal absensi telah dihapus.'});
-    } catch (error) {
-        console.error('Error resetting schedule:', error);
-        toast({ title: 'Gagal Mereset Jadwal', description: 'Terjadi kesalahan saat mereset jadwal.', variant: 'destructive' });
-    } finally {
-        setIsSavingSchedule(false);
-    }
-  };
   
   const saveLandingPageSettings = async () => {
     setIsSavingLanding(true);
@@ -609,24 +622,41 @@ export default function SettingsPage() {
              </div>
           </div>
           
-          <div className="space-y-4 p-4 border rounded-lg">
-             <h3 className="font-semibold text-lg flex items-center gap-2"><Clock /> Jadwal Absensi</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="clockInTime">Waktu Mulai Absen Masuk</Label>
-                        <Input id="clockInTime" type="time" value={clockInTime} onChange={e => setClockInTime(e.target.value)} disabled={isSavingSchedule} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="clockOutTime">Waktu Mulai Absen Keluar</Label>
-                        <Input id="clockOutTime" type="time" value={clockOutTime} onChange={e => setClockOutTime(e.target.value)} disabled={isSavingSchedule} />
-                    </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    Tentukan kapan tombol absen aktif untuk karyawan. Kosongkan untuk menonaktifkan jadwal.
+           <div className="space-y-4 p-4 border rounded-lg">
+             <h3 className="font-semibold text-lg flex items-center gap-2"><Clock /> Jadwal Absensi Mingguan</h3>
+              <p className="text-xs text-muted-foreground">
+                    Atur waktu mulai absen masuk dan pulang untuk setiap hari. Kosongkan jika tidak ada jadwal pada hari tersebut.
                 </p>
+                <div className="space-y-4">
+                    {daysOfWeek.map(day => (
+                        <div key={day} className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 p-2 border-b">
+                           <Label className="font-medium">{day}</Label>
+                            <div className="space-y-2">
+                                <Label htmlFor={`clockIn-${day}`} className="text-xs">Waktu Masuk</Label>
+                                <Input 
+                                    id={`clockIn-${day}`} 
+                                    type="time" 
+                                    value={schedule[day]?.clockIn || ''} 
+                                    onChange={e => handleScheduleChange(day, 'clockIn', e.target.value)} 
+                                    disabled={isSavingSchedule} 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                               <Label htmlFor={`clockOut-${day}`} className="text-xs">Waktu Pulang</Label>
+                                <Input 
+                                    id={`clockOut-${day}`} 
+                                    type="time" 
+                                    value={schedule[day]?.clockOut || ''} 
+                                    onChange={e => handleScheduleChange(day, 'clockOut', e.target.value)} 
+                                    disabled={isSavingSchedule} 
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
              <div className="pt-4 flex gap-2">
                  <Button onClick={saveScheduleSettings} disabled={isSavingSchedule}>
-                    {isSavingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                    {isSavingSchedule ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className='mr-2'/>}
                     Simpan Jadwal
                  </Button>
                   <Button onClick={handleResetSchedule} disabled={isSavingSchedule} variant="outline">

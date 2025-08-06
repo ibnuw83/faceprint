@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -42,10 +43,8 @@ type LocationSettings = {
 } | null;
 
 
-type ScheduleSettings = {
-    clockInTime: string;
-    clockOutTime: string;
-}
+type ScheduleSettings = Record<string, { clockIn: string; clockOut: string }>;
+
 
 export default function EmployeeDashboard() {
   const { toast } = useToast();
@@ -211,39 +210,50 @@ export default function EmployeeDashboard() {
     const updateTimeChecks = () => {
         const now = new Date();
         const currentTimeInMinutes = now.getHours() * 60 + now.getMinutes();
+        const dayIndex = (now.getDay() + 6) % 7; // 0: Senin, 1: Selasa, ..., 6: Minggu
+        const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+        const todayName = daysOfWeek[dayIndex];
 
         let clockInEnabled = true;
         let clockOutEnabled = true;
 
-        if (scheduleSettings) {
-             if (scheduleSettings.clockInTime) {
-                const [inHours, inMinutes] = scheduleSettings.clockInTime.split(':').map(Number);
+        if (scheduleSettings && scheduleSettings[todayName]) {
+            const todaySchedule = scheduleSettings[todayName];
+
+            if (todaySchedule.clockIn) {
+                const [inHours, inMinutes] = todaySchedule.clockIn.split(':').map(Number);
                 const clockInStartTime = inHours * 60 + inMinutes;
-                // Allow clocking in for a 4-hour window
                 clockInEnabled = currentTimeInMinutes >= clockInStartTime;
             } else {
-                 clockInEnabled = true;
+                // If clockIn is not set for today, disable it
+                clockInEnabled = false;
             }
 
-            if (scheduleSettings.clockOutTime) {
-                const [outHours, outMinutes] = scheduleSettings.clockOutTime.split(':').map(Number);
+            if (todaySchedule.clockOut) {
+                const [outHours, outMinutes] = todaySchedule.clockOut.split(':').map(Number);
                 const clockOutStartTime = outHours * 60 + outMinutes;
                 clockOutEnabled = currentTimeInMinutes >= clockOutStartTime;
             } else {
-                clockOutEnabled = true;
+                // If clockOut is not set for today, disable it
+                clockOutEnabled = false;
             }
+        } else {
+            // If no schedule settings or no entry for today, disable both
+            clockInEnabled = false;
+            clockOutEnabled = false;
         }
-        
+
         setIsClockInAllowed(clockInEnabled);
         setIsClockOutAllowed(clockOutEnabled);
     };
-    
+
     // Run once on load, then set an interval
     updateTimeChecks();
     const timerId = setInterval(updateTimeChecks, 60000); // Check every minute
 
     return () => clearInterval(timerId);
-  }, [scheduleSettings]);
+}, [scheduleSettings]);
+
 
   // Effect for getting camera permissions and listing devices
   useEffect(() => {

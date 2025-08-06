@@ -11,11 +11,8 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import {
   Users,
-  ClipboardList,
-  FileText,
   UserCheck,
   UserX,
-  Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import {

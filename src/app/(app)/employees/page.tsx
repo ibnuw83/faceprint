@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2, History } from 'lucide-react';
+import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2, History, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
@@ -291,6 +291,10 @@ export default function EmployeesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                             <DropdownMenuItem onClick={() => router.push(`/employees/${user.uid}/profile`)}>
+                                <UserIcon className="mr-2"/>
+                                Lihat Profil
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditClick(user)}>
                               <Edit className="mr-2" />
                               Edit Pengguna

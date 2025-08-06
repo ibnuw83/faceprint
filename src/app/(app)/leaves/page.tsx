@@ -18,10 +18,10 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send } from 'lucide-react';
+import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, orderBy, query, Timestamp, doc, addDoc, where, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, Timestamp, doc, addDoc, where, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,6 +38,18 @@ import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { Label } from '@/components/ui/label';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 type LeaveRequest = {
   id: string;
@@ -296,6 +308,7 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
     const [allRequests, setAllRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const fetchAllRequests = useCallback(async () => {
         setLoading(true);
@@ -334,6 +347,20 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
             setUpdatingId(null);
         }
     }
+
+    const handleDeleteRequest = async (id: string) => {
+        setDeletingId(id);
+        try {
+            await deleteDoc(doc(db, 'leaveRequests', id));
+            toast({ title: 'Pengajuan Dihapus', description: 'Data pengajuan cuti/izin telah berhasil dihapus.' });
+            await fetchAllRequests(); // Refresh list after deletion
+        } catch (error) {
+            console.error('Error deleting request:', error);
+            toast({ title: 'Gagal Menghapus', variant: 'destructive' });
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const statusBadgeVariant = { 'Menunggu': 'secondary', 'Disetujui': 'default', 'Ditolak': 'destructive' } as const;
 
@@ -386,16 +413,39 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
+                                      <div className="flex gap-1 justify-end items-center">
                                         {req.status === 'Menunggu' && (
-                                            <div className="flex gap-2 justify-end">
+                                            <>
                                                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(req.id, 'Ditolak')} disabled={updatingId === req.id}>
                                                     {updatingId === req.id ? <Loader2 className="animate-spin" /> : 'Tolak'}
                                                 </Button>
                                                 <Button size="sm" onClick={() => handleUpdateStatus(req.id, 'Disetujui')} disabled={updatingId === req.id}>
                                                     {updatingId === req.id ? <Loader2 className="animate-spin" /> : 'Setujui'}
                                                 </Button>
-                                            </div>
+                                            </>
                                         )}
+                                         <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" disabled={deletingId === req.id}>
+                                                    {deletingId === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Konfirmasi Penghapusan</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        Apakah Anda yakin ingin menghapus pengajuan <strong>{req.leaveType}</strong> oleh <strong>{req.employeeName}</strong>? Tindakan ini tidak dapat diurungkan.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteRequest(req.id)} className="bg-destructive hover:bg-destructive/90">
+                                                        Ya, Hapus
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                      </div>
                                     </TableCell>
                                 </TableRow>
                             ))

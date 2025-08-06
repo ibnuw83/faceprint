@@ -433,5 +433,3 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
-
-    

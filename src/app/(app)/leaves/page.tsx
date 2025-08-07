@@ -18,12 +18,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send, Trash2, Paperclip, Upload } from 'lucide-react';
+import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp, doc, addDoc, where, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -50,8 +49,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import Link from 'next/link';
-import { Input } from '@/components/ui/input';
 
 
 type LeaveRequest = {
@@ -67,8 +64,6 @@ type LeaveRequest = {
   createdAt: Timestamp;
   statusUpdatedAt: Timestamp | null;
   acknowledgedByEmployee: boolean;
-  attachmentUrl?: string;
-  attachmentPath?: string;
 };
 
 
@@ -82,8 +77,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
     const [leaveType, setLeaveType] = useState('');
     const [reason, setReason] = useState('');
     const [dates, setDates] = useState<DateRange | undefined>(undefined);
-    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchMyRequests = useCallback(async () => {
         if (!user?.uid) {
@@ -134,19 +127,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
         setIsSubmitting(true);
         
         try {
-            let attachmentUrl = '';
-            let attachmentPath = '';
-
-            if (attachmentFile) {
-                toast({ title: 'Mengunggah Lampiran...', description: 'Mohon tunggu sebentar.' });
-                const filePath = `attachments/${user.uid}/${Date.now()}-${attachmentFile.name}`;
-                const fileRef = ref(storage, filePath);
-                const uploadResult = await uploadBytes(fileRef, attachmentFile);
-                attachmentUrl = await getDownloadURL(uploadResult.ref);
-                attachmentPath = filePath;
-                toast({ title: 'Lampiran Berhasil Diunggah', variant: 'default' });
-            }
-
             const requestData = {
                 uid: user.uid,
                 employeeId: user.employeeId,
@@ -159,8 +139,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                 createdAt: Timestamp.now(),
                 acknowledgedByEmployee: true,
                 statusUpdatedAt: null,
-                attachmentUrl: attachmentUrl,
-                attachmentPath: attachmentPath,
             };
 
             await addDoc(collection(db, 'leaveRequests'), requestData);
@@ -169,9 +147,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
             setLeaveType('');
             setReason('');
             setDates(undefined);
-            setAttachmentFile(null);
-            if(fileInputRef.current) fileInputRef.current.value = '';
-
+            
             await fetchMyRequests();
 
         } catch (error) {
@@ -263,23 +239,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                             />
                         </div>
 
-                         <div className="space-y-2">
-                             <Label htmlFor="attachment">Lampiran (Opsional)</Label>
-                             <div className="flex items-center gap-2">
-                                <Input
-                                    id="attachment"
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={(e) => setAttachmentFile(e.target.files ? e.target.files[0] : null)}
-                                    disabled={isSubmitting}
-                                    className="flex-1"
-                                />
-                             </div>
-                             {attachmentFile && (
-                                <p className="text-sm text-muted-foreground">File terpilih: {attachmentFile.name}</p>
-                             )}
-                        </div>
-
                         <div className='flex justify-end pt-4'>
                             <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || !leaveType || !reason || !dates?.from}>
                                 {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
@@ -309,7 +268,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     <TableHead>Tanggal Mulai</TableHead>
                                     <TableHead>Tanggal Selesai</TableHead>
                                     <TableHead>Alasan</TableHead>
-                                    <TableHead>Lampiran</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -321,7 +279,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                     </TableRow>
                                 ))
@@ -333,17 +290,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         <TableCell>{req.endDate}</TableCell>
                                         <TableCell><p className='w-40 truncate' title={req.reason}>{req.reason}</p></TableCell>
                                         <TableCell>
-                                            {req.attachmentUrl ? (
-                                                <Button variant="outline" size="icon" asChild>
-                                                    <a href={req.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                                                        <Paperclip className="h-4 w-4" />
-                                                    </a>
-                                                </Button>
-                                            ) : (
-                                                <span className="text-muted-foreground">-</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
                                             <Badge variant={statusBadgeVariant[req.status]}>
                                             {req.status}
                                             </Badge>
@@ -352,7 +298,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                 ))
                                 ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
                                         Belum ada data pengajuan.
                                     </TableCell>
                                 </TableRow>
@@ -414,28 +360,12 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
     const handleDeleteRequest = async (request: LeaveRequest) => {
         setDeletingId(request.id);
         try {
-            // If there's an attachment, delete it from Storage first
-            if (request.attachmentPath) {
-                const fileRef = ref(storage, request.attachmentPath);
-                await deleteObject(fileRef);
-            }
-
-            // Delete the document from Firestore
             await deleteDoc(doc(db, 'leaveRequests', request.id));
-            
             toast({ title: 'Pengajuan Dihapus', description: 'Data pengajuan cuti/izin telah berhasil dihapus.' });
             await fetchAllRequests();
         } catch (error: any) {
-            // Handle case where file might not exist in storage but doc does
-            if (error.code === 'storage/object-not-found') {
-                console.warn('File not found in storage, but proceeding to delete firestore doc');
-                await deleteDoc(doc(db, 'leaveRequests', request.id));
-                 toast({ title: 'Pengajuan Dihapus', description: 'Data pengajuan cuti/izin telah berhasil dihapus.' });
-                await fetchAllRequests();
-            } else {
-                console.error('Error deleting request:', error);
-                toast({ title: 'Gagal Menghapus', variant: 'destructive' });
-            }
+            console.error('Error deleting request:', error);
+            toast({ title: 'Gagal Menghapus', variant: 'destructive' });
         } finally {
             setDeletingId(null);
         }
@@ -493,13 +423,6 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex gap-1 justify-end items-center">
-                                        {req.attachmentUrl && (
-                                            <Button variant="outline" size="icon" asChild>
-                                                <a href={req.attachmentUrl} target="_blank" rel="noopener noreferrer" title="Lihat Lampiran">
-                                                    <Paperclip className="h-4 w-4" />
-                                                </a>
-                                            </Button>
-                                        )}
                                         {req.status === 'Menunggu' && (
                                             <>
                                                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(req.id, 'Ditolak')} disabled={updatingId === req.id}>

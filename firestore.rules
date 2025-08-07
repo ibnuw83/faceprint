@@ -3,60 +3,60 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Helper function to check for admin role
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Helper function to check if the user is the owner of the document based on the UID field
-    function isOwner(docData) {
-      return request.auth.uid == docData.uid;
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Users collection
-    // Admin can read/write any user. Users can read/write their own document.
-    match /users/{userId} {
-      allow read, write: if request.auth.uid == userId || isAdmin();
-      allow list: if isAdmin();
-    }
-
-    // Attendance collection
-    // Users can create their own attendance records.
-    // Admins can read/delete any record.
-    match /attendance/{docId} {
-      allow create: if isOwner(request.resource.data);
-      allow read, delete: if isAdmin();
-      
-      // Allow users to list their own attendance records.
-      // Admins can list all records.
-      allow list: if isAdmin() || (request.query.limit <= 10 && request.query.where.uid == request.auth.uid);
+    // Settings are public read for app configuration
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
     
-    // Departments collection
-    // Any authenticated user can read departments. Only admins can write.
+    // Departments are public read, only admin can write
     match /departments/{deptId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Leave Requests collection
-    // Users can create their own requests.
-    // Users can read/delete their own requests. Admins can read/delete any.
-    // Admins can update any request.
-    match /leaveRequests/{reqId} {
-       allow create: if isOwner(request.resource.data);
-       allow read, delete: if isOwner(resource.data) || isAdmin();
-       allow update: if isAdmin();
-       allow list: if isAdmin() || request.query.where.uid == request.auth.uid;
+    // Users collection rules
+    match /users/{userId} {
+      // Admins can read/write any user document
+      // Users can only read/write their own document
+      allow read, write: if isAdmin() || isOwner(userId);
+      // Any authenticated user can create a user document (for registration)
+      allow create: if request.auth != null;
     }
 
-    // Settings collection
-    // Publicly readable for app configuration on client-side.
-    // Only writable by admins.
-    match /settings/{setting} {
-      allow read: if true; 
-      allow write: if isAdmin();
+    // Attendance collection rules
+    match /attendance/{attendanceId} {
+      // Admin can do anything
+      // Authenticated users can create records
+      allow create: if request.auth != null;
+      // Admin can read/update/delete any record. Users can only read their own.
+      allow read, update, delete: if isAdmin() || isOwner(request.resource.data.uid);
+      // Admins can list all. Authenticated users can only list their own records.
+      allow list: if isAdmin() || (request.auth != null && request.query.where.size() > 0 && request.query.where[0].field == 'uid' && request.query.where[0].value == request.auth.uid);
+    }
+    
+    // Leave Requests collection rules
+    match /leaveRequests/{leaveId} {
+        // Admin can do anything
+        // Authenticated users can create their own requests
+        allow create: if request.auth.uid == request.resource.data.uid;
+        // Admin can update/delete any record.
+        allow update, delete: if isAdmin();
+        // Admins can list all. Users can only list their own.
+        allow list: if isAdmin() || (request.auth != null && request.query.where.size() > 0 && request.query.where[0].field == 'uid' && request.query.where[0].value == request.auth.uid);
+        // Admin can read any. Users can read their own.
+        allow read: if isAdmin() || isOwner(resource.data.uid);
     }
   }
 }

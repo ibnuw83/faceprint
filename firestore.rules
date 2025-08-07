@@ -3,45 +3,57 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     function isSignedIn() {
       return request.auth != null;
     }
-
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     match /users/{userId} {
-      allow read, update: if isSignedIn() && request.auth.uid == userId;
-      allow list, create, delete: if isAdmin();
-    }
-
-    match /departments/{deptId} {
-      allow read, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
     }
     
-    match /settings/{settingId} {
+    match /departments/{departmentId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    match /leaveRequests/{reqId} {
-      allow create: if isSignedIn();
-      allow read, list: if isSignedIn() && (request.auth.uid == resource.data.uid || isAdmin());
+    match /attendance/{attendanceId} {
+      // Admin can read any attendance record.
+      // A regular user can read their own attendance records.
+      allow get: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      
+      // A regular user can list records as long as their query is constrained by their uid.
+      // The client-side query MUST have `where('uid', '==', request.auth.uid)`.
+      // Admin can list all.
+      allow list: if isAdmin() || isSignedIn();
+      
+      // Any signed-in user can create an attendance record for themselves.
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      
+      // Only admins can delete attendance records.
+      allow delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+    
+    match /leaveRequests/{requestId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 
-    match /attendance/{docId} {
-      allow create: if isSignedIn();
-      // An admin can list all attendance records
-      // A regular user can only list their own attendance records
-      allow list: if (isAdmin() || (isSignedIn() && request.query.where.uid == request.auth.uid));
-      // An admin can get any document
-      // A regular user can only get their own document
-      allow get: if (isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/attendance/$(docId)).data.uid == request.auth.uid));
-      allow update, delete: if isAdmin();
+    match /settings/{settingId} {
+      allow read: if true; // Publicly readable settings like branding
+      allow write: if isAdmin();
     }
   }
 }

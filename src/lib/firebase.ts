@@ -12,7 +12,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyCVPDCAGMGePL3PcBBlAY25etCWHs1EfKs",
   authDomain: "visageid-ae9b9.firebaseapp.com",
   projectId: "visageid-ae9b9",
-  storageBucket: "visageid-ae9b9.appspot.com",
+  storageBucket: "visageid-ae9b9.firebasestorage.app",
   messagingSenderId: "808812032105",
   appId: "1:808812032105:web:d3a524ab6d68c47d34f2f8",
   measurementId: "G-B1X6HRVCK7"

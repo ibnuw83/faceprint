@@ -15,9 +15,9 @@ Ini adalah proyek aplikasi absensi berbasis pengenalan wajah yang dibuat dengan 
 
 Anda dapat menyimpan dan mengelola kode proyek ini di repositori GitHub Anda sendiri.
 
-### A. Unggahan Pertama Kali
+### A. Unggahan Pertama Kali (ke Repositori Baru)
 
-Jika Anda belum pernah menghubungkan proyek ini ke GitHub, ikuti langkah-langkah di bawah ini.
+Jika Anda ingin mengunggah proyek ini ke **repositori baru yang masih kosong** di GitHub, ikuti langkah-langkah di bawah ini.
 
 #### 1. Buat Repositori Baru di GitHub
 
@@ -27,9 +27,9 @@ Jika Anda belum pernah menghubungkan proyek ini ke GitHub, ikuti langkah-langkah
 - **Penting**: Jangan centang opsi untuk menambahkan `README`, `.gitignore`, atau `license` karena file-file tersebut sudah ada di proyek ini.
 - Klik **"Create repository"**.
 
-#### 2. Hubungkan Proyek Lokal dengan Repositori GitHub
+#### 2. Hubungkan Proyek dengan Repositori GitHub
 
-Setelah membuat repositori, GitHub akan menampilkan halaman dengan beberapa perintah. Gunakan perintah untuk "push an existing repository from the command line".
+Setelah membuat repositori, GitHub akan menampilkan halaman dengan beberapa perintah. Gunakan perintah untuk **"push an existing repository from the command line"**.
 
 Buka terminal di direktori proyek Anda dan jalankan perintah berikut secara berurutan:
 
@@ -43,22 +43,22 @@ git add .
 # Buat commit pertama Anda (catatan perubahan)
 git commit -m "Initial commit: VisageID project setup"
 
-# Tambahkan remote origin (ganti URL dengan URL repositori Anda)
-git remote add origin https://github.com/NAMA_ANDA/NAMA_REPOSITORI_ANDA.git
+# Tambahkan remote origin (ganti URL dengan URL repositori BARU Anda)
+git remote add origin https://github.com/NAMA_ANDA/NAMA_REPOSITORI_BARU_ANDA.git
 
 # Push kode Anda ke GitHub
 git push -u origin main
 ```
 
-Setelah perintah-perintah di atas berhasil dijalankan, semua file proyek Anda akan terunggah ke repositori GitHub Anda.
+Setelah perintah-perintah di atas berhasil dijalankan, semua file proyek Anda akan terunggah ke repositori GitHub baru Anda.
 
 ---
 
-### B. Mengunggah Perubahan Susulan
+### B. Mengunggah Perubahan Susulan (ke Repositori yang Sudah Ada)
 
-Setelah proyek Anda terhubung dengan GitHub, setiap kali Anda ingin menyimpan pembaruan atau perubahan baru, ikuti 3 langkah sederhana ini.
+Setelah proyek Anda terhubung dengan GitHub, setiap kali Anda ingin menyimpan pembaruan atau perubahan baru, ikuti 3 langkah sederhana dari file `UNGGAH_KE_GITHUB.md`.
 
-Buka terminal di direktori proyek Anda dan jalankan perintah berikut:
+Buka terminal di direktori proyek Anda dan jalankan perintah:
 
 1.  **Tambahkan semua file yang berubah:**
     ```bash
@@ -67,7 +67,7 @@ Buka terminal di direktori proyek Anda dan jalankan perintah berikut:
 
 2.  **Buat catatan perubahan (commit):**
     ```bash
-    git commit -m "Memperbaiki tampilan menu Cuti & Izin untuk semua pengguna"
+    git commit -m "Deskripsi singkat tentang perubahan yang dibuat"
     ```
     *Ganti "Deskripsi singkat..." dengan penjelasan Anda sendiri, contohnya "Memperbaiki tampilan mobile" atau "Menambah fitur pengumuman".*
 
@@ -77,4 +77,3 @@ Buka terminal di direktori proyek Anda dan jalankan perintah berikut:
     ```
 
 Setelah perintah `push` berhasil, semua pembaruan Anda akan langsung terlihat di repositori GitHub.
-# face

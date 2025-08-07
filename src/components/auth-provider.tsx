@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -114,7 +113,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
       setFirebaseUser(fbUser);
-      // When auth state changes, if there's no user, we are done loading.
       if (!fbUser) {
           setUser(null);
           setLoading(false);
@@ -125,8 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // This effect now correctly depends on firebaseUser.
-    // If firebaseUser is null, it does nothing.
     if (firebaseUser) {
         setLoading(true);
         const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -167,12 +163,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 });
             } else {
                  const role = firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
+                 // This handles new users or users whose data was deleted.
+                 // Force them to complete their profile again.
                  setUser({
                     uid: firebaseUser.uid,
                     name: firebaseUser.displayName,
                     email: firebaseUser.email,
                     role: role,
-                    isProfileComplete: role === 'admin',
+                    isProfileComplete: false, // Treat as incomplete profile
                  });
             }
             setLoading(false);
@@ -183,7 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         return () => unsubscribeUser();
     } else {
-        // If there's no firebaseUser, ensure loading is false and user is null.
         setUser(null);
         setLoading(false);
     }

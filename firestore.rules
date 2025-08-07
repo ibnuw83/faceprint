@@ -1,10 +1,9 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // Helper Functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -17,39 +16,49 @@ service cloud.firestore {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // AUTH: Users can read their own user document. Admins can read any.
+    // Rules for collections
+    
+    // Users can read their own profile. Admins can read all profiles.
+    // Any signed-in user can create their own user document during registration.
+    // Users can update their own data. Admins can update any.
     match /users/{userId} {
-      allow get: if isSignedIn() && isOwner(userId);
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isAdmin();
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow delete: if isAdmin();
     }
+
+    // Attendance can be created by any signed-in user for themselves.
+    // Users can only read their own attendance records.
+    // Admins can read all records.
+    match /attendance/{docId} {
+        allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+        allow read, list: if isSignedIn() && (request.query.where.uid == request.auth.uid || isAdmin());
+        allow update, delete: if isAdmin();
+    }
     
-    // DEPARTMENTS: Only admins can manage departments
-    match /departments/{departmentId} {
-        allow read, write: if isAdmin();
+    // Settings can be read by any signed-in user (for schedule/location info).
+    // Only admins can write/change settings.
+    match /settings/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
-    // SETTINGS: Any signed-in user can read, only admins can write.
-    match /settings/{settingId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
+    // Departments can be read by any signed-in user (for location info).
+    // Only admins can write/change departments.
+    match /departments/{document=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
-
-    // ATTENDANCE: Users can create their own records and list their own history. Admins can read all.
-    match /attendance/{attendanceId} {
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      allow read, delete: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/attendance/$(attendanceId)).data.uid == request.auth.uid);
-      allow list: if isAdmin();
-    }
-
-    // LEAVE REQUESTS: Users can create/read their own. Admins can manage all.
-    match /leaveRequests/{requestId} {
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid == request.auth.uid);
-      allow list: if isAdmin();
-      allow update, delete: if isAdmin();
+    
+    // Leave requests can be created by any signed-in user for themselves.
+    // Users can read their own requests. Admins can read all.
+    match /leaveRequests/{docId} {
+       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+       allow read: if isSignedIn() && (request.resource.data.uid == request.auth.uid || isAdmin());
+       allow list: if isSignedIn() && (request.query.where.uid == request.auth.uid || isAdmin());
+       allow update, delete: if isAdmin();
     }
   }
 }

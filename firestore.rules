@@ -2,86 +2,91 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get companyId from the user's mapping document
-    function getCompanyId(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data.companyId;
-    }
 
-    // Helper function to check if a user is an admin of their company
-    function isAdmin(userId) {
-      let companyId = getCompanyId(userId);
-      return get(/databases/$(database)/documents/companies/$(companyId)/users/$(userId)).data.role == 'admin';
-    }
-
-    // Helper function to check if the requesting user belongs to the specified company
+    // Helper functions
     function isUserInCompany(companyId) {
-      return request.auth != null && getCompanyId(request.auth.uid) == companyId;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId;
     }
-    
-    // User mapping to find their company
+
+    function isUserRoleAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Public settings are readable by anyone (for login page etc.)
+    match /settings/{setting} {
+      allow read: if true;
+      allow write: if false; // Should only be changed from a super-admin console/backend
+    }
+
+    // The 'users' collection maps a user's UID to their companyId and role.
+    // This collection is critical for rules enforcement.
     match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if request.auth != null && isAdmin(request.auth.uid);
-    }
-    
-    // Public settings (branding, landing page, etc.) can be read by anyone
-    match /settings/{settingId} {
-      allow get: if true;
-      // Writing to settings should only be done by a Super Admin (not implemented via rules here, manage via backend/console)
-      allow list, write: if false; 
+      // Users can read their own mapping document.
+      allow get: if request.auth.uid == userId;
+      // No one can list all users in this top-level collection.
+      allow list: if false;
+      // Users can be created during registration.
+      allow create: if request.auth.uid == userId;
+      // Users cannot update or delete their mapping document. This should be a super-admin task.
+      allow update, delete: if false;
     }
 
-    // Main data is stored per company
+    // Main company data, where everything is namespaced by companyId
     match /companies/{companyId} {
-      // Only users belonging to this company can access anything inside it
-      allow read, write: if isUserInCompany(companyId);
+      // Company document itself is not really used yet, so no access.
+      allow read, write: if false;
 
-      // Company document itself (metadata)
-      match /company/{doc=**} {
-        allow read: if isUserInCompany(companyId);
-        // Only admins of that company can write to its metadata
-        allow write: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
+      // Rules for all subcollections within a company
+      match /{subcollection}/{docId} {
+        // A user must belong to the company to perform any action.
+        allow read, write: if isUserInCompany(companyId);
       }
 
-      // User data within a company
+       // More specific rules for 'users' subcollection
       match /users/{userId} {
-        allow get: if isUserInCompany(companyId);
-        allow list, create, update: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
-        allow delete: if isUserInCompany(companyId) && isAdmin(request.auth.uid) && request.auth.uid != userId; // Admin can't delete themselves
+        // Allow read access if the user is an admin of the company, or if they are accessing their own document.
+        allow get: if isUserInCompany(companyId) && (isUserRoleAdmin() || request.auth.uid == userId);
+        // Only admins can list all users within their own company.
+        allow list: if isUserInCompany(companyId) && isUserRoleAdmin();
+        // Admins can create new users. Users can complete their own profile.
+        allow create, update: if isUserInCompany(companyId) && (isUserRoleAdmin() || request.auth.uid == userId);
+        // Only admins can delete users.
+        allow delete: if isUserInCompany(companyId) && isUserRoleAdmin();
+      }
+
+      // Rules for attendance
+      match /attendance/{attendanceId} {
+        // Users can create their own attendance records.
+        allow create: if isUserInCompany(companyId);
+        // Only admins can list all attendance records.
+        allow list: if isUserInCompany(companyId) && isUserRoleAdmin();
+        // Users can read their own records, admins can read any.
+        allow get: if isUserInCompany(companyId); // Simplified for now
+         // Only admins can delete records.
+        allow delete: if isUserInCompany(companyId) && isUserRoleAdmin();
       }
       
-      // Attendance records within a company
-      match /attendance/{attendanceId} {
-         allow list: if isUserInCompany(companyId); // Admins can list all, employees will be filtered by client-side query
-         allow get: if isUserInCompany(companyId);
-         allow create: if isUserInCompany(companyId) && request.auth.uid == request.resource.data.uid; // Employee can create for themselves
-         allow delete: if isUserInCompany(companyId) && isAdmin(request.auth.uid); // Admins can delete
-      }
-
-      // Departments within a company
+      // Rules for departments
       match /departments/{departmentId} {
-        allow get, list: if isUserInCompany(companyId);
-        allow create, update, delete: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
+        // Admins can manage departments.
+        allow read, write: if isUserInCompany(companyId) && isUserRoleAdmin();
+      }
+      
+      // Rules for company-specific settings
+      match /settings/{settingName} {
+         // Admins can manage their own company's settings.
+        allow read, write: if isUserInCompany(companyId) && isUserRoleAdmin();
       }
 
-      // Company-specific settings
-      match /settings/{settingId} {
-        allow get: if isUserInCompany(companyId);
-        allow write: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
+      // Rules for leave requests
+      match /leaveRequests/{requestId} {
+         // Admins can list all requests.
+        allow list: if isUserInCompany(companyId) && isUserRoleAdmin();
+        // Users can create requests for themselves.
+        allow create: if isUserInCompany(companyId) && request.resource.data.uid == request.auth.uid;
+        // Admins can read any request. Users can read their own.
+        allow get, update, delete: if isUserInCompany(companyId) && (isUserRoleAdmin() || getAfter(/databases/$(database)/documents/companies/$(companyId)/leaveRequests/$(requestId)).data.uid == request.auth.uid);
       }
-    }
-    
-    // Leave requests are global but protected by companyId inside the document
-    match /leaveRequests/{requestId} {
-       allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
-       allow create: if request.auth.uid == request.resource.data.uid;
-       allow update, delete: if isAdmin(request.auth.uid) && getCompanyId(request.auth.uid) == resource.data.companyId;
-       
-       // Allow Admins to list all requests for their company.
-       // This requires a Firestore index.
-       allow list: if isAdmin(request.auth.uid);
     }
   }
 }

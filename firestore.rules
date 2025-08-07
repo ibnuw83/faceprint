@@ -1,64 +1,87 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Perusahaan: Hanya pemilik yang bisa menulis, semua pengguna terautentikasi bisa membaca
-    match /companies/{companyId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == resource.data.ownerUid;
-    }
-    
-    // Pengaturan Perusahaan: Hanya admin perusahaan yang bisa mengubah
-    match /companies/{companyId}/settings/{docId} {
-        allow read: if request.auth != null;
-        allow write: if get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+  
+    // Helper function to get companyId from the user's mapping document
+    function getCompanyId(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.companyId;
     }
 
-    // Mapping User ke CompanyID: bisa dibuat saat registrasi, hanya bisa dibaca pemiliknya
+    // Helper function to check if a user is an admin of their company
+    function isAdmin(userId) {
+      let companyId = getCompanyId(userId);
+      return get(/databases/$(database)/documents/companies/$(companyId)/users/$(userId)).data.role == 'admin';
+    }
+
+    // Helper function to check if the requesting user belongs to the specified company
+    function isUserInCompany(companyId) {
+      return request.auth != null && getCompanyId(request.auth.uid) == companyId;
+    }
+    
+    // User mapping to find their company
     match /users/{userId} {
-        allow create: if request.auth != null && request.auth.uid == userId;
-        allow read, delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Data di dalam perusahaan (users, attendance, etc.)
-    match /companies/{companyId}/{collection}/{docId} {
-        // Aturan default: Hanya bisa diakses oleh pengguna di perusahaan yang sama
-        allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId;
-    }
-
-    match /companies/{companyId}/users/{userId} {
-        // Admin bisa melakukan apa saja pada pengguna di perusahaannya
-        allow read, list, write, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
-                                       get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
-        // Pengguna bisa membaca/memperbarui data mereka sendiri
-        allow read, update: if request.auth.uid == userId;
-    }
-
-    match /companies/{companyId}/attendance/{attendanceId} {
-        // Admin bisa membaca semua data absensi
-        allow list, read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
-                           get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
-        // Karyawan bisa membuat absensi dan membaca absensi miliknya
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
-        allow read: if request.auth.uid == resource.data.uid;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && isAdmin(request.auth.uid);
     }
     
-    match /companies/{companyId}/departments/{departmentId} {
-       // Admin bisa mengelola departemen
-       allow read, list, write, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
-                                          get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+    // Public settings (branding, landing page, etc.) can be read by anyone
+    match /settings/{settingId} {
+      allow get: if true;
+      // Writing to settings should only be done by a Super Admin (not implemented via rules here, manage via backend/console)
+      allow list, write: if false; 
     }
 
-     match /companies/{companyId}/leaveRequests/{requestId} {
-        // Admin bisa membaca dan memperbarui semua pengajuan
-        allow read, list, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
-                                   get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
-        // Karyawan bisa membuat pengajuan dan membaca pengajuan miliknya
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
-        allow read: if request.auth.uid == resource.data.uid;
-    }
+    // Main data is stored per company
+    match /companies/{companyId} {
+      // Only users belonging to this company can access anything inside it
+      allow read, write: if isUserInCompany(companyId);
 
+      // Company document itself (metadata)
+      match /company/{doc=**} {
+        allow read: if isUserInCompany(companyId);
+        // Only admins of that company can write to its metadata
+        allow write: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
+      }
+
+      // User data within a company
+      match /users/{userId} {
+        allow get: if isUserInCompany(companyId);
+        allow list, create, update: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
+        allow delete: if isUserInCompany(companyId) && isAdmin(request.auth.uid) && request.auth.uid != userId; // Admin can't delete themselves
+      }
+      
+      // Attendance records within a company
+      match /attendance/{attendanceId} {
+         allow list: if isUserInCompany(companyId); // Admins can list all, employees will be filtered by client-side query
+         allow get: if isUserInCompany(companyId);
+         allow create: if isUserInCompany(companyId) && request.auth.uid == request.resource.data.uid; // Employee can create for themselves
+         allow delete: if isUserInCompany(companyId) && isAdmin(request.auth.uid); // Admins can delete
+      }
+
+      // Departments within a company
+      match /departments/{departmentId} {
+        allow get, list: if isUserInCompany(companyId);
+        allow create, update, delete: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
+      }
+
+      // Company-specific settings
+      match /settings/{settingId} {
+        allow get: if isUserInCompany(companyId);
+        allow write: if isUserInCompany(companyId) && isAdmin(request.auth.uid);
+      }
+    }
+    
+    // Leave requests are global but protected by companyId inside the document
+    match /leaveRequests/{requestId} {
+       allow read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
+       allow create: if request.auth.uid == request.resource.data.uid;
+       allow update, delete: if isAdmin(request.auth.uid) && getCompanyId(request.auth.uid) == resource.data.companyId;
+       
+       // Allow Admins to list all requests for their company.
+       // This requires a Firestore index.
+       allow list: if isAdmin(request.auth.uid);
+    }
   }
 }

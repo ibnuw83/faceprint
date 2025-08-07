@@ -1,62 +1,59 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check for admin role
+    
+    // Helper functions
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-
-    // Helper function to check if the user is the owner of the document
+    
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-    // Settings are public read for app configuration
+    // Settings are public read
     match /settings/{docId} {
       allow read: if true;
       allow write: if isAdmin();
     }
-    
-    // Departments are public read, only admin can write
-    match /departments/{deptId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
 
-    // Users collection rules
     match /users/{userId} {
-      // Admins can read/write any user document
-      // Users can only read/write their own document
-      allow read, write: if isAdmin() || isOwner(userId);
-      // Any authenticated user can create a user document (for registration)
-      allow create: if request.auth != null;
-    }
-
-    // Attendance collection rules
-    match /attendance/{attendanceId} {
-      // Admin can do anything
-      // Authenticated users can create records
-      allow create: if request.auth != null;
-      // Admin can read/update/delete any record. Users can only read their own.
-      allow read, update, delete: if isAdmin() || isOwner(request.resource.data.uid);
-      // Admins can list all. Authenticated users can only list their own records.
-      allow list: if isAdmin() || (request.auth != null && request.query.where.size() > 0 && request.query.where[0].field == 'uid' && request.query.where[0].value == request.auth.uid);
+      allow read: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isSignedIn();
+      allow delete: if isAdmin();
     }
     
-    // Leave Requests collection rules
-    match /leaveRequests/{leaveId} {
-        // Admin can do anything
-        // Authenticated users can create their own requests
-        allow create: if request.auth.uid == request.resource.data.uid;
-        // Admin can update/delete any record.
-        allow update, delete: if isAdmin();
-        // Admins can list all. Users can only list their own.
-        allow list: if isAdmin() || (request.auth != null && request.query.where.size() > 0 && request.query.where[0].field == 'uid' && request.query.where[0].value == request.auth.uid);
-        // Admin can read any. Users can read their own.
-        allow read: if isAdmin() || isOwner(resource.data.uid);
+    match /departments/{deptId} {
+       allow read: if isSignedIn();
+       allow list: if isSignedIn();
+       allow create, update, delete: if isAdmin();
+    }
+
+    match /attendance/{attendanceId} {
+        allow read, list: if isAdmin();
+        allow create: if isSignedIn();
+        allow delete: if isAdmin();
+        
+        // Employee can read their own attendance list
+        allow list: if exists(/databases/$(database)/documents/users/$(request.auth.uid));
+        // Employee can read a specific record if they own it
+        allow get: if isOwner(get(/databases/$(database)/documents/attendance/$(attendanceId)).data.uid);
+    }
+    
+     match /leaveRequests/{requestId} {
+      allow create: if isSignedIn();
+      allow list, read, update, delete: if isAdmin();
+
+      // Employee can list and read their own requests
+      allow list: if exists(/databases/$(database)/documents/users/$(request.auth.uid));
+      allow get: if isOwner(get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid);
+      allow update: if isOwner(get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid);
     }
   }
 }

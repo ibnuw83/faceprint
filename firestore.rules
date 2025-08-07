@@ -4,59 +4,66 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is an admin
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Settings are publicly readable, but only writable by admins
-    match /settings/{docId} {
-      allow read: if true;
+    function isEmployee() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // User profile rules
+    match /users/{userId} {
+      // Users can read their own profile, admins can read any profile
+      allow get, list: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Users can update their own profile, admins can update any profile
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Only admins can create or delete users
+      allow create, delete: if isAdmin();
+    }
+    
+    // Department rules
+    match /departments/{deptId} {
+      // All authenticated users can read departments
+      allow read: if isSignedIn();
+      // Only admins can write to departments
       allow write: if isAdmin();
     }
-
-    // Departments are readable by any authenticated user, but only writable by admins
-    match /departments/{docId} {
-        allow read: if request.auth != null;
-        allow write: if isAdmin();
-    }
-
-    // Users collection rules
-    match /users/{userId} {
-      // Admins can read/write any user document
-      allow get, list, create, update, delete: if isAdmin();
-      
-      // Authenticated users can read their own document
-      allow get: if request.auth.uid == userId;
-
-      // Authenticated users can update their own document, but cannot change their role
-      allow update: if request.auth.uid == userId && request.resource.data.role == resource.data.role;
-    }
-
-    // Attendance collection rules
+    
+    // Attendance rules
     match /attendance/{attendanceId} {
-        // Admins can read/write any attendance record
-        allow get, list, create, update, delete: if isAdmin();
-
-        // Employees can create their own attendance records
-        allow create: if request.auth.uid == request.resource.data.uid;
-
-        // Employees can read their own attendance records
-        allow list: if request.auth.uid == request.query.uid;
-        allow get: if get(/databases/$(database)/documents/attendance/$(attendanceId)).data.uid == request.auth.uid;
+       // Employees can create their own attendance records
+       allow create: if isEmployee() && request.resource.data.uid == request.auth.uid;
+       // Users can read their own attendance via get, admins can get any.
+       allow get: if isSignedIn() && (get(/databases/$(database)/documents/attendance/$(attendanceId)).data.uid == request.auth.uid || isAdmin());
+       // Users can list their own attendance records, admins can list all.
+       allow list: if (isEmployee() && request.query.where.path == "uid" && request.query.where.op == "==" && request.query.where.value == request.auth.uid) || isAdmin();
+       // Only admins can delete attendance records
+       allow delete: if isAdmin();
     }
 
-    // Leave Requests collection rules
+    // Leave request rules
     match /leaveRequests/{leaveId} {
-      // Admins can manage all leave requests
-      allow get, list, update, delete: if isAdmin();
-
-      // Employees can create their own leave requests
-      allow create: if request.auth.uid == request.resource.data.uid;
-      
-      // Employees can read their own leave requests
-      allow list: if request.auth.uid == request.query.uid;
-      allow get: if get(/databases/$(database)/documents/leaveRequests/$(leaveId)).data.uid == request.auth.uid;
+        // Users can manage their own leave requests
+        allow create: if isEmployee() && request.resource.data.uid == request.auth.uid;
+        // Rules for reading leave requests
+        allow get: if isSignedIn() && (get(/databases/$(database)/documents/leaveRequests/$(leaveId)).data.uid == request.auth.uid || isAdmin());
+        allow list: if (isEmployee() && request.query.where.path == "uid" && request.query.where.op == "==" && request.query.where.value == request.auth.uid) || isAdmin();
+        // Admins can update/delete any request, users can't
+        allow update, delete: if isAdmin();
+    }
+    
+    // Settings rules
+    match /settings/{settingId} {
+        // Public read for branding, landing page, and footer
+        allow read: if settingId in ['branding', 'landingPage', 'footer'] || isSignedIn();
+        // Only admins can write to settings
+        allow write: if isAdmin();
     }
   }
 }

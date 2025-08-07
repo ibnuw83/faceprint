@@ -243,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     await updateProfile(fbUser, { displayName: name });
     
-    const role = 'admin';
+    const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
     const isProfileComplete = false;
 
     const companyRef = await addDoc(collection(db, "companies"), {

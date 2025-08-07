@@ -2,49 +2,66 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if user is admin
-    function isAdmin(userId) {
-      return exists(/databases/$(database)/documents/users/$(userId)) &&
-             get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
-    }
-    
-    // Authenticated users can read their own user document
-    match /users/{userId} {
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      allow list, create, delete: if request.auth != null && isAdmin(request.auth.uid);
+
+    // --- Helper Functions ---
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Departments can be read by any authenticated user, managed by admin
-    match /departments/{deptId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isAdmin(request.auth.uid);
-    }
-    
-    // Attendance records can be created by the user, read by user and admin
-    match /attendance/{attendanceId} {
-        allow read: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin(request.auth.uid));
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
-        allow delete: if request.auth != null && isAdmin(request.auth.uid);
-        allow list: if request.auth != null && isAdmin(request.auth.uid);
-    }
-    
-    // Leave requests
-    match /leaveRequests/{requestId} {
-      // Employees can create their own requests
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
-
-      // Employees can read their own requests, Admins can read all requests
-      allow read, list: if request.auth != null && (request.auth.uid == resource.data.uid || isAdmin(request.auth.uid));
-      
-      // Admins can update status and delete requests
-      allow update, delete: if request.auth != null && isAdmin(request.auth.uid);
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Public settings can be read by anyone, managed by admin
+    function isAdmin() {
+      // Check if the user is authenticated and their document in 'users' has the role 'admin'
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- Settings Collection ---
+    // Public can read, only admin can write
     match /settings/{settingId} {
       allow read: if true;
-      allow write: if request.auth != null && isAdmin(request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // --- Departments Collection ---
+    // Authenticated users can read, only admin can write
+    match /departments/{deptId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // --- Users Collection ---
+    match /users/{userId} {
+      // Admins can read/write any user document.
+      // Users can read/update their own document.
+      allow read, update: if isAdmin() || isOwner(userId);
+      // Only admins can create or delete user documents.
+      allow create, delete: if isAdmin();
+    }
+
+    // --- Attendance Collection ---
+    match /attendance/{attendanceId} {
+      // Admins can read/delete any attendance record.
+      allow read, delete: if isAdmin();
+      // Users can create their own attendance record.
+      allow create: if isOwner(request.resource.data.uid);
+      // Rule to allow collection query by admin or user for their own records
+      allow list: if isAdmin() || (isAuthenticated() && request.query.where.field == 'uid' && request.query.where.value == request.auth.uid);
+    }
+    
+    // --- Leave Requests Collection ---
+    match /leaveRequests/{requestId} {
+        // Admins can read, update, and delete any request.
+        allow read, update, delete: if isAdmin();
+        
+        // Users can create their own requests.
+        allow create: if isOwner(request.resource.data.uid);
+
+        // Rule to allow listing requests.
+        // Admins can list all requests.
+        // Employees can list only their own requests.
+        allow list: if isAdmin() || (isAuthenticated() && request.query.where.field == 'uid' && request.query.where.value == request.auth.uid);
     }
   }
 }

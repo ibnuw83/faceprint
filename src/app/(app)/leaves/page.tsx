@@ -18,12 +18,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send, Trash2, Paperclip } from 'lucide-react';
+import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send, Trash2, Paperclip, Upload } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp, doc, addDoc, where, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
-import { deleteObject, ref } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -51,6 +51,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import Link from 'next/link';
+import { Input } from '@/components/ui/input';
 
 
 type LeaveRequest = {
@@ -81,6 +82,8 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
     const [leaveType, setLeaveType] = useState('');
     const [reason, setReason] = useState('');
     const [dates, setDates] = useState<DateRange | undefined>(undefined);
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const fetchMyRequests = useCallback(async () => {
         if (!user?.uid) {
@@ -131,7 +134,20 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
         setIsSubmitting(true);
         
         try {
-            const requestData: Omit<LeaveRequest, 'id' | 'attachmentUrl' | 'attachmentPath'> = {
+            let attachmentUrl = '';
+            let attachmentPath = '';
+
+            if (attachmentFile) {
+                toast({ title: 'Mengunggah Lampiran...', description: 'Mohon tunggu sebentar.' });
+                const filePath = `attachments/${user.uid}/${Date.now()}-${attachmentFile.name}`;
+                const fileRef = ref(storage, filePath);
+                const uploadResult = await uploadBytes(fileRef, attachmentFile);
+                attachmentUrl = await getDownloadURL(uploadResult.ref);
+                attachmentPath = filePath;
+                toast({ title: 'Lampiran Berhasil Diunggah', variant: 'default' });
+            }
+
+            const requestData = {
                 uid: user.uid,
                 employeeId: user.employeeId,
                 employeeName: user.name,
@@ -143,6 +159,8 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                 createdAt: Timestamp.now(),
                 acknowledgedByEmployee: true,
                 statusUpdatedAt: null,
+                attachmentUrl: attachmentUrl,
+                attachmentPath: attachmentPath,
             };
 
             await addDoc(collection(db, 'leaveRequests'), requestData);
@@ -151,6 +169,9 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
             setLeaveType('');
             setReason('');
             setDates(undefined);
+            setAttachmentFile(null);
+            if(fileInputRef.current) fileInputRef.current.value = '';
+
             await fetchMyRequests();
 
         } catch (error) {
@@ -177,69 +198,89 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="flex flex-col md:flex-row gap-4 items-center">
-                            <Label htmlFor="leaveType" className="md:w-40">Jenis Pengajuan</Label>
-                            <Select onValueChange={setLeaveType} value={leaveType} disabled={isSubmitting}>
-                                <SelectTrigger id="leaveType" className="flex-1">
-                                    <SelectValue placeholder="Pilih jenis cuti/izin..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Cuti Tahunan">Cuti Tahunan</SelectItem>
-                                    <SelectItem value="Sakit">Sakit</SelectItem>
-                                    <SelectItem value="Izin Khusus">Izin Khusus</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="leaveType">Jenis Pengajuan</Label>
+                                <Select onValueChange={setLeaveType} value={leaveType} disabled={isSubmitting}>
+                                    <SelectTrigger id="leaveType" className="w-full">
+                                        <SelectValue placeholder="Pilih jenis cuti/izin..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Cuti Tahunan">Cuti Tahunan</SelectItem>
+                                        <SelectItem value="Sakit">Sakit</SelectItem>
+                                        <SelectItem value="Izin Khusus">Izin Khusus</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Tanggal Pengajuan</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                    <Button
+                                        id="date"
+                                        variant={"outline"}
+                                        className="w-full justify-start text-left font-normal"
+                                        disabled={isSubmitting}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {dates?.from ? (
+                                        dates.to ? (
+                                            <>
+                                            {format(dates.from, "LLL dd, y")} -{" "}
+                                            {format(dates.to, "LLL dd, y")}
+                                            </>
+                                        ) : (
+                                            format(dates.from, "LLL dd, y")
+                                        )
+                                        ) : (
+                                        <span>Pilih tanggal</span>
+                                        )}
+                                    </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={dates?.from}
+                                        selected={dates}
+                                        onSelect={setDates}
+                                        numberOfMonths={2}
+                                    />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
                         </div>
-                        <div className="flex flex-col md:flex-row gap-4 items-center">
-                            <Label className="md:w-40">Tanggal Pengajuan</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                <Button
-                                    id="date"
-                                    variant={"outline"}
-                                    className="w-full justify-start text-left font-normal flex-1"
-                                    disabled={isSubmitting}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {dates?.from ? (
-                                    dates.to ? (
-                                        <>
-                                        {format(dates.from, "LLL dd, y")} -{" "}
-                                        {format(dates.to, "LLL dd, y")}
-                                        </>
-                                    ) : (
-                                        format(dates.from, "LLL dd, y")
-                                    )
-                                    ) : (
-                                    <span>Pilih tanggal</span>
-                                    )}
-                                </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={dates?.from}
-                                    selected={dates}
-                                    onSelect={setDates}
-                                    numberOfMonths={2}
-                                />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-                        <div className="flex flex-col md:flex-row gap-4 items-start">
-                            <Label htmlFor="reason" className="md:w-40 pt-2">Alasan/Keterangan</Label>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="reason">Alasan/Keterangan</Label>
                             <Textarea
                                 id="reason"
                                 placeholder="Jelaskan alasan Anda secara singkat..."
                                 value={reason}
                                 onChange={(e) => setReason(e.target.value)}
                                 disabled={isSubmitting}
-                                className='flex-1'
+                                className='w-full'
                             />
                         </div>
 
-                        <div className='flex justify-end'>
+                         <div className="space-y-2">
+                             <Label htmlFor="attachment">Lampiran (Opsional)</Label>
+                             <div className="flex items-center gap-2">
+                                <Input
+                                    id="attachment"
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={(e) => setAttachmentFile(e.target.files ? e.target.files[0] : null)}
+                                    disabled={isSubmitting}
+                                    className="flex-1"
+                                />
+                             </div>
+                             {attachmentFile && (
+                                <p className="text-sm text-muted-foreground">File terpilih: {attachmentFile.name}</p>
+                             )}
+                        </div>
+
+                        <div className='flex justify-end pt-4'>
                             <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || !leaveType || !reason || !dates?.from}>
                                 {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
                                 Kirim Pengajuan
@@ -268,6 +309,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     <TableHead>Tanggal Mulai</TableHead>
                                     <TableHead>Tanggal Selesai</TableHead>
                                     <TableHead>Alasan</TableHead>
+                                    <TableHead>Lampiran</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -279,6 +321,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                     </TableRow>
                                 ))
@@ -288,7 +331,18 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         <TableCell>{req.leaveType}</TableCell>
                                         <TableCell>{req.startDate}</TableCell>
                                         <TableCell>{req.endDate}</TableCell>
-                                        <TableCell><p className='w-40 truncate'>{req.reason}</p></TableCell>
+                                        <TableCell><p className='w-40 truncate' title={req.reason}>{req.reason}</p></TableCell>
+                                        <TableCell>
+                                            {req.attachmentUrl ? (
+                                                <Button variant="outline" size="icon" asChild>
+                                                    <a href={req.attachmentUrl} target="_blank" rel="noopener noreferrer">
+                                                        <Paperclip className="h-4 w-4" />
+                                                    </a>
+                                                </Button>
+                                            ) : (
+                                                <span className="text-muted-foreground">-</span>
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             <Badge variant={statusBadgeVariant[req.status]}>
                                             {req.status}
@@ -298,7 +352,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                 ))
                                 ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                                         Belum ada data pengajuan.
                                     </TableCell>
                                 </TableRow>
@@ -439,6 +493,13 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                     </TableCell>
                                     <TableCell className="text-right">
                                       <div className="flex gap-1 justify-end items-center">
+                                        {req.attachmentUrl && (
+                                            <Button variant="outline" size="icon" asChild>
+                                                <a href={req.attachmentUrl} target="_blank" rel="noopener noreferrer" title="Lihat Lampiran">
+                                                    <Paperclip className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        )}
                                         {req.status === 'Menunggu' && (
                                             <>
                                                 <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(req.id, 'Ditolak')} disabled={updatingId === req.id}>
@@ -508,5 +569,3 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
-
-    

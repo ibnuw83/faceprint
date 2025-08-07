@@ -48,12 +48,20 @@ import {
 
 type AttendanceRecord = {
   id: string;
+  uid: string;
   employeeId: string;
   employeeName: string;
   date: string;
   time: string;
   status: 'Clocked In' | 'Clocked Out';
   createdAt: Timestamp;
+};
+
+type Schedule = Record<string, { clockIn: string; clockOut: string }>;
+
+type User = {
+  uid: string;
+  schedule?: Schedule;
 };
 
 type DailyAttendanceSummary = {
@@ -65,6 +73,8 @@ type DailyAttendanceSummary = {
     clockOutTime: string | null;
     lateMinutes: number | null;
     dayDate: Date;
+    schedule?: Schedule;
+    uid: string;
 };
 
 type ScheduleSettings = Record<string, { clockIn: string; clockOut: string }>;
@@ -78,18 +88,29 @@ export default function AttendancePage() {
   const [allAttendanceRecords, setAllAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState<DateRange | undefined>(undefined);
-  const [scheduleSettings, setScheduleSettings] = useState<ScheduleSettings | null>(null);
+  const [globalSchedule, setGlobalSchedule] = useState<ScheduleSettings | null>(null);
+  const [allUsers, setAllUsers] = useState<Record<string, User>>({});
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const fetchAttendanceAndSettings = useCallback(async () => {
     setLoading(true);
     try {
-        // Fetch schedule settings
+        // Fetch global schedule settings
         const scheduleRef = doc(db, 'settings', 'schedule');
         const scheduleSnap = await getDoc(scheduleRef);
         if (scheduleSnap.exists()) {
-            setScheduleSettings(scheduleSnap.data() as ScheduleSettings);
+            setGlobalSchedule(scheduleSnap.data() as ScheduleSettings);
         }
+
+        // Fetch all users to get their individual schedules
+        const usersCollection = collection(db, 'users');
+        const userSnapshot = await getDocs(usersCollection);
+        const usersData: Record<string, User> = {};
+        userSnapshot.docs.forEach(doc => {
+            usersData[doc.id] = { uid: doc.id, ...doc.data() } as User;
+        });
+        setAllUsers(usersData);
+
 
         // Fetch attendance records
         const q = query(collection(db, "attendance"), orderBy('createdAt', 'desc'));
@@ -137,8 +158,10 @@ export default function AttendancePage() {
     sortedRecords.forEach(record => {
         const key = `${record.employeeId}-${record.date}`;
         if (!summaries[key]) {
+            const employeeData = allUsers[record.uid];
             summaries[key] = {
                 key,
+                uid: record.uid,
                 employeeName: record.employeeName,
                 employeeId: record.employeeId,
                 date: record.date,
@@ -146,6 +169,7 @@ export default function AttendancePage() {
                 clockOutTime: null,
                 lateMinutes: null,
                 dayDate: record.createdAt.toDate(),
+                schedule: employeeData?.schedule
             };
         }
 
@@ -157,12 +181,15 @@ export default function AttendancePage() {
             if (summary.clockInTime === null) {
                 summary.clockInTime = record.time;
                 
-                if (scheduleSettings) {
-                    const dayIndex = (recordTime.getDay() + 6) % 7;
-                    const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
-                    const todayName = daysOfWeek[dayIndex];
-                    const todaySchedule = scheduleSettings[todayName];
+                const dayIndex = (recordTime.getDay() + 6) % 7;
+                const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+                const todayName = daysOfWeek[dayIndex];
+                
+                // Determine which schedule to use: individual or global
+                const scheduleToUse = summary.schedule || globalSchedule;
 
+                if (scheduleToUse && scheduleToUse[todayName]) {
+                    const todaySchedule = scheduleToUse[todayName];
                     if (todaySchedule?.clockIn) {
                         const [hours, minutes] = todaySchedule.clockIn.split(':').map(Number);
                         const deadline = new Date(recordTime);
@@ -186,7 +213,7 @@ export default function AttendancePage() {
     });
     
     return Object.values(summaries).sort((a, b) => b.dayDate.getTime() - a.dayDate.getTime());
-  }, [allAttendanceRecords, date, scheduleSettings]);
+  }, [allAttendanceRecords, date, globalSchedule, allUsers]);
 
 
   const handleDownloadPdf = () => {

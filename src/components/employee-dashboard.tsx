@@ -134,19 +134,30 @@ export default function EmployeeDashboard() {
         setIsLoadingSettings(true);
         try {
             // 1. Fetch all settings in parallel
-            const scheduleRef = doc(db, 'settings', 'schedule');
+            const globalScheduleRef = doc(db, 'settings', 'schedule');
             const globalLocationRef = doc(db, 'settings', 'location');
             const departmentsRef = collection(db, 'departments');
 
-            const [scheduleSnap, globalLocationSnap, departmentsSnap] = await Promise.all([
-                getDoc(scheduleRef),
+            const [globalScheduleSnap, globalLocationSnap, departmentsSnap] = await Promise.all([
+                getDoc(globalScheduleRef),
                 getDoc(globalLocationRef),
                 getDocs(departmentsRef)
             ]);
 
             const allDepartments = departmentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
 
-            setScheduleSettings(scheduleSnap.exists() ? scheduleSnap.data() as ScheduleSettings : null);
+            // Determine effective schedule
+            const globalSchedule = globalScheduleSnap.exists() ? globalScheduleSnap.data() as ScheduleSettings : null;
+            
+            // Priority 1: User-specific schedule
+            if (user.schedule && Object.values(user.schedule).some(s => s.clockIn || s.clockOut)) {
+                setScheduleSettings(user.schedule);
+            } 
+            // Priority 2: Global schedule
+            else {
+                setScheduleSettings(globalSchedule);
+            }
+
 
             // 2. Determine effective location settings (user > department > global)
             const globalSettings = globalLocationSnap.exists() ? globalLocationSnap.data() : null;

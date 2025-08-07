@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2, History, User as UserIcon } from 'lucide-react';
+import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2, History, User as UserIcon, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
@@ -64,6 +64,8 @@ type LocationSettings = {
     name?: string;
 }
 
+type Schedule = Record<string, { clockIn: string; clockOut: string }>;
+
 type User = {
   uid: string;
   name: string;
@@ -77,7 +79,15 @@ type User = {
   employeeId?: string;
   faceprint?: string;
   locationSettings?: LocationSettings;
+  schedule?: Schedule;
 };
+
+const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+const initialSchedule: Schedule = daysOfWeek.reduce((acc, day) => {
+    acc[day] = { clockIn: '', clockOut: '' };
+    return acc;
+}, {} as Schedule);
+
 
 export default function EmployeesPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -98,6 +108,7 @@ export default function EmployeesPage() {
   const [editLng, setEditLng] = useState('');
   const [editRadius, setEditRadius] = useState('');
   const [editLocationName, setEditLocationName] = useState('');
+  const [editSchedule, setEditSchedule] = useState<Schedule>(initialSchedule);
 
 
   const fetchUsers = useCallback(async () => {
@@ -155,7 +166,29 @@ export default function EmployeesPage() {
     setEditLng(user.locationSettings?.longitude?.toString() || '');
     setEditRadius(user.locationSettings?.radius?.toString() || '');
     setEditLocationName(user.locationSettings?.name || '');
+    
+    // Populate schedule, ensuring all days are present
+    const newSchedule = { ...initialSchedule };
+    if (user.schedule) {
+        for (const day of daysOfWeek) {
+            if (user.schedule[day]) {
+                newSchedule[day] = user.schedule[day];
+            }
+        }
+    }
+    setEditSchedule(newSchedule);
+
     setIsDialogOpen(true);
+  };
+
+  const handleScheduleChange = (day: string, type: 'clockIn' | 'clockOut', value: string) => {
+    setEditSchedule(prev => ({
+        ...prev,
+        [day]: {
+            ...prev[day],
+            [type]: value,
+        },
+    }));
   };
   
   const handleSaveSettings = async () => {
@@ -188,6 +221,7 @@ export default function EmployeesPage() {
         const updateData: any = {
           name: editName,
           employeeId: newEmployeeId,
+          schedule: editSchedule,
         };
 
         const latStr = editLat.trim().replace(',', '.');
@@ -327,7 +361,7 @@ export default function EmployeesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleEditClick(user)}>
                               <Edit className="mr-2" />
-                              Edit Pengguna
+                              Edit Pengguna & Jadwal
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/employees/${user.uid}/attendance`)}>
                                 <History className="mr-2"/>
@@ -373,42 +407,85 @@ export default function EmployeesPage() {
       </Card>
       
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
                 <DialogTitle>Edit Pengaturan Pengguna</DialogTitle>
                 <DialogDescription>
-                   Ubah detail dan lokasi absensi khusus untuk {editingUser?.name}. Ini akan menimpa pengaturan departemen.
+                   Ubah detail, lokasi, dan jadwal absensi khusus untuk {editingUser?.name}.
                 </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                    <Label htmlFor="name">Nama Lengkap</Label>
-                    <Input id="name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+            <div className="grid md:grid-cols-2 gap-8 py-4">
+               {/* Column 1: User Details & Location */}
+                <div className="space-y-6">
+                    <div className="space-y-4 p-4 border rounded-lg">
+                        <Label className="font-medium text-base">Detail Pengguna</Label>
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Nama Lengkap</Label>
+                            <Input id="name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="employeeId">ID Karyawan</Label>
+                            <Input id="employeeId" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
+                        </div>
+                    </div>
+                    <div className="space-y-4 p-4 border rounded-lg">
+                        <Label className="font-medium text-base">Lokasi Absensi Khusus (Override)</Label>
+                        <p className="text-xs text-muted-foreground">Kosongkan semua field lokasi untuk mengikuti aturan departemen/global.</p>
+                        <div className="space-y-2">
+                            <Label htmlFor="locName" className="text-xs">Nama Lokasi</Label>
+                            <Input id="locName" value={editLocationName} onChange={(e) => setEditLocationName(e.target.value)} type="text" placeholder="contoh: Proyek Site A" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="lat" className="text-xs">Latitude</Label>
+                            <Input id="lat" value={editLat} onChange={(e) => setEditLat(e.target.value)} type="text" placeholder="contoh: -6.200000" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="lng" className="text-xs">Longitude</Label>
+                            <Input id="lng" value={editLng} onChange={(e) => setEditLng(e.target.value)} type="text" placeholder="contoh: 106.816666" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="radius" className="text-xs">Radius (meter)</Label>
+                            <Input id="radius" value={editRadius} onChange={(e) => setEditRadius(e.target.value)} type="number" placeholder="contoh: 100" />
+                        </div>
+                    </div>
                 </div>
-                 <div className="space-y-2">
-                    <Label htmlFor="employeeId">ID Karyawan</Label>
-                    <Input id="employeeId" value={editEmployeeId} onChange={(e) => setEditEmployeeId(e.target.value)} />
-                </div>
-                <div className="space-y-4 pt-4 border-t">
-                     <Label className="font-medium">Lokasi Absensi Khusus (Override)</Label>
-                     <div className="space-y-2">
-                        <Label htmlFor="locName" className="text-xs">Nama Lokasi</Label>
-                        <Input id="locName" value={editLocationName} onChange={(e) => setEditLocationName(e.target.value)} type="text" placeholder="contoh: Kantor Cabang" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="lat" className="text-xs">Latitude</Label>
-                        <Input id="lat" value={editLat} onChange={(e) => setEditLat(e.target.value)} type="text" placeholder="contoh: -6.200000" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="lng" className="text-xs">Longitude</Label>
-                        <Input id="lng" value={editLng} onChange={(e) => setEditLng(e.target.value)} type="text" placeholder="contoh: 106.816666" />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="radius" className="text-xs">Radius (meter)</Label>
-                        <Input id="radius" value={editRadius} onChange={(e) => setEditRadius(e.target.value)} type="number" placeholder="contoh: 100" />
+
+                {/* Column 2: Schedule */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <h3 className="font-medium text-base flex items-center gap-2"><Clock /> Jadwal Absensi Khusus</h3>
+                    <p className="text-xs text-muted-foreground">
+                        Atur jadwal spesifik untuk pengguna ini. Kosongkan jika hari libur atau mengikuti jadwal global.
+                    </p>
+                    <div className="space-y-3">
+                        {daysOfWeek.map(day => (
+                            <div key={day} className="grid grid-cols-1 sm:grid-cols-3 items-center gap-x-4 gap-y-2 p-2 border-b last:border-b-0">
+                                <Label className="font-medium sm:col-span-1">{day}</Label>
+                                <div className="space-y-1 sm:col-span-1">
+                                    <Label htmlFor={`clockIn-${day}`} className="text-xs text-muted-foreground">Masuk</Label>
+                                    <Input
+                                        id={`clockIn-${day}`}
+                                        type="time"
+                                        value={editSchedule[day]?.clockIn || ''}
+                                        onChange={e => handleScheduleChange(day, 'clockIn', e.target.value)}
+                                        disabled={isSaving}
+                                    />
+                                </div>
+                                <div className="space-y-1 sm:col-span-1">
+                                <Label htmlFor={`clockOut-${day}`} className="text-xs text-muted-foreground">Pulang</Label>
+                                    <Input
+                                        id={`clockOut-${day}`}
+                                        type="time"
+                                        value={editSchedule[day]?.clockOut || ''}
+                                        onChange={e => handleScheduleChange(day, 'clockOut', e.target.value)}
+                                        disabled={isSaving}
+                                    />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
+
             <DialogFooter>
                 <DialogClose asChild>
                     <Button type="button" variant="secondary">Batal</Button>

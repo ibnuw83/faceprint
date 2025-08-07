@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -6,6 +7,8 @@ import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndP
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+
+type Schedule = Record<string, { clockIn: string; clockOut: string }>;
 
 export type User = {
   uid: string;
@@ -26,6 +29,7 @@ export type User = {
   faceprint?: string | null;
   department?: string | null;
   employeeId?: string | null;
+  schedule?: Schedule;
 };
 
 interface AuthContextType {
@@ -77,6 +81,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         faceprint: userData.faceprint || null,
         department: userData.department || null,
         employeeId: userData.employeeId || null,
+        schedule: userData.schedule || null,
       };
     }
      console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user or a deleted user.`);
@@ -187,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     faceprint: userData.faceprint || null,
                     department: userData.department || null,
                     employeeId: userData.employeeId || null,
+                    schedule: userData.schedule || null,
                 });
             } else {
                  // This case should ideally be handled by the onAuthStateChanged logic

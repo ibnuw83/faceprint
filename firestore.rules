@@ -4,7 +4,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
+    // Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -14,59 +14,42 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // Use exists() instead of get() to avoid recursive loops on collections that need this rule.
-      // This is safer.
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // `users` collection rules
+    // AUTH: Users can read their own user document. Admins can read any.
     match /users/{userId} {
-      // An authenticated user can get their own document, admins can get any.
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      // Only admins can list all users.
+      allow get: if isSignedIn() && isOwner(userId);
       allow list: if isAdmin();
-      // Anyone can create a user (register).
-      allow create: if true; 
-      // Users can update their own profile.
+      allow create: if isSignedIn();
       allow update: if isSignedIn() && isOwner(userId);
-      // Only admins can delete users.
       allow delete: if isAdmin();
     }
-
-    // `attendance` collection rules
-    match /attendance/{docId} {
-      allow create: if isSignedIn();
-      // A user can only query their own attendance records.
-      // Admins can query all records.
-      allow list: if isAdmin() || (isSignedIn() && request.query.where.uid == request.auth.uid);
-      // Admins can read, update, or delete specific attendance records.
-      allow read, update, delete: if isAdmin();
-    }
-
-    // `departments` collection rules
-    match /departments/{docId} {
-      // Only admins can read and write departments.
-      allow read, write: if isAdmin();
-    }
     
-    // `settings` collection rules
-    match /settings/{docId} {
-        // Allow public read for settings needed on login/landing page.
-        allow get: if true;
-        // Only admins can write settings.
+    // DEPARTMENTS: Only admins can manage departments
+    match /departments/{departmentId} {
+        allow read, write: if isAdmin();
+    }
+
+    // SETTINGS: Any signed-in user can read, only admins can write.
+    match /settings/{settingId} {
+        allow read: if isSignedIn();
         allow write: if isAdmin();
-        allow list: if isAdmin();
     }
-    
-    // `leaveRequests` collection rules
-    match /leaveRequests/{docId} {
-        // Users can create their own leave requests.
-        allow create: if isSignedIn();
-        // A user can only query their own leave requests. Admins can query all.
-        allow list: if isAdmin() || (isSignedIn() && request.query.where.uid == request.auth.uid);
-        // Admins can update or delete any request. Users can read/get their own.
-        allow read, update, delete: if isAdmin() || (isOwner(resource.data.uid));
+
+    // ATTENDANCE: Users can create their own records and list their own history. Admins can read all.
+    match /attendance/{attendanceId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read, delete: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/attendance/$(attendanceId)).data.uid == request.auth.uid);
+      allow list: if isAdmin();
+    }
+
+    // LEAVE REQUESTS: Users can create/read their own. Admins can manage all.
+    match /leaveRequests/{requestId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid == request.auth.uid);
+      allow list: if isAdmin();
+      allow update, delete: if isAdmin();
     }
   }
 }

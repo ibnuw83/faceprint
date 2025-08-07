@@ -18,12 +18,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send, Trash2, Upload, Paperclip } from 'lucide-react';
+import { FileText, Loader2, PlusCircle, Calendar as CalendarIcon, Send, Trash2, Paperclip } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { collection, getDocs, orderBy, query, Timestamp, doc, addDoc, where, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { deleteObject, ref } from "firebase/storage";
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -50,7 +50,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 
 
@@ -77,14 +76,11 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
     const [myRequests, setMyRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Form state
     const [leaveType, setLeaveType] = useState('');
     const [reason, setReason] = useState('');
     const [dates, setDates] = useState<DateRange | undefined>(undefined);
-    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
 
     const fetchMyRequests = useCallback(async () => {
         if (!user?.uid) {
@@ -132,27 +128,10 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
         return;
         }
 
-        if(leaveType === 'Sakit' && !attachmentFile) {
-            toast({ title: 'Bukti Diperlukan', description: 'Untuk pengajuan sakit, Anda wajib mengunggah bukti dukung.', variant: 'destructive'});
-            return;
-        }
-
         setIsSubmitting(true);
-        let fileUrl = '';
-        let filePath = '';
-
+        
         try {
-             if (attachmentFile && leaveType === 'Sakit') {
-                setIsUploading(true);
-                const storagePath = `leave-attachments/${user.uid}/${Date.now()}-${attachmentFile.name}`;
-                const storageRef = ref(storage, storagePath);
-                const snapshot = await uploadBytes(storageRef, attachmentFile);
-                fileUrl = await getDownloadURL(snapshot.ref);
-                filePath = storagePath;
-                setIsUploading(false);
-            }
-
-            const requestData: Omit<LeaveRequest, 'id'> = {
+            const requestData: Omit<LeaveRequest, 'id' | 'attachmentUrl' | 'attachmentPath'> = {
                 uid: user.uid,
                 employeeId: user.employeeId,
                 employeeName: user.name,
@@ -166,19 +145,12 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                 statusUpdatedAt: null,
             };
 
-            if (fileUrl) {
-                requestData.attachmentUrl = fileUrl;
-                requestData.attachmentPath = filePath;
-            }
-
             await addDoc(collection(db, 'leaveRequests'), requestData);
 
             toast({ title: 'Pengajuan Terkirim', description: 'Pengajuan cuti/izin Anda telah berhasil dikirim.'});
             setLeaveType('');
             setReason('');
             setDates(undefined);
-            setAttachmentFile(null);
-            if(fileInputRef.current) fileInputRef.current.value = "";
             await fetchMyRequests();
 
         } catch (error) {
@@ -186,39 +158,11 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
             toast({ title: 'Gagal Mengirim', description: 'Terjadi kesalahan saat mengirim pengajuan.', variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
-            setIsUploading(false);
         }
     };
     
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            if (!allowedTypes.includes(file.type)) {
-                toast({ title: 'Tipe File Tidak Diizinkan', description: 'Harap unggah file dengan format JPG, PNG, atau PDF.', variant: 'destructive' });
-                setAttachmentFile(null);
-                if (fileInputRef.current) fileInputRef.current.value = "";
-                return;
-            }
-            // 5MB limit
-            if (file.size > 5 * 1024 * 1024) {
-                 toast({ title: 'Ukuran File Terlalu Besar', description: 'Ukuran file maksimal adalah 5MB.', variant: 'destructive' });
-                 setAttachmentFile(null);
-                 if (fileInputRef.current) fileInputRef.current.value = "";
-                 return;
-            }
-            setAttachmentFile(file);
-        }
-    };
-
     const statusBadgeVariant = { 'Menunggu': 'secondary', 'Disetujui': 'default', 'Ditolak': 'destructive' } as const;
     
-    const submitButtonText = () => {
-        if(isUploading) return "Mengunggah file...";
-        if(isSubmitting) return "Mengirim pengajuan...";
-        return "Kirim Pengajuan";
-    }
-
     return (
         <div className="flex flex-1 flex-col gap-8">
             <Card className="shadow-lg rounded-xl">
@@ -235,7 +179,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="flex flex-col md:flex-row gap-4 items-center">
                             <Label htmlFor="leaveType" className="md:w-40">Jenis Pengajuan</Label>
-                            <Select onValueChange={(value) => { setLeaveType(value); setAttachmentFile(null); }} value={leaveType} disabled={isSubmitting || isUploading}>
+                            <Select onValueChange={setLeaveType} value={leaveType} disabled={isSubmitting}>
                                 <SelectTrigger id="leaveType" className="flex-1">
                                     <SelectValue placeholder="Pilih jenis cuti/izin..." />
                                 </SelectTrigger>
@@ -254,7 +198,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     id="date"
                                     variant={"outline"}
                                     className="w-full justify-start text-left font-normal flex-1"
-                                    disabled={isSubmitting || isUploading}
+                                    disabled={isSubmitting}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                     {dates?.from ? (
@@ -290,37 +234,15 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                 placeholder="Jelaskan alasan Anda secara singkat..."
                                 value={reason}
                                 onChange={(e) => setReason(e.target.value)}
-                                disabled={isSubmitting || isUploading}
+                                disabled={isSubmitting}
                                 className='flex-1'
                             />
                         </div>
 
-                        {leaveType === 'Sakit' && (
-                             <div className="flex flex-col md:flex-row gap-4 items-center">
-                                <Label htmlFor="attachment" className="md:w-40">Bukti Dukung</Label>
-                                <div className='flex-1'>
-                                     <Input 
-                                        id="attachment"
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        onChange={handleFileChange} 
-                                        className="hidden"
-                                        accept="image/jpeg,image/png,application/pdf"
-                                        disabled={isSubmitting || isUploading}
-                                    />
-                                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting || isUploading}>
-                                        <Upload className='mr-2'/>
-                                        Pilih File (JPG, PNG, PDF)
-                                    </Button>
-                                    {attachmentFile && <p className="text-sm text-muted-foreground mt-2">File dipilih: {attachmentFile.name}</p>}
-                                </div>
-                            </div>
-                        )}
-
                         <div className='flex justify-end'>
-                            <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || isUploading || !leaveType || !reason || !dates?.from}>
-                                {(isSubmitting || isUploading) ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
-                                {submitButtonText()}
+                            <Button type="submit" className="w-full md:w-auto" disabled={isSubmitting || !leaveType || !reason || !dates?.from}>
+                                {isSubmitting ? <Loader2 className="mr-2 animate-spin"/> : <Send className="mr-2" />}
+                                Kirim Pengajuan
                             </Button>
                         </div>
                     </form>
@@ -347,7 +269,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                     <TableHead>Tanggal Selesai</TableHead>
                                     <TableHead>Alasan</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead>Lampiran</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -358,7 +279,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                     </TableRow>
                                 ))
@@ -374,20 +294,11 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
                                             {req.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell>
-                                            {req.attachmentUrl ? (
-                                                <Button variant="link" asChild className="p-0 h-auto">
-                                                    <Link href={req.attachmentUrl} target="_blank" rel="noopener noreferrer">
-                                                        Lihat Bukti
-                                                    </Link>
-                                                </Button>
-                                            ) : '-'}
-                                        </TableCell>
                                     </TableRow>
                                 ))
                                 ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                                    <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
                                         Belum ada data pengajuan.
                                     </TableCell>
                                 </TableRow>
@@ -498,7 +409,6 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                 <TableHead>Jenis</TableHead>
                                 <TableHead>Tanggal</TableHead>
                                 <TableHead>Alasan</TableHead>
-                                <TableHead>Bukti</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
@@ -511,7 +421,6 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                     <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                     <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                                    <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-8 w-28 ml-auto" /></TableCell>
                                 </TableRow>
@@ -523,15 +432,6 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                                     <TableCell>{req.leaveType}</TableCell>
                                     <TableCell>{req.startDate} - {req.endDate}</TableCell>
                                     <TableCell><p className='w-40 truncate' title={req.reason}>{req.reason}</p></TableCell>
-                                    <TableCell>
-                                        {req.attachmentUrl ? (
-                                            <Button variant="outline" size="sm" asChild>
-                                                <Link href={req.attachmentUrl} target="_blank" rel="noopener noreferrer" className='flex items-center gap-2'>
-                                                  <Paperclip className="h-4 w-4" /> Lihat
-                                                </Link>
-                                            </Button>
-                                        ) : '-'}
-                                    </TableCell>
                                     <TableCell>
                                         <Badge variant={statusBadgeVariant[req.status]}>
                                         {req.status}
@@ -576,7 +476,7 @@ function AdminLeavesView({ toast }: { toast: (options: any) => void }) {
                             ))
                             ) : (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
+                                <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                                     Belum ada data pengajuan dari karyawan.
                                 </TableCell>
                             </TableRow>
@@ -608,3 +508,5 @@ export default function LeavesPage() {
 
     return <EmployeeLeavesView user={user} toast={toast} />;
 }
+
+    

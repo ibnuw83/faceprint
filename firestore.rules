@@ -1,92 +1,91 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isUserInCompany(companyId) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId;
+    
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    function isUserRoleAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // This function gets the user's role and companyId from their profile document.
+    // It's crucial that any user can read their own user-mapping doc to find their companyId.
+    function getUserInfo(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
     }
 
-    // Public settings are readable by anyone (for login page etc.)
-    match /settings/{setting} {
+    function isUserAdmin(userId, companyId) {
+       let userCompanyProfile = get(/databases/$(database)/documents/companies/$(companyId)/users/$(userId)).data;
+       return userCompanyProfile.role == 'admin';
+    }
+
+    // Public settings can be read by anyone for login/register pages
+    match /settings/{settingId} {
       allow read: if true;
-      allow write: if false; // Should only be changed from a super-admin console/backend
+      allow write: if false; // Should be managed by backend/console
     }
 
-    // The 'users' collection maps a user's UID to their companyId and role.
-    // This collection is critical for rules enforcement.
+    // User-to-company mapping collection
+    // ANY authenticated user can read their OWN mapping document to find out their companyId.
     match /users/{userId} {
-      // Users can read their own mapping document.
-      allow get: if request.auth.uid == userId;
-      // No one can list all users in this top-level collection.
-      allow list: if false;
-      // Users can be created during registration.
-      allow create: if request.auth.uid == userId;
-      // Users cannot update or delete their mapping document. This should be a super-admin task.
-      allow update, delete: if false;
+      allow get: if isAuthenticated() && request.auth.uid == userId;
+      // A user can only create their own mapping doc.
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // No one can list, update, or delete these mappings from the client.
+      allow list, update, delete: if false;
     }
 
-    // Main company data, where everything is namespaced by companyId
     match /companies/{companyId} {
-      // Company document itself is not really used yet, so no access.
+      // The company document itself cannot be read or written to by clients.
       allow read, write: if false;
 
-      // Rules for all subcollections within a company
-      match /{subcollection}/{docId} {
-        // A user must belong to the company to perform any action.
-        allow read, write: if isUserInCompany(companyId);
+      // Rule for all collections inside a company
+      match /{collection}/{docId} {
+        // Core Principle: You can only access documents inside your own company.
+        allow read, write: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId;
       }
 
-       // More specific rules for 'users' subcollection
+      // More specific rules for 'users' collection within a company
       match /users/{userId} {
-        // Allow read access if the user is an admin of the company, or if they are accessing their own document.
-        allow get: if isUserInCompany(companyId) && (isUserRoleAdmin() || request.auth.uid == userId);
-        // Only admins can list all users within their own company.
-        allow list: if isUserInCompany(companyId) && isUserRoleAdmin();
-        // Admins can create new users. Users can complete their own profile.
-        allow create, update: if isUserInCompany(companyId) && (isUserRoleAdmin() || request.auth.uid == userId);
+        // Allow read if user is in the company and is either the owner of the doc or an admin.
+        allow get: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && (request.auth.uid == userId || isUserAdmin(request.auth.uid, companyId));
+        // Only admins can list all users.
+        allow list: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && isUserAdmin(request.auth.uid, companyId);
+        // Allow update if user is in the company and is either the owner of the doc or an admin.
+        allow update: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && (request.auth.uid == userId || isUserAdmin(request.auth.uid, companyId));
         // Only admins can delete users.
-        allow delete: if isUserInCompany(companyId) && isUserRoleAdmin();
+        allow delete: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && isUserAdmin(request.auth.uid, companyId);
+        // User creation is allowed if the user is authenticated (logic is handled in backend/rules)
+        allow create: if isAuthenticated();
       }
 
-      // Rules for attendance
       match /attendance/{attendanceId} {
-        // Users can create their own attendance records.
-        allow create: if isUserInCompany(companyId);
-        // Only admins can list all attendance records.
-        allow list: if isUserInCompany(companyId) && isUserRoleAdmin();
-        // Users can read their own records, admins can read any.
-        allow get: if isUserInCompany(companyId); // Simplified for now
-         // Only admins can delete records.
-        allow delete: if isUserInCompany(companyId) && isUserRoleAdmin();
-      }
-      
-      // Rules for departments
-      match /departments/{departmentId} {
-        // Admins can manage departments.
-        allow read, write: if isUserInCompany(companyId) && isUserRoleAdmin();
-      }
-      
-      // Rules for company-specific settings
-      match /settings/{settingName} {
-         // Admins can manage their own company's settings.
-        allow read, write: if isUserInCompany(companyId) && isUserRoleAdmin();
+        // Allow read if user is in the company and is either the owner of the record or an admin.
+        allow get: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && (request.auth.uid == resource.data.uid || isUserAdmin(request.auth.uid, companyId));
+        // Admins can list all attendance. Employees can only list their own.
+        allow list: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && (isUserAdmin(request.auth.uid, companyId) || request.query.where.uid == request.auth.uid);
+        // Users can only create their own attendance records.
+        allow create: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && request.resource.data.uid == request.auth.uid;
+        // Only admins can delete attendance records.
+        allow delete: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && isUserAdmin(request.auth.uid, companyId);
       }
 
-      // Rules for leave requests
-      match /leaveRequests/{requestId} {
-         // Admins can list all requests.
-        allow list: if isUserInCompany(companyId) && isUserRoleAdmin();
-        // Users can create requests for themselves.
-        allow create: if isUserInCompany(companyId) && request.resource.data.uid == request.auth.uid;
-        // Admins can read any request. Users can read their own.
-        allow get, update, delete: if isUserInCompany(companyId) && (isUserRoleAdmin() || getAfter(/databases/$(database)/documents/companies/$(companyId)/leaveRequests/$(requestId)).data.uid == request.auth.uid);
+       match /departments/{departmentId} {
+          // Anyone in the company can read/list departments.
+          allow read: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId;
+          // Only admins can create, update, or delete departments.
+          allow write: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == companyId && isUserAdmin(request.auth.uid, companyId);
       }
+    }
+     match /leaveRequests/{requestId} {
+        // Allow read if user is in the company and is either the owner of the request or an admin.
+        allow get: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == resource.data.companyId && (request.auth.uid == resource.data.uid || isUserAdmin(request.auth.uid, resource.data.companyId));
+        // Admins can list all requests. Employees can only list their own.
+        allow list: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == request.query.where.companyId && (isUserAdmin(request.auth.uid, request.query.where.companyId) || request.query.where.uid == request.auth.uid);
+        // Users can only create their own leave requests.
+        allow create: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == request.resource.data.companyId && request.resource.data.uid == request.auth.uid;
+        // Only admins can update or delete requests.
+        allow update, delete: if isAuthenticated() && getUserInfo(request.auth.uid).companyId == resource.data.companyId && isUserAdmin(request.auth.uid, resource.data.companyId);
     }
   }
 }

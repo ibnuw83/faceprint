@@ -52,7 +52,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
     const userMappingSnap = await getDoc(userMappingRef);
     
     if (!userMappingSnap.exists() || !userMappingSnap.data()?.companyId) {
-      console.warn(`No user document or companyId found for UID: ${fbUser.uid}.`);
+      console.warn(`No user document or companyId found for UID: ${fbUser.uid}. This user might need to be re-registered or data fixed.`);
       return null;
     }
     
@@ -62,7 +62,6 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
 
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      const role = userData.role || (fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
       
       let locationSettings = null;
       const rawSettings = userData.locationSettings;
@@ -86,7 +85,7 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         name: userData.name || fbUser.displayName,
         email: fbUser.email,
         companyId: companyId,
-        role: role,
+        role: userData.role,
         isProfileComplete: userData.isProfileComplete || false,
         lastLocation: userData.lastLocation || null,
         locationSettings: locationSettings,
@@ -127,104 +126,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+      setLoading(true);
       if (fbUser) {
-        setLoading(true);
-        const userMappingRef = doc(db, 'users', fbUser.uid);
-        
-        try {
-          const docSnap = await getDoc(userMappingRef);
-          if (docSnap.exists() && docSnap.data()?.companyId) {
-            setFirebaseUser(fbUser);
-          } else {
-            console.log("User mapping not found, signing out.");
-            await signOut(auth);
-            setFirebaseUser(null);
-            setUser(null);
-          }
-        } catch (error) {
-           console.error("Error checking user document on auth state change:", error);
-           await signOut(auth);
-           setFirebaseUser(null);
-           setUser(null);
-        } finally {
-            setLoading(false);
-        }
+        setFirebaseUser(fbUser);
+        // Data fetching will be handled by the next useEffect
       } else {
         setFirebaseUser(null);
         setUser(null);
         setLoading(false);
       }
     });
-
     return () => unsubscribeAuth();
-  }, [toast]);
+  }, []);
 
 
   useEffect(() => {
-    if (firebaseUser?.uid) {
-        const userMappingRef = doc(db, 'users', firebaseUser.uid);
-        
-        const unsubscribe = onSnapshot(userMappingRef, async (mappingDoc) => {
-            if (mappingDoc.exists() && mappingDoc.data()?.companyId) {
-                const companyId = mappingDoc.data().companyId;
-                const userDocRef = doc(db, `companies/${companyId}/users`, firebaseUser.uid);
-
-                const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        const role = userData.role || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee');
-                        
-                        let locationSettings = null;
-                        const rawSettings = userData.locationSettings;
-                         if (rawSettings && rawSettings.latitude && rawSettings.longitude && rawSettings.radius) {
-                            const lat = Number(rawSettings.latitude);
-                            const lng = Number(rawSettings.longitude);
-                            const radius = Number(rawSettings.radius);
-                            if (!isNaN(lat) && !isNaN(lng) && !isNaN(radius)) {
-                                locationSettings = {
-                                    latitude: lat,
-                                    longitude: lng,
-                                    radius: radius,
-                                    name: rawSettings.name || undefined,
-                                };
-                            }
-                        }
-
-                        setUser({
-                            uid: firebaseUser.uid,
-                            name: userData.name || firebaseUser.displayName,
-                            email: firebaseUser.email,
-                            companyId: companyId,
-                            role: role,
-                            isProfileComplete: userData.isProfileComplete || false,
-                            lastLocation: userData.lastLocation || null,
-                            locationSettings: locationSettings,
-                            faceprint: userData.faceprint || null,
-                            department: userData.department || null,
-                            employeeId: userData.employeeId || null,
-                            schedule: userData.schedule || null,
-                        });
-                    } else {
-                         console.log("User document disappeared. Signing out.");
-                         logout();
-                    }
-                    setLoading(false);
-                }, (error) => {
-                    console.error("Error listening to user document:", error);
-                    setLoading(false);
-                });
-                return () => unsubscribeUser();
-            } else {
-                logout();
-                setLoading(false);
-            }
-        });
-
-        return () => unsubscribe();
-    } else {
-        setUser(null);
-        setLoading(false);
+    if (!firebaseUser) {
+      setUser(null);
+      setLoading(false);
+      return;
     }
+
+    const userMappingRef = doc(db, 'users', firebaseUser.uid);
+    const unsubscribeMapping = onSnapshot(userMappingRef, (mappingDoc) => {
+      if (mappingDoc.exists() && mappingDoc.data()?.companyId) {
+        const companyId = mappingDoc.data().companyId;
+        const userDocRef = doc(db, `companies/${companyId}/users`, firebaseUser.uid);
+
+        const unsubscribeUser = onSnapshot(userDocRef, (userDoc) => {
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            
+            let locationSettings = null;
+            const rawSettings = userData.locationSettings;
+             if (rawSettings && rawSettings.latitude && rawSettings.longitude && rawSettings.radius) {
+                const lat = Number(rawSettings.latitude);
+                const lng = Number(rawSettings.longitude);
+                const radius = Number(rawSettings.radius);
+                if (!isNaN(lat) && !isNaN(lng) && !isNaN(radius)) {
+                    locationSettings = {
+                        latitude: lat,
+                        longitude: lng,
+                        radius: radius,
+                        name: rawSettings.name || undefined,
+                    };
+                }
+            }
+
+            setUser({
+                uid: firebaseUser.uid,
+                name: userData.name || firebaseUser.displayName,
+                email: firebaseUser.email,
+                companyId: companyId,
+                role: userData.role,
+                isProfileComplete: userData.isProfileComplete || false,
+                lastLocation: userData.lastLocation || null,
+                locationSettings: locationSettings,
+                faceprint: userData.faceprint || null,
+                department: userData.department || null,
+                employeeId: userData.employeeId || null,
+                schedule: userData.schedule || null,
+            });
+          } else {
+             console.log("User document disappeared. Signing out.");
+             logout();
+          }
+          setLoading(false);
+        }, (error) => {
+            console.error("Error listening to user document:", error);
+            setLoading(false);
+            logout();
+        });
+        return () => unsubscribeUser();
+      } else {
+        console.log("User mapping not found or is missing companyId. Signing out.");
+        logout();
+        setLoading(false);
+      }
+    }, (error) => {
+        console.error("Error listening to user mapping:", error);
+        setLoading(false);
+        logout();
+    });
+
+    return () => unsubscribeMapping();
 }, [firebaseUser, logout]);
 
 
@@ -246,7 +231,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const companiesQuery = query(collection(db, "companies"), limit(1));
     const companiesSnapshot = await getDocs(companiesQuery);
 
-    if (companiesSnapshot.empty && role === 'admin') {
+    if (companiesSnapshot.empty) {
+        if (role !== 'admin') {
+            await fbUser.delete(); // Rollback user creation
+            throw new Error("No company exists. An admin must register first to create a company.");
+        }
         // First admin registers, create a new company
         const companyRef = await addDoc(collection(db, "companies"), {
             ownerUid: fbUser.uid,
@@ -254,14 +243,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: `${name}'s Company`,
         });
         companyId = companyRef.id;
-    } else if (!companiesSnapshot.empty) {
+    } else {
         // A company exists, join it
         companyId = companiesSnapshot.docs[0].id;
-    } else {
-        // This is an employee trying to register before any admin/company exists
-        throw new Error("No company exists. An admin must register first.");
     }
     
+    // Create the user document within the company's subcollection
     const userRef = doc(db, `companies/${companyId}/users`, fbUser.uid);
     await setDoc(userRef, {
       uid: fbUser.uid,
@@ -274,6 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       companyId: companyId,
     });
     
+    // Create the user-to-company mapping document
     const userMappingRef = doc(db, 'users', fbUser.uid);
     await setDoc(userMappingRef, { companyId: companyId });
 

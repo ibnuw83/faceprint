@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -26,12 +25,12 @@ service cloud.firestore {
       allow create: if request.auth.uid != null;
       allow get: if isEmployee() || isAdmin();
       allow delete: if isAdmin();
-      allow list: if isAdmin() || (request.auth.uid != null && request.query.where.employeeId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId);
+      allow list: if isAdmin() || (request.auth.uid != null && request.auth.uid == resource.data.uid);
     }
 
     // Rules for 'settings' collection
     match /settings/{settingId} {
-        allow read: if true;
+        allow read: if true; // Publicly readable for branding, etc.
         allow write: if isAdmin();
     }
 

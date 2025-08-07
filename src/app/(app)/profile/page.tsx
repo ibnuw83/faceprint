@@ -31,14 +31,14 @@ export default function ProfilePage() {
   const [loadingHistory, setLoadingHistory] = useState(true);
 
   const fetchHistory = useCallback(async () => {
-    if (!user || !user.employeeId) {
+    if (!user || !user.uid) {
       setLoadingHistory(false);
       return;
     }
     try {
       const q = query(
         collection(db, 'attendance'),
-        where('employeeId', '==', user.employeeId),
+        where('uid', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
       const querySnapshot = await getDocs(q);

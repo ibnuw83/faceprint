@@ -64,10 +64,10 @@ export default function UserProfilePage({ params }: { params: { uid: string } })
         const userData = userSnap.data() as UserData;
         setTargetUser(userData);
 
-        if (userData.employeeId) {
+        if (userData.uid) {
             const q = query(
                 collection(db, 'attendance'),
-                where('employeeId', '==', userData.employeeId),
+                where('uid', '==', userData.uid),
                 orderBy('createdAt', 'desc')
             );
             const querySnapshot = await getDocs(q);

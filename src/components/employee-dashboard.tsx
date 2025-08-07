@@ -76,12 +76,12 @@ export default function EmployeeDashboard() {
   const [isClockOutAllowed, setIsClockOutAllowed] = useState(true);
   const isMobile = useIsMobile();
 
-  const fetchAttendanceHistory = useCallback(async (employeeId: string) => {
+  const fetchAttendanceHistory = useCallback(async (uid: string) => {
     setLoadingHistory(true);
     try {
       const q = query(
         collection(db, 'attendance'),
-        where('employeeId', '==', employeeId),
+        where('uid', '==', uid),
         orderBy('createdAt', 'desc'),
         limit(10)
       );
@@ -190,8 +190,8 @@ export default function EmployeeDashboard() {
 
 
             // 3. Fetch attendance history
-            if (user.employeeId) {
-                await fetchAttendanceHistory(user.employeeId);
+            if (user.uid) {
+                await fetchAttendanceHistory(user.uid);
             } else {
                 setLoadingHistory(false);
             }
@@ -427,8 +427,8 @@ export default function EmployeeDashboard() {
         description: `Kehadiran Anda telah dicatat pada pukul ${now.toLocaleTimeString('id-ID')}.`,
       });
 
-      if (user.employeeId) {
-        await fetchAttendanceHistory(user.employeeId);
+      if (user.uid) {
+        await fetchAttendanceHistory(user.uid);
       }
 
     } catch (error: any) {

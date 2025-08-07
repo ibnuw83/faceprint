@@ -6,7 +6,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "employeeId",
+          "fieldPath": "uid",
           "order": "ASCENDING"
         },
         {

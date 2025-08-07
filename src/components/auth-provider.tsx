@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { createContext, useState, useMemo, useCallback, useEffect, useContext } from 'react';
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile, User as FirebaseUser } from 'firebase/auth';
-import { doc, setDoc, getDoc, onSnapshot, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot, collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -136,11 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (docSnap.exists() && docSnap.data()?.companyId) {
             setFirebaseUser(fbUser);
           } else {
-            toast({
-              title: "Login Gagal: Akun Tidak Ditemukan",
-              description: "Data pengguna tidak ditemukan. Silakan daftar ulang.",
-              variant: "destructive",
-            });
+            console.log("User mapping not found, signing out.");
             await signOut(auth);
             setFirebaseUser(null);
             setUser(null);
@@ -244,24 +240,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await updateProfile(fbUser, { displayName: name });
     
     const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
-    const isProfileComplete = false;
+    let companyId: string;
 
-    const companyRef = await addDoc(collection(db, "companies"), {
-        ownerUid: fbUser.uid,
-        createdAt: serverTimestamp(),
-        name: `${name}'s Company`,
-    });
-    const companyId = companyRef.id;
+    // Find if a company already exists
+    const companiesQuery = query(collection(db, "companies"), limit(1));
+    const companiesSnapshot = await getDocs(companiesQuery);
 
+    if (companiesSnapshot.empty && role === 'admin') {
+        // First admin registers, create a new company
+        const companyRef = await addDoc(collection(db, "companies"), {
+            ownerUid: fbUser.uid,
+            createdAt: serverTimestamp(),
+            name: `${name}'s Company`,
+        });
+        companyId = companyRef.id;
+    } else if (!companiesSnapshot.empty) {
+        // A company exists, join it
+        companyId = companiesSnapshot.docs[0].id;
+    } else {
+        // This is an employee trying to register before any admin/company exists
+        throw new Error("No company exists. An admin must register first.");
+    }
+    
     const userRef = doc(db, `companies/${companyId}/users`, fbUser.uid);
     await setDoc(userRef, {
       uid: fbUser.uid,
       name: name,
       email: email,
       role: role,
-      isProfileComplete: isProfileComplete, 
+      isProfileComplete: false, 
       createdAt: new Date(),
       faceprint: null,
+      companyId: companyId,
     });
     
     const userMappingRef = doc(db, 'users', fbUser.uid);
@@ -289,11 +299,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === null) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};

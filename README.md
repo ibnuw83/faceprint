@@ -11,50 +11,6 @@ Ini adalah proyek aplikasi absensi berbasis pengenalan wajah yang dibuat dengan 
 
 ---
 
-## Menuju Produksi & Komersialisasi (Model SaaS)
-
-Untuk mengubah aplikasi ini menjadi produk komersial yang dapat dijual kepada banyak perusahaan (Software as a Service - SaaS), beberapa perubahan arsitektur dan penambahan fitur yang signifikan diperlukan. Berikut adalah panduan dan langkah-langkah utamanya:
-
-### 1. Implementasi Arsitektur Multi-Tenant
-
-Ini adalah perubahan paling krusial. "Multi-tenancy" berarti satu instansi aplikasi dapat melayani banyak perusahaan (tenant) di mana data setiap perusahaan terisolasi dan aman.
-
--   **Struktur Data Firestore:** Ubah struktur database untuk memisahkan data per perusahaan. Struktur yang disarankan adalah:
-    -   `companies/{companyId}/users/{userId}`
-    -   `companies/{companyId}/attendance/{attendanceId}`
-    -   `companies/{companyId}/departments/{departmentId}`
-    -   `companies/{companyId}/settings/...`
--   **Kaitkan Pengguna dengan Perusahaan:** Setiap pengguna di koleksi `users` harus memiliki field `companyId`.
--   **Perbarui Aturan Keamanan (`firestore.rules`):** Tulis ulang aturan keamanan untuk memastikan pengguna hanya dapat mengakses data di dalam `companyId` mereka. Admin perusahaan hanya dapat mengelola data di dalam perusahaannya sendiri.
-
-### 2. Buat Super Admin Dashboard
-
-Anda memerlukan dasbor terpisah (hanya bisa diakses oleh Anda) untuk:
-- Mengelola pendaftaran perusahaan baru.
-- Melihat daftar semua perusahaan pelanggan.
-- Mengelola status langganan dan billing setiap perusahaan.
-- Menonaktifkan atau mengaktifkan akun perusahaan.
-
-### 3. Integrasi Sistem Billing & Langganan
-
--   **Pilih Payment Gateway:** Integrasikan dengan layanan pembayaran seperti **Stripe**, **Midtrans**, atau **Xendit** untuk menangani pembayaran berulang.
--   **Buat Halaman Harga:** Rancang halaman yang menampilkan paket-paket langganan yang Anda tawarkan (misalnya, paket Basic, Pro, Enterprise berdasarkan jumlah karyawan).
--   **Kelola Status Langganan:** Simpan status langganan setiap perusahaan di Firestore (misal, `companies/{companyId}` memiliki field `subscriptionStatus: 'active'` atau `'inactive'`).
-
-### 4. Proses Onboarding untuk Pelanggan Baru
-
--   Buat alur pendaftaran di mana seorang pemilik bisnis dapat:
-    1.  Membuat akun untuk perusahaannya.
-    2.  Memilih paket langganan dan melakukan pembayaran pertama.
-    3.  Mendapatkan akses ke dasbor admin khusus untuk perusahaannya, di mana ia dapat mulai menambahkan karyawan.
-
-### 5. Hosting dan Domain
-
--   **Hosting:** Deploy aplikasi Anda ke platform yang andal dan scalable seperti **Firebase Hosting** atau **Vercel**.
--   **Domain Kustom:** Siapkan domain utama untuk produk Anda (misalnya, `visageid.com`). Anda juga bisa menawarkan fitur subdomain kustom untuk setiap perusahaan (misalnya, `nama-perusahaan.visageid.com`).
-
----
-
 ## Cara Mengelola Proyek di GitHub
 
 Anda dapat menyimpan dan mengelola kode proyek ini di repositori GitHub Anda sendiri.

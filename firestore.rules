@@ -1,9 +1,10 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
+    
+    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
@@ -11,54 +12,49 @@ service cloud.firestore {
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
-    
+
+    // Safely check if the signed-in user has the 'admin' role.
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for collections
-    
-    // Users can read their own profile. Admins can read all profiles.
-    // Any signed-in user can create their own user document during registration.
-    // Users can update their own data. Admins can update any.
+    // --- Collection Rules ---
+
+    // Users can read their own profile. Admins can read/write all profiles.
     match /users/{userId} {
-      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
       allow list: if isAdmin();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isSignedIn(); // For user registration
       allow delete: if isAdmin();
     }
 
-    // Attendance can be created by any signed-in user for themselves.
-    // Users can only read their own attendance records.
-    // Admins can read all records.
-    match /attendance/{docId} {
-        allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-        allow read, list: if isSignedIn() && (request.query.where.uid == request.auth.uid || isAdmin());
-        allow update, delete: if isAdmin();
+    // Attendance: Users can create their own records and list their own history.
+    // Admins can manage all records.
+    match /attendance/{attendanceId} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && request.query.get('where').get('uid') == request.auth.uid);
     }
     
-    // Settings can be read by any signed-in user (for schedule/location info).
-    // Only admins can write/change settings.
-    match /settings/{document=**} {
+    // Departments: All signed-in users can read, only admins can write.
+    match /departments/{departmentId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Departments can be read by any signed-in user (for location info).
-    // Only admins can write/change departments.
-    match /departments/{document=**} {
+    // Settings: All signed-in users can read, only admins can write.
+    match /settings/{settingId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
     
-    // Leave requests can be created by any signed-in user for themselves.
-    // Users can read their own requests. Admins can read all.
-    match /leaveRequests/{docId} {
+    // Leave Requests: Users can manage their own requests. Admins can manage all.
+    match /leaveRequests/{requestId} {
        allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-       allow read: if isSignedIn() && (request.resource.data.uid == request.auth.uid || isAdmin());
-       allow list: if isSignedIn() && (request.query.where.uid == request.auth.uid || isAdmin());
-       allow update, delete: if isAdmin();
+       allow read, update, delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+       allow list: if isAdmin() || (isSignedIn() && request.query.get('where').get('uid') == request.auth.uid);
     }
   }
 }

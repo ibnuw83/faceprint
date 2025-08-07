@@ -3,42 +3,51 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+
+    // Helper functions
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isEmployee() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee';
+       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'employee';
     }
 
+    // Rules for 'users' collection
     match /users/{userId} {
-      allow read, update, delete: if request.auth.uid == userId || isAdmin();
+      allow read: if request.auth.uid == userId || isAdmin();
       allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId || isAdmin();
+      allow delete: if isAdmin();
     }
     
-    match /departments/{departmentId} {
-      // Allow any authenticated user to read department data
-      allow get, list: if request.auth != null;
-      // Only admins can create, update, or delete departments
-      allow create, update, delete: if isAdmin();
+    // Rules for 'attendance' collection
+    match /attendance/{docId} {
+      allow create: if request.auth.uid != null;
+      allow get: if isEmployee() || isAdmin();
+      allow delete: if isAdmin();
+      allow list: if isAdmin();
+      allow list: if request.auth.uid != null && request.query.where.find(e => e[0] == "employeeId" && e[2] == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.employeeId) != null;
     }
-    
-    match /attendance/{attendanceId} {
-        allow create: if request.auth.uid == request.resource.data.uid;
-        allow list, get: if isEmployee() || isAdmin();
-        allow read, delete: if isAdmin();
-    }
-    
+
+    // Rules for 'settings' collection
     match /settings/{settingId} {
-       allow read: if request.auth != null;
-       allow write: if isAdmin();
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
+    }
+
+    // Rules for 'departments' collection
+    match /departments/{deptId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
     }
     
-     match /leaveRequests/{leaveRequestId} {
+    // Rules for 'leaveRequests' collection
+    match /leaveRequests/{reqId} {
         allow create: if request.auth.uid == request.resource.data.uid;
-        allow read, list: if request.auth.uid == resource.data.uid || isAdmin();
+        allow read: if request.auth.uid == resource.data.uid || isAdmin();
         allow update, delete: if isAdmin();
     }
+
   }
 }

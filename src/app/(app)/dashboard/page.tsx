@@ -48,18 +48,20 @@ function AdminDashboard() {
   const [recentAttendance, setRecentAttendance] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
-    if (!user?.companyId) return;
+    if (!user) return;
 
     const fetchDashboardData = async () => {
       try {
         // Fetch total users
-        const usersCollection = collection(db, `companies/${user.companyId}/users`);
+        const usersCollection = collection(db, 'users');
         const userSnapshot = await getDocs(usersCollection);
-        setTotalEmployees(userSnapshot.size);
+        // We only count non-admin users as employees
+        const employeeCount = userSnapshot.docs.filter(doc => doc.data().role !== 'admin').length;
+        setTotalEmployees(employeeCount);
 
         // Fetch attendance for today
         const todayStr = new Date().toLocaleDateString('id-ID');
-        const attendanceCollection = collection(db, `companies/${user.companyId}/attendance`);
+        const attendanceCollection = collection(db, 'attendance');
         
         const todayQuery = query(
             attendanceCollection, 
@@ -73,7 +75,7 @@ function AdminDashboard() {
         setPresentToday(uniquePresentIds.size);
 
         // Fetch recent attendance
-        const recentQuery = query(collection(db, `companies/${user.companyId}/attendance`), orderBy('createdAt', 'desc'), limit(5));
+        const recentQuery = query(collection(db, 'attendance'), orderBy('createdAt', 'desc'), limit(5));
         const recentSnapshot = await getDocs(recentQuery);
         const recentRecords = recentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
         setRecentAttendance(recentRecords);
@@ -83,7 +85,7 @@ function AdminDashboard() {
       }
     };
     fetchDashboardData();
-  }, [user?.companyId]);
+  }, [user]);
     
   const statusLocale: Record<string, string> = {
     'Clocked In': 'Masuk',

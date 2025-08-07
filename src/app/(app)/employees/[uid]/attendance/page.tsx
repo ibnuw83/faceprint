@@ -79,12 +79,12 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
 
   const fetchAttendanceAndSettings = useCallback(async () => {
     const { uid } = params;
-    if (!uid || !user?.companyId) return;
+    if (!uid || !user) return;
     setLoading(true);
     let targetUser: UserData | null = null;
     try {
         // Fetch user data
-        const userRef = doc(db, `companies/${user.companyId}/users`, uid);
+        const userRef = doc(db, 'users', uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
             targetUser = userSnap.data() as UserData
@@ -99,7 +99,7 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
         }
 
         // Fetch schedule settings
-        const scheduleRef = doc(db, `companies/${user.companyId}/settings`, 'schedule');
+        const scheduleRef = doc(db, 'settings', 'schedule');
         const scheduleSnap = await getDoc(scheduleRef);
         if (scheduleSnap.exists()) {
             setScheduleSettings(scheduleSnap.data() as ScheduleSettings);
@@ -108,7 +108,7 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
         // Fetch attendance records for the specific employee
         if (targetUser && targetUser.employeeId) {
             const q = query(
-                collection(db, `companies/${user.companyId}/attendance`),
+                collection(db, 'attendance'),
                 where('employeeId', '==', targetUser.employeeId)
             );
             const querySnapshot = await getDocs(q);
@@ -126,7 +126,7 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
     } finally {
         setLoading(false);
     }
-  }, [toast, params, router, user?.companyId]);
+  }, [toast, params, router, user]);
 
   useEffect(() => {
     if (user?.role !== 'admin') {

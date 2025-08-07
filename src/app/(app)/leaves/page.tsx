@@ -54,7 +54,6 @@ import {
 type LeaveRequest = {
   id: string;
   uid: string;
-  companyId: string;
   employeeId: string;
   employeeName: string;
   leaveType: 'Cuti Tahunan' | 'Sakit' | 'Izin Khusus';
@@ -80,7 +79,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
     const [dates, setDates] = useState<DateRange | undefined>(undefined);
 
     const fetchMyRequests = useCallback(async () => {
-        if (!user?.uid || !user?.companyId) {
+        if (!user?.uid) {
             setLoading(false);
             return;
         }
@@ -89,7 +88,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
             const q = query(
                 collection(db, "leaveRequests"),
                 where('uid', '==', user.uid),
-                where('companyId', '==', user.companyId),
                 orderBy('createdAt', 'desc')
             );
             const querySnapshot = await getDocs(q);
@@ -121,7 +119,7 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
 
      const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !user.employeeId || !user.companyId || !leaveType || !reason || !dates?.from) {
+        if (!user || !user.employeeId || !leaveType || !reason || !dates?.from) {
         toast({ title: 'Data Tidak Lengkap', description: 'Harap isi semua field yang diperlukan.', variant: 'destructive'});
         return;
         }
@@ -131,7 +129,6 @@ function EmployeeLeavesView({ user, toast }: { user: any, toast: (options: any) 
         try {
             const requestData = {
                 uid: user.uid,
-                companyId: user.companyId,
                 employeeId: user.employeeId,
                 employeeName: user.name,
                 leaveType: leaveType as any,
@@ -323,12 +320,11 @@ function AdminLeavesView({ user, toast }: { user: any, toast: (options: any) => 
     const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const fetchAllRequests = useCallback(async () => {
-        if (!user?.companyId) return;
+        if (!user) return;
         setLoading(true);
         try {
             const q = query(
                 collection(db, "leaveRequests"), 
-                where('companyId', '==', user.companyId),
                 orderBy('createdAt', 'desc')
             );
             const querySnapshot = await getDocs(q);
@@ -340,7 +336,7 @@ function AdminLeavesView({ user, toast }: { user: any, toast: (options: any) => 
         } finally {
             setLoading(false);
         }
-    }, [toast, user?.companyId]);
+    }, [toast, user]);
 
     useEffect(() => {
         fetchAllRequests();

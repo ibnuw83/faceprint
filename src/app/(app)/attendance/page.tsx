@@ -93,18 +93,18 @@ export default function AttendancePage() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const fetchAttendanceAndSettings = useCallback(async () => {
-    if (!user?.companyId) return;
+    if (!user) return;
     setLoading(true);
     try {
         // Fetch global schedule settings
-        const scheduleRef = doc(db, `companies/${user.companyId}/settings`, 'schedule');
+        const scheduleRef = doc(db, 'settings', 'schedule');
         const scheduleSnap = await getDoc(scheduleRef);
         if (scheduleSnap.exists()) {
             setGlobalSchedule(scheduleSnap.data() as ScheduleSettings);
         }
 
         // Fetch all users to get their individual schedules
-        const usersCollection = collection(db, `companies/${user.companyId}/users`);
+        const usersCollection = collection(db, 'users');
         const userSnapshot = await getDocs(usersCollection);
         const usersData: Record<string, User> = {};
         userSnapshot.docs.forEach(doc => {
@@ -114,7 +114,7 @@ export default function AttendancePage() {
 
 
         // Fetch attendance records
-        const q = query(collection(db, `companies/${user.companyId}/attendance`), orderBy('createdAt', 'desc'));
+        const q = query(collection(db, 'attendance'), orderBy('createdAt', 'desc'));
         const querySnapshot = await getDocs(q);
         const records = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord))
         setAllAttendanceRecords(records);
@@ -129,7 +129,7 @@ export default function AttendancePage() {
     } finally {
         setLoading(false);
     }
-  }, [toast, user?.companyId]);
+  }, [toast, user]);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
@@ -265,7 +265,7 @@ export default function AttendancePage() {
   };
 
   const handleDeleteAttendance = async (summaryKey: string) => {
-    if (!user?.companyId) return;
+    if (!user) return;
     setIsDeleting(summaryKey);
     try {
         const summaryToDelete = dailySummaries.find(s => s.key === summaryKey);
@@ -288,7 +288,7 @@ export default function AttendancePage() {
         
         const batch = writeBatch(db);
         docsToDelete.forEach(record => {
-            const docRef = doc(db, `companies/${user.companyId}/attendance`, record.id);
+            const docRef = doc(db, 'attendance', record.id);
             batch.delete(docRef);
         });
 

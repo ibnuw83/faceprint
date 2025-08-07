@@ -70,7 +70,6 @@ type User = {
   uid: string;
   name: string;
   email: string;
-  companyId: string;
   department?: string;
   createdAt: {
     seconds: number;
@@ -113,10 +112,10 @@ export default function EmployeesPage() {
 
 
   const fetchUsers = useCallback(async () => {
-    if (!authUser?.companyId) return;
+    if (!authUser) return;
     setLoading(true);
     try {
-      const usersCollection = collection(db, `companies/${authUser.companyId}/users`);
+      const usersCollection = collection(db, 'users');
       const userSnapshot = await getDocs(usersCollection);
       const userList = userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
       setUsers(userList.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
@@ -130,7 +129,7 @@ export default function EmployeesPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, authUser?.companyId]);
+  }, [toast, authUser]);
 
   useEffect(() => {
     if (authUser?.role === 'admin') {
@@ -139,24 +138,18 @@ export default function EmployeesPage() {
   }, [authUser, fetchUsers]);
 
   const handleDeleteUser = async (userToDelete: User) => {
-    if (!authUser?.companyId) return;
+    if (!authUser) return;
     setDeletingId(userToDelete.uid);
     try {
-      const batch = writeBatch(db);
-      
-      // Delete user from company subcollection
-      const userRef = doc(db, `companies/${authUser.companyId}/users`, userToDelete.uid);
-      batch.delete(userRef);
-
-      // Delete user from top-level mapping collection
-      const userMappingRef = doc(db, 'users', userToDelete.uid);
-      batch.delete(userMappingRef);
-      
-      await batch.commit();
+      // In a real app, you would also need to delete the user from Firebase Authentication
+      // This requires a backend function (e.g., Cloud Function) for security reasons.
+      // Here, we only delete the Firestore document.
+      const userRef = doc(db, 'users', userToDelete.uid);
+      await deleteDoc(userRef);
       
       toast({
         title: 'Pengguna Dihapus',
-        description: 'Profil pengguna telah berhasil dihapus dari sistem.',
+        description: 'Profil pengguna telah berhasil dihapus dari database.',
       });
       await fetchUsers(); // Refresh the list
     } catch (error) {
@@ -206,7 +199,7 @@ export default function EmployeesPage() {
   };
   
   const handleSaveSettings = async () => {
-      if (!editingUser || !authUser?.companyId) return;
+      if (!editingUser || !authUser) return;
       
       const newEmployeeId = editEmployeeId.trim();
       if (!newEmployeeId) {
@@ -218,7 +211,7 @@ export default function EmployeesPage() {
       try {
         // Check for duplicate employee ID if it has changed
         if (newEmployeeId !== editingUser.employeeId) {
-            const q = query(collection(db, `companies/${authUser.companyId}/users`), where('employeeId', '==', newEmployeeId));
+            const q = query(collection(db, 'users'), where('employeeId', '==', newEmployeeId));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
                 toast({
@@ -267,7 +260,7 @@ export default function EmployeesPage() {
             updateData.locationSettings = null;
         }
 
-        const userRef = doc(db, `companies/${authUser.companyId}/users`, editingUser.uid);
+        const userRef = doc(db, 'users', editingUser.uid);
         await updateDoc(userRef, updateData);
 
         toast({ title: 'Pengaturan Disimpan', description: `Data untuk ${editingUser.name} telah diperbarui.` });
@@ -296,7 +289,7 @@ export default function EmployeesPage() {
             </CardDescription>
           </div>
           <Button asChild>
-            <Link href="/employees/new-employee">
+            <Link href="/employees/new">
               <PlusCircle className="mr-2" /> Tambah Karyawan
             </Link>
           </Button>
@@ -391,7 +384,7 @@ export default function EmployeesPage() {
                                     <AlertDialogHeader>
                                     <AlertDialogTitle>Konfirmasi Penghapusan</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Apakah Anda yakin ingin menghapus pengguna <strong>{user.name}</strong>? Tindakan ini tidak dapat diurungkan dan akan menghapus profil pengguna dari sistem.
+                                        Apakah Anda yakin ingin menghapus pengguna <strong>{user.name}</strong>? Tindakan ini tidak dapat diurungkan dan akan menghapus profil pengguna dari database.
                                         <br/><br/>
                                         <strong className="text-destructive">Penting:</strong> Tindakan ini tidak menghapus akun login pengguna. Untuk menghapus akun secara permanen, Anda harus melakukannya melalui Firebase Console.
                                     </AlertDialogDescription>

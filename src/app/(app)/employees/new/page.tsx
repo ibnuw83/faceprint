@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Camera, Upload, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { doc, setDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, query, where, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -34,11 +34,13 @@ type Department = {
 export default function NewEmployeePage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { user, loading: authLoading, checkUserStatus } = useAuth();
+  const { user, loading: authLoading, checkUserStatus, register } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [employeeId, setEmployeeId] = useState('');
   const [department, setDepartment] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -51,25 +53,19 @@ export default function NewEmployeePage() {
   const isMobile = useIsMobile();
   const [selectedDepartmentData, setSelectedDepartmentData] = useState<Department | null>(null);
 
-  // Redirect if not admin and not a new user
+  // Redirect if not admin
   useEffect(() => {
-    if (!authLoading && user) {
-       // Prefill name if available from auth provider
-       setFullName(user.name || '');
-       if (user.role !== 'admin' && user.isProfileComplete) {
-            toast({title: 'Profil sudah lengkap', description: 'Anda telah dialihkan ke dasbor.', variant: 'default'});
-            router.replace('/dashboard');
-       }
+    if (!authLoading && user?.role !== 'admin') {
+       toast({title: 'Akses Ditolak', description: 'Hanya admin yang dapat mengakses halaman ini.', variant: 'destructive'});
+       router.replace('/dashboard');
     }
   }, [user, authLoading, router, toast]);
 
   useEffect(() => {
-    if (!user?.companyId) return;
-
     const fetchDepartments = async () => {
       setLoadingDepartments(true);
       try {
-        const departmentsCollection = collection(db, `companies/${user.companyId}/departments`);
+        const departmentsCollection = collection(db, 'departments');
         const departmentSnapshot = await getDocs(departmentsCollection);
         const departmentList = departmentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
         setDepartments(departmentList);
@@ -85,7 +81,7 @@ export default function NewEmployeePage() {
       }
     };
     fetchDepartments();
-  }, [toast, user?.companyId]);
+  }, [toast]);
   
    useEffect(() => {
     const getCameraPermission = async () => {
@@ -177,7 +173,7 @@ export default function NewEmployeePage() {
             video.srcObject = null;
         }
 
-        toast({ title: "Gambar Diambil", description: "Gambar wajah Anda telah berhasil ditangkap." });
+        toast({ title: "Gambar Diambil", description: "Gambar wajah berhasil ditangkap." });
       }
     }
   };
@@ -196,24 +192,20 @@ export default function NewEmployeePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !user.companyId) {
-      toast({ title: 'Error', description: 'Anda harus login dan terhubung dengan perusahaan.', variant: 'destructive' });
-      return;
-    }
     if (!department) {
       toast({ title: 'Departemen Diperlukan', description: 'Silakan pilih departemen.', variant: 'destructive' });
       return;
     }
      if (!faceprintDataUrl) {
-      toast({ title: 'Pendaftaran Wajah Diperlukan', description: 'Silakan ambil gambar wajah Anda.', variant: 'destructive'});
+      toast({ title: 'Pendaftaran Wajah Diperlukan', description: 'Silakan ambil gambar wajah.', variant: 'destructive'});
       return;
     }
     setIsLoading(true);
 
     try {
-      // Check for duplicate employee ID across the company
+      // Check for duplicate employee ID
       const q = query(
-        collection(db, `companies/${user.companyId}/users`),
+        collection(db, 'users'),
         where('employeeId', '==', employeeId)
       );
       const querySnapshot = await getDocs(q);
@@ -221,20 +213,28 @@ export default function NewEmployeePage() {
       if (!querySnapshot.empty) {
         toast({
           title: 'ID Karyawan Sudah Ada',
-          description: `ID Karyawan "${employeeId}" sudah digunakan oleh pengguna lain di perusahaan ini.`,
+          description: `ID Karyawan "${employeeId}" sudah digunakan oleh pengguna lain.`,
           variant: 'destructive',
         });
         setIsLoading(false);
         return;
       }
       
-      const userRef = doc(db, `companies/${user.companyId}/users`, user.uid);
+      // Since this is an admin adding a new user, we call the register function from useAuth
+      // This will create a new user in Firebase Authentication
+      const newUserCredential = await register(email, password, fullName);
+      const newUid = newUserCredential.user.uid;
+
+      // Now, update the user's document in Firestore with all the details
+      const userRef = doc(db, 'users', newUid);
       const userData: any = {
         name: fullName,
+        email: email, // ensure email is saved
         employeeId: employeeId,
         department: department,
-        isProfileComplete: true,
+        isProfileComplete: true, // Profile is complete upon creation by admin
         faceprint: faceprintDataUrl,
+        role: email.includes('admin') ? 'admin' : 'employee', // Assign role
       };
 
       if (selectedDepartmentData?.latitude && selectedDepartmentData?.longitude) {
@@ -247,19 +247,24 @@ export default function NewEmployeePage() {
 
       await setDoc(userRef, userData, { merge: true });
 
-      await checkUserStatus();
-
       toast({
-        title: 'Profil Berhasil Disimpan',
-        description: 'Data dan wajah Anda telah berhasil disimpan.',
+        title: 'Karyawan Berhasil Ditambahkan',
+        description: 'Profil karyawan baru telah berhasil disimpan.',
       });
-      router.push('/dashboard');
+      router.push('/employees');
 
     } catch (error: any) {
-      console.error('Error updating profile:', error);
+      console.error('Error adding new employee:', error);
+      let errorMessage = error.message || 'Terjadi kesalahan. Silakan coba lagi.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Alamat email ini sudah terdaftar. Silakan gunakan email lain.';
+      }
+       if (error.code === 'auth/weak-password') {
+        errorMessage = 'Kata sandi terlalu lemah. Harap gunakan minimal 6 karakter.';
+      }
       toast({
-        title: 'Gagal Memperbarui',
-        description: error.message || 'Terjadi kesalahan. Silakan coba lagi.',
+        title: 'Gagal Menambahkan',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -267,7 +272,7 @@ export default function NewEmployeePage() {
     }
   };
   
-  if (authLoading || !user || (user.role !== 'admin' && user.isProfileComplete)) {
+  if (authLoading || !user || user.role !== 'admin') {
     return (
        <div className="flex h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -275,10 +280,8 @@ export default function NewEmployeePage() {
     )
   }
 
-  const cardTitle = user.role === 'admin' ? 'Tambah Karyawan Baru' : 'Lengkapi Profil Anda';
-  const cardDescription = user.role === 'admin' 
-    ? 'Buat profil untuk karyawan baru.'
-    : 'Masukkan detail Anda dan daftarkan wajah untuk menyelesaikan pengaturan akun.';
+  const cardTitle = 'Tambah Karyawan Baru';
+  const cardDescription = 'Buat akun dan profil untuk karyawan baru. Kata sandi yang dimasukkan akan menjadi kata sandi login mereka.';
 
 
   return (
@@ -296,13 +299,17 @@ export default function NewEmployeePage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-8">
             <div className="space-y-4">
-               <div className="space-y-2">
-                <Label htmlFor="email">Alamat Email</Label>
-                <Input id="email" type="email" value={user.email || ''} disabled />
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nama Lengkap</Label>
                 <Input id="fullName" placeholder="contoh: John Doe" required value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={isLoading} />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="email">Alamat Email Login</Label>
+                <Input id="email" type="email" placeholder="karyawan@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading}/>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Kata Sandi</Label>
+                <Input id="password" type="password" placeholder="Minimal 6 karakter" required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="employeeId">ID Karyawan</Label>
@@ -397,7 +404,7 @@ export default function NewEmployeePage() {
                         Menyimpan...
                     </>
                 ) : (
-                    'Simpan Profil & Selesaikan'
+                    'Simpan & Buat Akun Karyawan'
                 )}
               </Button>
             </div>

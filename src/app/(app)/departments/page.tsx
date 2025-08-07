@@ -69,9 +69,10 @@ export default function DepartmentsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchDepartments = useCallback(async () => {
+    if (!user?.companyId) return;
     setIsLoading(true);
     try {
-      const departmentsCollection = collection(db, 'departments');
+      const departmentsCollection = collection(db, `companies/${user.companyId}/departments`);
       const departmentSnapshot = await getDocs(departmentsCollection);
       const departmentList = departmentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
       setDepartments(departmentList.sort((a, b) => a.name.localeCompare(b.name)));
@@ -85,7 +86,7 @@ export default function DepartmentsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, user?.companyId]);
   
   useEffect(() => {
     if (!authLoading) {
@@ -117,6 +118,8 @@ export default function DepartmentsPage() {
 
   const handleAddDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.companyId) return;
+
     if (!newDepartmentName.trim()) {
       toast({ title: 'Nama departemen tidak boleh kosong', variant: 'destructive' });
       return;
@@ -135,8 +138,10 @@ export default function DepartmentsPage() {
         docData.longitude = validation.data.longitude;
         docData.radius = validation.data.radius;
       }
-
-      await addDoc(collection(db, 'departments'), docData);
+      
+      const departmentsCollection = collection(db, `companies/${user.companyId}/departments`);
+      await addDoc(departmentsCollection, docData);
+      
       toast({
         title: 'Departemen Berhasil Ditambahkan',
         description: `Departemen "${newDepartmentName.trim()}" telah dibuat.`,
@@ -168,8 +173,8 @@ export default function DepartmentsPage() {
   };
   
   const handleSaveEdit = async () => {
-    if (!editingDepartment || !editName.trim()) {
-      toast({ title: 'Nama tidak boleh kosong', variant: 'destructive' });
+    if (!editingDepartment || !editName.trim() || !user?.companyId) {
+      toast({ title: 'Nama tidak boleh kosong atau data tidak valid', variant: 'destructive' });
       return;
     }
 
@@ -178,8 +183,8 @@ export default function DepartmentsPage() {
     
     setIsSavingEdit(true);
     try {
-      const docRef = doc(db, 'departments', editingDepartment.id);
-      const updateData: { name: string, latitude?: number, longitude?: number, radius?: number } = {
+      const docRef = doc(db, `companies/${user.companyId}/departments`, editingDepartment.id);
+      const updateData: { name: string, latitude?: number | null, longitude?: number | null, radius?: number | null } = {
         name: editName.trim(),
       };
 
@@ -188,9 +193,9 @@ export default function DepartmentsPage() {
         updateData.longitude = validation.data.longitude;
         updateData.radius = validation.data.radius;
       } else {
-        updateData.latitude = undefined;
-        updateData.longitude = undefined;
-        updateData.radius = undefined;
+        updateData.latitude = null;
+        updateData.longitude = null;
+        updateData.radius = null;
       }
 
       await updateDoc(docRef, { ...updateData });
@@ -209,9 +214,10 @@ export default function DepartmentsPage() {
 
 
   const handleDeleteDepartment = async (departmentId: string) => {
+    if (!user?.companyId) return;
     setDeletingId(departmentId);
     try {
-      await deleteDoc(doc(db, 'departments', departmentId));
+      await deleteDoc(doc(db, `companies/${user.companyId}/departments`, departmentId));
       toast({
         title: 'Departemen Berhasil Dihapus',
       });

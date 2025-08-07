@@ -1,59 +1,64 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // Perusahaan: Hanya pemilik yang bisa menulis, semua pengguna terautentikasi bisa membaca
+    match /companies/{companyId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == resource.data.ownerUid;
     }
     
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-    
-    function isSignedIn() {
-      return request.auth != null;
+    // Pengaturan Perusahaan: Hanya admin perusahaan yang bisa mengubah
+    match /companies/{companyId}/settings/{docId} {
+        allow read: if request.auth != null;
+        allow write: if get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Settings are public read
-    match /settings/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
+    // Mapping User ke CompanyID: bisa dibuat saat registrasi, hanya bisa dibaca pemiliknya
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
-      allow create: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-    
-    match /departments/{deptId} {
-       allow read: if isSignedIn();
-       allow list: if isSignedIn();
-       allow create, update, delete: if isAdmin();
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    match /attendance/{attendanceId} {
-        allow read, list: if isAdmin();
-        allow create: if isSignedIn();
-        allow delete: if isAdmin();
-        
-        // Employee can read their own attendance list
-        allow list: if exists(/databases/$(database)/documents/users/$(request.auth.uid));
-        // Employee can read a specific record if they own it
-        allow get: if isOwner(get(/databases/$(database)/documents/attendance/$(attendanceId)).data.uid);
+    // Data di dalam perusahaan (users, attendance, etc.)
+    match /companies/{companyId}/{collection}/{docId} {
+        // Aturan default: Hanya bisa diakses oleh pengguna di perusahaan yang sama
+        allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId;
+    }
+
+    match /companies/{companyId}/users/{userId} {
+        // Admin bisa melakukan apa saja pada pengguna di perusahaannya
+        allow read, list, write, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
+                                       get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+        // Pengguna bisa membaca/memperbarui data mereka sendiri
+        allow read, update: if request.auth.uid == userId;
+    }
+
+    match /companies/{companyId}/attendance/{attendanceId} {
+        // Admin bisa membaca semua data absensi
+        allow list, read: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
+                           get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+        // Karyawan bisa membuat absensi dan membaca absensi miliknya
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+        allow read: if request.auth.uid == resource.data.uid;
     }
     
-     match /leaveRequests/{requestId} {
-      allow create: if isSignedIn();
-      allow list, read, update, delete: if isAdmin();
-
-      // Employee can list and read their own requests
-      allow list: if exists(/databases/$(database)/documents/users/$(request.auth.uid));
-      allow get: if isOwner(get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid);
-      allow update: if isOwner(get(/databases/$(database)/documents/leaveRequests/$(requestId)).data.uid);
+    match /companies/{companyId}/departments/{departmentId} {
+       // Admin bisa mengelola departemen
+       allow read, list, write, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
+                                          get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
     }
+
+     match /companies/{companyId}/leaveRequests/{requestId} {
+        // Admin bisa membaca dan memperbarui semua pengajuan
+        allow read, list, update: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == companyId && 
+                                   get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+        // Karyawan bisa membuat pengajuan dan membaca pengajuan miliknya
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+        allow read: if request.auth.uid == resource.data.uid;
+    }
+
   }
 }

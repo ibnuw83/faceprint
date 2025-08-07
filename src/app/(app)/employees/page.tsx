@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Users, PlusCircle, MoreHorizontal, Trash2, Edit, Loader2, History, User as UserIcon, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, query, where, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   DropdownMenu,
@@ -70,6 +70,7 @@ type User = {
   uid: string;
   name: string;
   email: string;
+  companyId: string;
   department?: string;
   createdAt: {
     seconds: number;
@@ -112,9 +113,10 @@ export default function EmployeesPage() {
 
 
   const fetchUsers = useCallback(async () => {
+    if (!authUser?.companyId) return;
     setLoading(true);
     try {
-      const usersCollection = collection(db, 'users');
+      const usersCollection = collection(db, `companies/${authUser.companyId}/users`);
       const userSnapshot = await getDocs(usersCollection);
       const userList = userSnapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as User));
       setUsers(userList.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
@@ -128,7 +130,7 @@ export default function EmployeesPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, authUser?.companyId]);
 
   useEffect(() => {
     if (authUser?.role === 'admin') {
@@ -136,13 +138,25 @@ export default function EmployeesPage() {
     }
   }, [authUser, fetchUsers]);
 
-  const handleDeleteUser = async (userId: string) => {
-    setDeletingId(userId);
+  const handleDeleteUser = async (userToDelete: User) => {
+    if (!authUser?.companyId) return;
+    setDeletingId(userToDelete.uid);
     try {
-      await deleteDoc(doc(db, 'users', userId));
+      const batch = writeBatch(db);
+      
+      // Delete user from company subcollection
+      const userRef = doc(db, `companies/${authUser.companyId}/users`, userToDelete.uid);
+      batch.delete(userRef);
+
+      // Delete user from top-level mapping collection
+      const userMappingRef = doc(db, 'users', userToDelete.uid);
+      batch.delete(userMappingRef);
+      
+      await batch.commit();
+      
       toast({
         title: 'Pengguna Dihapus',
-        description: 'Profil pengguna telah berhasil dihapus dari Firestore.',
+        description: 'Profil pengguna telah berhasil dihapus dari sistem.',
       });
       await fetchUsers(); // Refresh the list
     } catch (error) {
@@ -192,7 +206,7 @@ export default function EmployeesPage() {
   };
   
   const handleSaveSettings = async () => {
-      if (!editingUser) return;
+      if (!editingUser || !authUser?.companyId) return;
       
       const newEmployeeId = editEmployeeId.trim();
       if (!newEmployeeId) {
@@ -204,7 +218,7 @@ export default function EmployeesPage() {
       try {
         // Check for duplicate employee ID if it has changed
         if (newEmployeeId !== editingUser.employeeId) {
-            const q = query(collection(db, 'users'), where('employeeId', '==', newEmployeeId));
+            const q = query(collection(db, `companies/${authUser.companyId}/users`), where('employeeId', '==', newEmployeeId));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
                 toast({
@@ -253,7 +267,7 @@ export default function EmployeesPage() {
             updateData.locationSettings = null;
         }
 
-        const userRef = doc(db, 'users', editingUser.uid);
+        const userRef = doc(db, `companies/${authUser.companyId}/users`, editingUser.uid);
         await updateDoc(userRef, updateData);
 
         toast({ title: 'Pengaturan Disimpan', description: `Data untuk ${editingUser.name} telah diperbarui.` });
@@ -282,7 +296,7 @@ export default function EmployeesPage() {
             </CardDescription>
           </div>
           <Button asChild>
-            <Link href="/employees/new">
+            <Link href="/employees/new-employee">
               <PlusCircle className="mr-2" /> Tambah Karyawan
             </Link>
           </Button>
@@ -377,7 +391,7 @@ export default function EmployeesPage() {
                                     <AlertDialogHeader>
                                     <AlertDialogTitle>Konfirmasi Penghapusan</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Apakah Anda yakin ingin menghapus pengguna <strong>{user.name}</strong>? Tindakan ini tidak dapat diurungkan dan akan menghapus profil pengguna dari Firestore.
+                                        Apakah Anda yakin ingin menghapus pengguna <strong>{user.name}</strong>? Tindakan ini tidak dapat diurungkan dan akan menghapus profil pengguna dari sistem.
                                         <br/><br/>
                                         <strong className="text-destructive">Penting:</strong> Tindakan ini tidak menghapus akun login pengguna. Untuk menghapus akun secara permanen, Anda harus melakukannya melalui Firebase Console.
                                     </AlertDialogDescription>
@@ -385,7 +399,7 @@ export default function EmployeesPage() {
                                     <AlertDialogFooter>
                                     <AlertDialogCancel>Batal</AlertDialogCancel>
                                     <AlertDialogAction
-                                        onClick={() => handleDeleteUser(user.uid)}
+                                        onClick={() => handleDeleteUser(user)}
                                         className="bg-destructive hover:bg-destructive/90"
                                         disabled={!!deletingId}
                                     >

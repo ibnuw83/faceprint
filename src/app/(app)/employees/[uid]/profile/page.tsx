@@ -51,13 +51,13 @@ export default function UserProfilePage({ params }: { params: { uid: string } })
 
   const fetchUserDataAndHistory = useCallback(async () => {
     const { uid } = params;
-    if (!uid) {
+    if (!uid || !authUser?.companyId) {
         setLoading(false);
         return;
     }
     setLoading(true);
     try {
-        const userRef = doc(db, 'users', uid);
+        const userRef = doc(db, `companies/${authUser.companyId}/users`, uid);
         const userSnap = await getDoc(userRef);
 
         if (!userSnap.exists()) {
@@ -70,7 +70,7 @@ export default function UserProfilePage({ params }: { params: { uid: string } })
 
         if (userData.uid) {
             const q = query(
-                collection(db, 'attendance'),
+                collection(db, `companies/${authUser.companyId}/attendance`),
                 where('uid', '==', userData.uid),
                 orderBy('createdAt', 'desc')
             );
@@ -83,7 +83,7 @@ export default function UserProfilePage({ params }: { params: { uid: string } })
     } finally {
       setLoading(false);
     }
-  }, [params, router]);
+  }, [params, router, authUser?.companyId]);
 
   useEffect(() => {
     if (!authLoading) {

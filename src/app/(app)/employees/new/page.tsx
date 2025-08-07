@@ -64,10 +64,12 @@ export default function NewEmployeePage() {
   }, [user, authLoading, router, toast]);
 
   useEffect(() => {
+    if (!user?.companyId) return;
+
     const fetchDepartments = async () => {
       setLoadingDepartments(true);
       try {
-        const departmentsCollection = collection(db, 'departments');
+        const departmentsCollection = collection(db, `companies/${user.companyId}/departments`);
         const departmentSnapshot = await getDocs(departmentsCollection);
         const departmentList = departmentSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Department));
         setDepartments(departmentList);
@@ -83,7 +85,7 @@ export default function NewEmployeePage() {
       }
     };
     fetchDepartments();
-  }, [toast]);
+  }, [toast, user?.companyId]);
   
    useEffect(() => {
     const getCameraPermission = async () => {
@@ -194,8 +196,8 @@ export default function NewEmployeePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast({ title: 'Error', description: 'Anda harus login terlebih dahulu.', variant: 'destructive' });
+    if (!user || !user.companyId) {
+      toast({ title: 'Error', description: 'Anda harus login dan terhubung dengan perusahaan.', variant: 'destructive' });
       return;
     }
     if (!department) {
@@ -209,9 +211,9 @@ export default function NewEmployeePage() {
     setIsLoading(true);
 
     try {
-      // Check for duplicate employee ID across all users
+      // Check for duplicate employee ID across the company
       const q = query(
-        collection(db, 'users'),
+        collection(db, `companies/${user.companyId}/users`),
         where('employeeId', '==', employeeId)
       );
       const querySnapshot = await getDocs(q);
@@ -219,14 +221,14 @@ export default function NewEmployeePage() {
       if (!querySnapshot.empty) {
         toast({
           title: 'ID Karyawan Sudah Ada',
-          description: `ID Karyawan "${employeeId}" sudah digunakan oleh pengguna lain.`,
+          description: `ID Karyawan "${employeeId}" sudah digunakan oleh pengguna lain di perusahaan ini.`,
           variant: 'destructive',
         });
         setIsLoading(false);
         return;
       }
       
-      const userRef = doc(db, 'users', user.uid);
+      const userRef = doc(db, `companies/${user.companyId}/users`, user.uid);
       const userData: any = {
         name: fullName,
         employeeId: employeeId,

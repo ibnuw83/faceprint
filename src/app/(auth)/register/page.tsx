@@ -55,7 +55,7 @@ export default function RegisterPage() {
       await register(email, password, name);
       toast({
         title: 'Pendaftaran Berhasil',
-        description: 'Anda sekarang dapat masuk dengan akun baru Anda.',
+        description: 'Akun Anda telah dibuat. Silakan login untuk melanjutkan.',
       });
       router.push('/login');
     } catch (error: any) {

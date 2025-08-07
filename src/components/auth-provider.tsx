@@ -5,6 +5,7 @@ import { createContext, useState, useMemo, useCallback, useEffect } from 'react'
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile, User as FirebaseUser } from 'firebase/auth';
 import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 export type User = {
   uid: string;
@@ -32,7 +33,7 @@ interface AuthContextType {
   firebaseUser: FirebaseUser | null;
   login: (email: string, pass: string) => Promise<void>;
   register: (email: string, pass: string, name: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
   checkUserStatus: () => Promise<void>;
@@ -78,16 +79,8 @@ const fetchUserData = async (fbUser: FirebaseUser): Promise<User | null> => {
         employeeId: userData.employeeId || null,
       };
     }
-     console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user.`);
-    const role = fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
-    return {
-      uid: fbUser.uid,
-      name: fbUser.displayName,
-      email: fbUser.email,
-      role: role,
-      isProfileComplete: role === 'admin',
-      faceprint: null,
-    };
+     console.warn(`No user document found for UID: ${fbUser.uid}. This might be a new user or a deleted user.`);
+    return null; // Return null if user doc doesn't exist
   } catch (error) {
     console.error("Error fetching user data:", error);
     return null;
@@ -99,6 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const checkUserStatus = useCallback(async () => {
     setLoading(true);
@@ -110,17 +104,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  const logout = useCallback(async () => {
+    await signOut(auth);
+  }, []);
+
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (fbUser) => {
-      setFirebaseUser(fbUser);
-      if (!fbUser) {
-          setUser(null);
-          setLoading(false);
+    const unsubscribeAuth = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        setLoading(true);
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        
+        try {
+          const docSnap = await getDoc(userDocRef);
+          if (docSnap.exists()) {
+            setFirebaseUser(fbUser);
+            // The rest of the logic to set user state is handled in the next useEffect
+          } else {
+            // User exists in Auth, but not in Firestore (was deleted)
+            toast({
+              title: "Login Gagal: Akun Tidak Ditemukan",
+              description: "Data pengguna tidak ditemukan. Silakan daftar ulang.",
+              variant: "destructive",
+            });
+            await signOut(auth); // Force sign out
+            setFirebaseUser(null);
+            setUser(null);
+          }
+        } catch (error) {
+           console.error("Error checking user document on auth state change:", error);
+           await signOut(auth);
+           setFirebaseUser(null);
+           setUser(null);
+        } finally {
+            setLoading(false);
+        }
+      } else {
+        // No user is signed in
+        setFirebaseUser(null);
+        setUser(null);
+        setLoading(false);
       }
     });
 
     return () => unsubscribeAuth();
-  }, []);
+  }, [toast]);
+
 
   useEffect(() => {
     if (firebaseUser) {
@@ -148,7 +176,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
-
                 setUser({
                     uid: firebaseUser.uid,
                     name: userData.name || firebaseUser.displayName,
@@ -162,16 +189,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     employeeId: userData.employeeId || null,
                 });
             } else {
-                 const role = firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
-                 // This handles new users or users whose data was deleted.
-                 // Force them to complete their profile again.
-                 setUser({
-                    uid: firebaseUser.uid,
-                    name: firebaseUser.displayName,
-                    email: firebaseUser.email,
-                    role: role,
-                    isProfileComplete: false, // Treat as incomplete profile
-                 });
+                 // This case should ideally be handled by the onAuthStateChanged logic
+                 // But as a fallback, we sign the user out.
+                 console.log("User document disappeared. Signing out.");
+                 logout();
             }
             setLoading(false);
         }, (error) => {
@@ -184,11 +205,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setLoading(false);
     }
-}, [firebaseUser]);
+  }, [firebaseUser, logout]);
 
 
   const login = useCallback(async (email: string, pass: string) => {
     await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged will handle the rest
   }, []);
 
   const register = useCallback(async (email: string, pass: string, name: string) => {
@@ -197,9 +219,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     await updateProfile(fbUser, { displayName: name });
     
-    const role = email.toLowerCase().includes('admin') ? 'employee' : 'employee';
+    // In this app, all new sign-ups are employees. Admin role is set manually.
+    const role = 'employee';
 
-    const isProfileComplete = role === 'admin';
+    const isProfileComplete = false; // New users must complete their profile
 
     const userRef = doc(db, "users", fbUser.uid);
     await setDoc(userRef, {
@@ -209,12 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: role,
       isProfileComplete: isProfileComplete, 
       createdAt: new Date(),
-      faceprint: null, // Initialize faceprint as null
+      faceprint: null,
     });
-  }, []);
-
-  const logout = useCallback(async () => {
-    await signOut(auth);
   }, []);
 
   const authContextValue = useMemo(
@@ -224,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
-      isAuthenticated: !!user && !!firebaseUser, // Ensure both are present
+      isAuthenticated: !!user && !!firebaseUser,
       loading,
       checkUserStatus
     }),

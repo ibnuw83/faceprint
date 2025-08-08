@@ -1,66 +1,49 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
+    
+    // Helper function to check for admin role
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Default implicit deny for all collections
-    // match /{document=**} {
-    //   allow read, write: if false;
-    // }
-
-    // PUBLIC ACCESS: Settings can be read by anyone for the public pages.
-    // WRITE ACCESS: Only admins can change settings.
-    match /settings/{settingId} {
-      allow read: if true;
-      allow write: if request.auth != null && isAdmin();
-    }
-
-    // USERS COLLECTION
+    // IMPLICIT DENY: By default, no one can access anything.
+    
+    // AUTHENTICATED USER ACCESS
     match /users/{userId} {
-      // Admins can do anything to any user document
-      allow read, write: if request.auth != null && isAdmin();
-      // Authenticated users can read their own data
-      allow get: if request.auth != null && isOwner(userId);
-      // Authenticated users can update their own profile
-      allow update: if request.auth != null && isOwner(userId);
+      allow read, update: if request.auth.uid == userId || isAdmin();
+      allow create: if request.auth.uid == userId; // For initial profile setup
+      allow list, delete: if isAdmin(); // Only admins can list or delete users
     }
     
-    // DEPARTMENTS COLLECTION
-    match /departments/{departmentId} {
-      // Only admins can manage departments
-      allow read, write, delete: if request.auth != null && isAdmin();
+    // LEAVE REQUESTS
+    match /leaveRequests/{requestId} {
+      allow create: if request.auth.uid == request.resource.data.uid;
+      allow read: if request.auth.uid == resource.data.uid || isAdmin();
+      allow update, delete: if isAdmin();
+      allow list: if isAdmin(); // Only admin can list all requests
     }
 
-    // ATTENDANCE COLLECTION
+    // ATTENDANCE
     match /attendance/{attendanceId} {
-      // Admins can read all attendance records
-      allow read: if request.auth != null && isAdmin();
-      // Admins can delete attendance records
-      allow delete: if request.auth != null && isAdmin();
-      // Authenticated users can create their own attendance records
-      allow create: if request.auth != null;
+      allow create: if request.auth.uid == request.resource.data.uid;
+      // Admins can read all attendance, employees can only read their own
+      allow read: if isAdmin() || (request.auth.uid == resource.data.uid);
+      allow delete: if isAdmin();
     }
 
-    // LEAVE REQUESTS COLLECTION
-    match /leaveRequests/{leaveId} {
-      // Admins can manage all leave requests
-      allow read, write, delete: if request.auth != null && isAdmin();
-      // Users can create their own leave requests
-      allow create: if request.auth != null;
-      // Users can read their own leave requests
-      allow get: if request.auth != null && request.resource.data.uid == request.auth.uid;
-      // Users can see lists of their own requests
-      allow list: if request.auth != null && request.query.where.uid == request.auth.uid;
+    // DEPARTMENTS: Authenticated users can list/read, only admins can write.
+    match /departments/{departmentId} {
+      allow get, list: if request.auth != null;
+      allow write: if isAdmin();
     }
 
+    // PUBLIC/AUTHENTICATED ACCESS: Settings are readable by anyone.
+    // WRITE ACCESS: Only admins can change settings.
+    match /settings/{settingId} {
+      allow get, list: if true;
+      allow write: if isAdmin();
+    }
   }
 }

@@ -21,16 +21,13 @@ type LandingPageSettings = {
 };
 
 export default function HomePage() {
-  const [settings, setSettings] = useState<LandingPageSettings>({
-    title: 'Selamat Datang di Portal Karyawan',
-    description: 'Sistem absensi modern berbasis pengenalan wajah. Masuk untuk mencatat kehadiran Anda atau lihat riwayat absensi Anda.',
-    imageUrls: ['https://placehold.co/600x600.png'],
-  });
-  const [footerText, setFooterText] = useState('© ' + new Date().getFullYear() + ' VisageID. All rights reserved.');
+  const [settings, setSettings] = useState<LandingPageSettings | null>(null);
+  const [footerText, setFooterText] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSettings = async () => {
+      setLoading(true);
       try {
         const landingRef = doc(db, 'settings', 'landingPage');
         const footerRef = doc(db, 'settings', 'footer');
@@ -40,19 +37,30 @@ export default function HomePage() {
           getDoc(footerRef)
         ]);
         
+        const defaultSettings = {
+            title: 'Selamat Datang di Portal Karyawan',
+            description: 'Sistem absensi modern berbasis pengenalan wajah. Masuk untuk mencatat kehadiran Anda atau lihat riwayat absensi Anda.',
+            imageUrls: ['https://placehold.co/600x600.png'],
+        };
+        
+        const defaultFooter = '© ' + new Date().getFullYear() + ' VisageID. All rights reserved.';
+
         if (landingSnap.exists()) {
           const data = landingSnap.data();
-          // Ensure imageUrls is always an array
-          const urls = Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls : ['https://placehold.co/600x600.png'];
+          const urls = Array.isArray(data.imageUrls) && data.imageUrls.length > 0 ? data.imageUrls : defaultSettings.imageUrls;
           setSettings({
-            title: data.title || 'Selamat Datang di Portal Karyawan',
-            description: data.description || 'Sistem absensi modern berbasis pengenalan wajah. Masuk untuk mencatat kehadiran Anda atau lihat riwayat absensi Anda.',
+            title: data.title || defaultSettings.title,
+            description: data.description || defaultSettings.description,
             imageUrls: urls,
           });
+        } else {
+            setSettings(defaultSettings);
         }
         
         if (footerSnap.exists()) {
-          setFooterText(footerSnap.data().text || '© ' + new Date().getFullYear() + ' VisageID. All rights reserved.');
+          setFooterText(footerSnap.data().text || defaultFooter);
+        } else {
+            setFooterText(defaultFooter);
         }
 
       } catch (error) {
@@ -76,24 +84,25 @@ export default function HomePage() {
       <main className="flex-1 flex flex-col items-center justify-center text-center p-4">
         <div className="grid md:grid-cols-2 items-center gap-12 max-w-6xl mx-auto">
           <div className="flex flex-col items-center md:items-start text-center md:text-left gap-6">
-             {loading ? (
-                <Skeleton className="h-12 w-3/4" />
+             {loading || !settings ? (
+                <>
+                 <Skeleton className="h-12 w-3/4" />
+                 <div className='space-y-2 w-full'>
+                    <Skeleton className='h-4 w-full' />
+                    <Skeleton className='h-4 w-full' />
+                    <Skeleton className='h-4 w-3/4' />
+                  </div>
+                </>
              ) : (
-                <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                    {settings.title}
-                </h1>
+                <>
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+                        {settings.title}
+                    </h1>
+                    <p className="text-lg text-muted-foreground max-w-md">
+                        {settings.description}
+                    </p>
+                </>
              )}
-            {loading ? (
-              <div className='space-y-2 w-full'>
-                <Skeleton className='h-4 w-full' />
-                <Skeleton className='h-4 w-full' />
-                <Skeleton className='h-4 w-3/4' />
-              </div>
-            ) : (
-               <p className="text-lg text-muted-foreground max-w-md">
-                {settings.description}
-               </p>
-            )}
             <div className="flex gap-4">
               <Button asChild size="lg">
                 <Link href="/login">Masuk</Link>
@@ -104,7 +113,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="w-full max-w-md mx-auto">
-             {loading ? (
+             {loading || !settings ? (
                 <Skeleton className="w-full aspect-square rounded-xl" />
              ) : (
                <Carousel 

@@ -20,6 +20,7 @@ import { Logo } from '@/components/logo';
 import { Separator } from '@/components/ui/separator';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
@@ -28,19 +29,18 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [appName, setAppName] = useState('VisageID');
+  const [appName, setAppName] = useState('');
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
   useEffect(() => {
     const fetchBranding = async () => {
+        setLoadingSettings(true);
         const brandingRef = doc(db, 'settings', 'branding');
         const brandingSnap = await getDoc(brandingRef);
-        if (brandingSnap.exists()) {
-            const name = brandingSnap.data().appName || 'VisageID';
-            setAppName(name);
-            document.title = `Login | ${name}`;
-        } else {
-            document.title = 'Login | VisageID';
-        }
+        const name = brandingSnap.exists() ? brandingSnap.data().appName : 'VisageID';
+        setAppName(name || 'VisageID');
+        document.title = `Login | ${name || 'VisageID'}`;
+        setLoadingSettings(false);
     }
     fetchBranding();
 
@@ -79,7 +79,11 @@ export default function LoginPage() {
     <Card className="w-full max-w-md shadow-2xl">
       <CardHeader className="text-center space-y-4">
         <Logo className="justify-center" showTitle={false} />
-        <CardTitle className="text-3xl font-bold">{appName}</CardTitle>
+        {loadingSettings ? (
+          <Skeleton className="h-9 w-1/2 mx-auto" />
+        ) : (
+          <CardTitle className="text-3xl font-bold">{appName}</CardTitle>
+        )}
         <CardDescription>
           Masuk ke akun Anda. Gunakan email dengan 'admin' untuk akses admin.
         </CardDescription>

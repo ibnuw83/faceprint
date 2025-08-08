@@ -27,7 +27,6 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      // Intentionally not setting loading to true here to avoid re-triggering skeletons on re-fetch
       try {
         const landingRef = doc(db, 'settings', 'landingPage');
         const footerRef = doc(db, 'settings', 'footer');
@@ -65,6 +64,13 @@ export default function HomePage() {
 
       } catch (error) {
         console.error("Error fetching landing page settings:", error);
+         const fallbackSettings = {
+            title: 'Selamat Datang di Portal Karyawan',
+            description: 'Sistem absensi modern berbasis pengenalan wajah. Masuk untuk mencatat kehadiran Anda atau lihat riwayat absensi Anda.',
+            imageUrls: ['https://placehold.co/600x600.png'],
+        };
+        setSettings(fallbackSettings);
+        setFooterText('© ' + new Date().getFullYear() + ' VisageID. All rights reserved.');
       } finally {
         setLoading(false);
       }

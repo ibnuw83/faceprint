@@ -2,67 +2,66 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if the user has an 'admin' role.
+
+    // Helper function to check for admin role
     function isAdmin() {
-      // Ensure the user is authenticated before checking their role.
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Helper function to check if the request is from an authenticated user.
-    function isAuthenticated() {
-      return request.auth != null;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // =====================================================================
-    // PUBLIC ACCESS RULES
-    // =====================================================================
-    // These settings documents are needed for the public-facing pages (login, home page)
-    // and must be readable by everyone, even unauthenticated users.
-    // Writing is still restricted to admins.
-    match /settings/{docId} {
-        allow get, list: if true;
-        allow write: if isAdmin();
+    // Helper function to check if the user is the owner of the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // =====================================================================
-    // AUTHENTICATED USER RULES
-    // =====================================================================
-    
-    // USER PROFILES:
+    // ===================
+    //  Admin Full Access
+    // ===================
+    // Admins can read and write all data collections for management purposes.
     match /users/{userId} {
-      // Admins can perform any action on any user profile.
       allow read, write: if isAdmin();
-      
-      // A user can only read or update their own profile. They cannot delete it.
-      // They also cannot create a user document directly here; it's done via Auth.
-      allow get, update: if isAuthenticated() && request.auth.uid == userId;
+    }
+    match /departments/{deptId} {
+      allow read, write: if isAdmin();
+    }
+    match /attendance/{attId} {
+       allow read, write: if isAdmin();
+    }
+    match /leaveRequests/{reqId} {
+       allow read, write: if isAdmin();
+    }
+     match /settings/{docId} {
+      allow read, write: if isAdmin();
     }
 
-    // DEPARTMENTS: Only admins can manage departments.
-    match /departments/{deptId} {
-      allow read, create, update, delete: if isAdmin();
+    // ========================
+    //  Authenticated Users
+    // ========================
+    // Users can read/update their own profile, but not change their role.
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role;
     }
     
-    // ATTENDANCE RECORDS:
-    match /attendance/{attendanceId} {
-      // Admins can perform any action on any attendance record.
-      allow read, create, update, delete: if isAdmin();
-      
-      // Authenticated users can create their own attendance records.
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.uid;
-      
-      // Users can only read their own attendance history.
-      allow read: if isAuthenticated() && request.auth.uid == resource.data.uid;
+    // Users can create attendance records for themselves.
+    match /attendance/{attId} {
+      allow create: if isOwner(request.resource.data.uid);
+      allow read: if request.auth.uid == resource.data.uid;
     }
 
-    // LEAVE REQUESTS:
-    match /leaveRequests/{leaveId} {
-      // Admins can manage all leave requests.
-      allow read, create, update, delete: if isAdmin();
-      
-      // Authenticated users can create, read, and update their own leave requests.
-      allow create, read, update: if isAuthenticated() && request.auth.uid == request.resource.data.uid;
+    // Users can manage their own leave requests.
+    match /leaveRequests/{reqId} {
+      allow create, read, update: if isOwner(request.resource.data.uid);
+      // Admin can also delete, covered by rule above
+    }
+
+    // ========================
+    //  Public Access Rules
+    // ========================
+    // Any user (including unauthenticated ones) can read settings.
+    // This is necessary for the login and main landing pages to function.
+    // This rule is evaluated separately and does not override the admin write access rule above.
+    match /settings/{document=**} {
+      allow get, list: if true;
     }
   }
 }

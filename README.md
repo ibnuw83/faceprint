@@ -76,4 +76,4 @@ Buka terminal di direktori proyek Anda dan jalankan perintah:
     git push
     ```
 
-Setelah perintah `push` berhasil, semua pembaruan Anda akan langsung terlihat di repositori GitHub.# face
+Setelah perintah `push` berhasil, semua pembaruan Anda akan langsung terlihat di repositori GitHub Anda.

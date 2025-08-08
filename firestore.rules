@@ -1,67 +1,66 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for admin role
+    // Helper Functions
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Helper function to check if the user is the owner of the document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    // Default implicit deny for all collections
+    // match /{document=**} {
+    //   allow read, write: if false;
+    // }
+
+    // PUBLIC ACCESS: Settings can be read by anyone for the public pages.
+    // WRITE ACCESS: Only admins can change settings.
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin();
     }
 
-    // ===================
-    //  Admin Full Access
-    // ===================
-    // Admins can read and write all data collections for management purposes.
+    // USERS COLLECTION
     match /users/{userId} {
-      allow read, write: if isAdmin();
-    }
-    match /departments/{deptId} {
-      allow read, write: if isAdmin();
-    }
-    match /attendance/{attId} {
-       allow read, write: if isAdmin();
-    }
-    match /leaveRequests/{reqId} {
-       allow read, write: if isAdmin();
-    }
-     match /settings/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    // ========================
-    //  Authenticated Users
-    // ========================
-    // Users can read/update their own profile, but not change their role.
-    match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role;
+      // Admins can do anything to any user document
+      allow read, write: if request.auth != null && isAdmin();
+      // Authenticated users can read their own data
+      allow get: if request.auth != null && isOwner(userId);
+      // Authenticated users can update their own profile
+      allow update: if request.auth != null && isOwner(userId);
     }
     
-    // Users can create attendance records for themselves.
-    match /attendance/{attId} {
-      allow create: if isOwner(request.resource.data.uid);
-      allow read: if request.auth.uid == resource.data.uid;
+    // DEPARTMENTS COLLECTION
+    match /departments/{departmentId} {
+      // Only admins can manage departments
+      allow read, write, delete: if request.auth != null && isAdmin();
     }
 
-    // Users can manage their own leave requests.
-    match /leaveRequests/{reqId} {
-      allow create, read, update: if isOwner(request.resource.data.uid);
-      // Admin can also delete, covered by rule above
+    // ATTENDANCE COLLECTION
+    match /attendance/{attendanceId} {
+      // Admins can read all attendance records
+      allow read: if request.auth != null && isAdmin();
+      // Admins can delete attendance records
+      allow delete: if request.auth != null && isAdmin();
+      // Authenticated users can create their own attendance records
+      allow create: if request.auth != null;
     }
 
-    // ========================
-    //  Public Access Rules
-    // ========================
-    // Any user (including unauthenticated ones) can read settings.
-    // This is necessary for the login and main landing pages to function.
-    // This rule is evaluated separately and does not override the admin write access rule above.
-    match /settings/{document=**} {
-      allow get, list: if true;
+    // LEAVE REQUESTS COLLECTION
+    match /leaveRequests/{leaveId} {
+      // Admins can manage all leave requests
+      allow read, write, delete: if request.auth != null && isAdmin();
+      // Users can create their own leave requests
+      allow create: if request.auth != null;
+      // Users can read their own leave requests
+      allow get: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      // Users can see lists of their own requests
+      allow list: if request.auth != null && request.query.where.uid == request.auth.uid;
     }
+
   }
 }

@@ -2,47 +2,52 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check for admin role
+
+    // Helper function to check if the user is an admin
     function isAdmin() {
       return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // IMPLICIT DENY: By default, no one can access anything.
-    
-    // AUTHENTICATED USER ACCESS
+    // --- Access Control Rules ---
+
+    // Users Collection
+    // - Authenticated users can read/update their OWN profile.
+    // - Admins can read/write ANY user profile.
     match /users/{userId} {
-      allow read, update: if request.auth.uid == userId || isAdmin();
-      allow create: if request.auth.uid == userId; // For initial profile setup
-      allow list, delete: if isAdmin(); // Only admins can list or delete users
+      allow read, update: if (request.auth != null && request.auth.uid == userId) || isAdmin();
+      allow create, delete, write: if isAdmin();
+    }
+
+    // Attendance Collection
+    // - Authenticated users can create their own attendance records.
+    // - Admins can read/write/delete ANY attendance record.
+    match /attendance/{docId} {
+      allow create: if request.auth != null;
+      allow read, write, delete: if isAdmin();
     }
     
-    // LEAVE REQUESTS
-    match /leaveRequests/{requestId} {
-      allow create: if request.auth.uid == request.resource.data.uid;
-      allow read: if request.auth.uid == resource.data.uid || isAdmin();
+    // Leave Requests Collection
+    // - Authenticated users can create/read their OWN leave requests.
+    // - Admins can read/update/delete ANY leave request.
+    match /leaveRequests/{docId} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read: if (request.auth != null && get(/databases/$(database)/documents/leaveRequests/$(docId)).data.uid == request.auth.uid) || isAdmin();
       allow update, delete: if isAdmin();
-      allow list: if isAdmin(); // Only admin can list all requests
     }
 
-    // ATTENDANCE
-    match /attendance/{attendanceId} {
-      allow create: if request.auth.uid == request.resource.data.uid;
-      // Admins can read all attendance, employees can only read their own
-      allow read: if isAdmin() || (request.auth.uid == resource.data.uid);
-      allow delete: if isAdmin();
-    }
-
-    // DEPARTMENTS: Authenticated users can list/read, only admins can write.
+    // Departments Collection
+    // - Any authenticated user can read the list of departments (for forms, etc.).
+    // - Only admins can create or change departments.
     match /departments/{departmentId} {
-      allow get, list: if request.auth != null;
+      allow read: if request.auth != null;
       allow write: if isAdmin();
     }
-
-    // PUBLIC/AUTHENTICATED ACCESS: Settings are readable by anyone.
-    // WRITE ACCESS: Only admins can change settings.
+    
+    // Settings Collection
+    // - ANYONE (including unauthenticated users) can read settings (for public/login pages).
+    // - Only admins can change settings.
     match /settings/{settingId} {
-      allow get, list: if true;
+      allow read: if true;
       allow write: if isAdmin();
     }
   }

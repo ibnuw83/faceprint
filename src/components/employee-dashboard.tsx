@@ -394,7 +394,7 @@ export default function EmployeeDashboard() {
       canvas.height = video.videoHeight;
       const context = canvas.getContext('2d');
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const captureToVerify = canvas.toDataURL('image/jpeg', 0.9);
+      const photoUrl = canvas.toDataURL('image/jpeg', 0.8);
       
       toast({ title: 'Memvalidasi Lokasi...', description: 'Mohon tunggu sebentar.', variant: 'default' });
       
@@ -421,6 +421,7 @@ export default function EmployeeDashboard() {
         date: now.toLocaleDateString('id-ID'),
         time: now.toLocaleTimeString('id-ID'),
         status: clockStatus,
+        photoUrl: photoUrl,
         location: {
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude,

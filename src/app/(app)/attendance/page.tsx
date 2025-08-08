@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Loader2, Calendar as CalendarIcon, Download, Trash2 } from 'lucide-react';
+import { ClipboardList, Loader2, Calendar as CalendarIcon, Download, Trash2, Camera } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -44,6 +44,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import Image from 'next/image';
 
 
 type AttendanceRecord = {
@@ -54,6 +56,7 @@ type AttendanceRecord = {
   date: string;
   time: string;
   status: 'Clocked In' | 'Clocked Out';
+  photoUrl?: string;
   createdAt: Timestamp;
 };
 
@@ -71,6 +74,8 @@ type DailyAttendanceSummary = {
     date: string;
     clockInTime: string | null;
     clockOutTime: string | null;
+    clockInPhotoUrl?: string;
+    clockOutPhotoUrl?: string;
     lateMinutes: number | null;
     dayDate: Date;
     schedule?: Schedule;
@@ -181,6 +186,7 @@ export default function AttendancePage() {
             // Only set the first clock in
             if (summary.clockInTime === null) {
                 summary.clockInTime = record.time;
+                summary.clockInPhotoUrl = record.photoUrl;
                 
                 const dayIndex = (recordTime.getDay() + 6) % 7;
                 const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
@@ -210,6 +216,7 @@ export default function AttendancePage() {
         if (record.status === 'Clocked Out') {
             // Always update with the latest clock out
             summary.clockOutTime = record.time;
+            summary.clockOutPhotoUrl = record.photoUrl;
         }
     });
     
@@ -323,6 +330,32 @@ export default function AttendancePage() {
      )
   }
 
+  const PhotoViewer = ({ photoUrl, title }: { photoUrl?: string, title: string }) => {
+    if (!photoUrl) {
+      return (
+        <div className="flex items-center justify-center text-muted-foreground">
+          <Camera className="h-4 w-4" />
+        </div>
+      );
+    }
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Image src={photoUrl} alt="Attendance photo" width={40} height={40} className="rounded-md object-cover cursor-pointer hover:scale-110 transition-transform" />
+        </DialogTrigger>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+          <div className="relative aspect-[3/4] w-full mt-4">
+            <Image src={photoUrl} alt="Attendance photo" layout="fill" objectFit="contain" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+
   return (
     <div className="flex flex-1 flex-col bg-muted/40 p-4 md:p-10">
       <Card className="shadow-lg rounded-xl">
@@ -385,8 +418,10 @@ export default function AttendancePage() {
                 <TableRow>
                   <TableHead>Nama Karyawan</TableHead>
                   <TableHead>Tanggal</TableHead>
-                  <TableHead>Waktu Masuk</TableHead>
-                  <TableHead>Waktu Pulang</TableHead>
+                  <TableHead>Masuk</TableHead>
+                  <TableHead>Foto Masuk</TableHead>
+                  <TableHead>Pulang</TableHead>
+                  <TableHead>Foto Pulang</TableHead>
                   <TableHead>Keterlambatan</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -397,8 +432,10 @@ export default function AttendancePage() {
                         <TableRow key={index}>
                             <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                            <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                            <TableCell><Skeleton className="h-10 w-10" /></TableCell>
+                            <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                            <TableCell><Skeleton className="h-10 w-10" /></TableCell>
                             <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                             <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                         </TableRow>
@@ -409,7 +446,13 @@ export default function AttendancePage() {
                       <TableCell className="font-medium">{summary.employeeName}</TableCell>
                       <TableCell>{summary.date}</TableCell>
                       <TableCell>{summary.clockInTime || ' - '}</TableCell>
+                      <TableCell>
+                          <PhotoViewer photoUrl={summary.clockInPhotoUrl} title={`Foto Masuk: ${summary.employeeName} - ${summary.date}`} />
+                      </TableCell>
                       <TableCell>{summary.clockOutTime || ' - '}</TableCell>
+                      <TableCell>
+                          <PhotoViewer photoUrl={summary.clockOutPhotoUrl} title={`Foto Pulang: ${summary.employeeName} - ${summary.date}`} />
+                      </TableCell>
                       <TableCell>
                         {summary.lateMinutes === null ? (
                             <span className="text-muted-foreground">-</span>
@@ -451,7 +494,7 @@ export default function AttendancePage() {
                   ))
                 ) : (
                      <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
                             Tidak ada catatan absensi pada rentang tanggal ini.
                         </TableCell>
                      </TableRow>

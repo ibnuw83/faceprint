@@ -27,7 +27,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchSettings = async () => {
-      setLoading(true);
+      // Intentionally not setting loading to true here to avoid re-triggering skeletons on re-fetch
       try {
         const landingRef = doc(db, 'settings', 'landingPage');
         const footerRef = doc(db, 'settings', 'footer');
@@ -76,79 +76,86 @@ export default function HomePage() {
     Autoplay({ delay: 3000, stopOnInteraction: true })
   )
 
+  const renderSkeletons = () => (
+    <div className="grid md:grid-cols-2 items-center gap-12 max-w-6xl mx-auto w-full">
+      <div className="flex flex-col items-center md:items-start text-center md:text-left gap-6 w-full">
+        <Skeleton className="h-12 w-3/4" />
+        <div className='space-y-2 w-full'>
+          <Skeleton className='h-4 w-full' />
+          <Skeleton className='h-4 w-full' />
+          <Skeleton className='h-4 w-3/4' />
+        </div>
+        <div className="flex gap-4">
+          <Skeleton className="h-12 w-28" />
+          <Skeleton className="h-12 w-28" />
+        </div>
+      </div>
+      <div className="w-full max-w-md mx-auto">
+        <Skeleton className="w-full aspect-square rounded-xl" />
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="p-4 md:p-6">
         <Logo />
       </header>
+      
       <main className="flex-1 flex flex-col items-center justify-center text-center p-4">
-        <div className="grid md:grid-cols-2 items-center gap-12 max-w-6xl mx-auto">
-          <div className="flex flex-col items-center md:items-start text-center md:text-left gap-6">
-             {loading || !settings ? (
-                <>
-                 <Skeleton className="h-12 w-3/4" />
-                 <div className='space-y-2 w-full'>
-                    <Skeleton className='h-4 w-full' />
-                    <Skeleton className='h-4 w-full' />
-                    <Skeleton className='h-4 w-3/4' />
-                  </div>
-                </>
-             ) : (
-                <>
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                        {settings.title}
-                    </h1>
-                    <p className="text-lg text-muted-foreground max-w-md">
-                        {settings.description}
-                    </p>
-                </>
-             )}
-            <div className="flex gap-4">
-              <Button asChild size="lg">
-                <Link href="/login">Masuk</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/register">Daftar</Link>
-              </Button>
+        {loading || !settings ? renderSkeletons() : (
+          <div className="grid md:grid-cols-2 items-center gap-12 max-w-6xl mx-auto">
+            <div className="flex flex-col items-center md:items-start text-center md:text-left gap-6">
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+                {settings.title}
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-md">
+                {settings.description}
+              </p>
+              <div className="flex gap-4">
+                <Button asChild size="lg">
+                  <Link href="/login">Masuk</Link>
+                </Button>
+                <Button asChild size="lg" variant="outline">
+                  <Link href="/register">Daftar</Link>
+                </Button>
+              </div>
+            </div>
+            <div className="w-full max-w-md mx-auto">
+              <Carousel
+                className="w-full"
+                opts={{ loop: true }}
+                plugins={[plugin.current]}
+                onMouseEnter={plugin.current.stop}
+                onMouseLeave={plugin.current.reset}
+              >
+                <CarouselContent>
+                  {settings.imageUrls.map((url, index) => (
+                    <CarouselItem key={index}>
+                      <Card className="overflow-hidden rounded-xl shadow-2xl">
+                        <CardContent className="flex aspect-square items-center justify-center p-0">
+                          <Image
+                            src={url}
+                            alt={`Ilustrasi sistem absensi ${index + 1}`}
+                            layout="fill"
+                            objectFit="cover"
+                            className="transition-transform duration-500 hover:scale-105"
+                            data-ai-hint="office employee biometric"
+                            unoptimized
+                          />
+                        </CardContent>
+                      </Card>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="hidden sm:flex" />
+                <CarouselNext className="hidden sm:flex" />
+              </Carousel>
             </div>
           </div>
-          <div className="w-full max-w-md mx-auto">
-             {loading || !settings ? (
-                <Skeleton className="w-full aspect-square rounded-xl" />
-             ) : (
-               <Carousel 
-                  className="w-full" 
-                  opts={{ loop: true }}
-                  plugins={[plugin.current]}
-                  onMouseEnter={plugin.current.stop}
-                  onMouseLeave={plugin.current.reset}
-                >
-                  <CarouselContent>
-                    {settings.imageUrls.map((url, index) => (
-                      <CarouselItem key={index}>
-                        <Card className="overflow-hidden rounded-xl shadow-2xl">
-                           <CardContent className="flex aspect-square items-center justify-center p-0">
-                             <Image 
-                                src={url} 
-                                alt={`Ilustrasi sistem absensi ${index + 1}`}
-                                layout="fill"
-                                objectFit="cover"
-                                className="transition-transform duration-500 hover:scale-105"
-                                data-ai-hint="office employee biometric"
-                                unoptimized
-                              />
-                           </CardContent>
-                        </Card>
-                      </CarouselItem>
-                    ))}
-                  </CarouselContent>
-                  <CarouselPrevious className="hidden sm:flex" />
-                  <CarouselNext className="hidden sm:flex"/>
-                </Carousel>
-             )}
-          </div>
-        </div>
+        )}
       </main>
+
       <footer className="p-4 text-center text-muted-foreground text-sm">
         {loading ? <Skeleton className="h-4 w-1/3 mx-auto" /> : footerText}
       </footer>

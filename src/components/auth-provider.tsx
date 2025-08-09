@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useState, useMemo, useCallback, useEffect, useContext } from 'react';
-import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, setDoc, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { ToastProps } from '@/components/ui/toast';
@@ -37,7 +37,6 @@ interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
   login: (email: string, pass: string) => Promise<any>;
-  loginWithGoogle: () => Promise<any>;
   register: (email: string, pass: string, name: string) => Promise<any>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
@@ -184,30 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return signInWithEmailAndPassword(auth, email, pass);
   }, []);
 
-  const loginWithGoogle = useCallback(async () => {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    const fbUser = result.user;
-    
-    const userRef = doc(db, 'users', fbUser.uid);
-    const userDoc = await getDoc(userRef);
-
-    if (!userDoc.exists()) {
-      // If user doesn't exist in Firestore, create a new profile
-       const role = fbUser.email?.toLowerCase().includes('admin') ? 'admin' : 'employee';
-      await setDoc(userRef, {
-        uid: fbUser.uid,
-        name: fbUser.displayName,
-        email: fbUser.email,
-        role: role,
-        isProfileComplete: false,
-        createdAt: serverTimestamp(),
-        faceprint: fbUser.photoURL, // Use Google's photo as a placeholder
-      });
-    }
-    return result;
-  }, []);
-
   const register = useCallback(async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = userCredential.user;
@@ -234,14 +209,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       firebaseUser,
       login,
-      loginWithGoogle,
       register,
       logout,
       isAuthenticated: !!user && !!firebaseUser,
       loading,
       checkUserStatus
     }),
-    [user, firebaseUser, login, loginWithGoogle, register, logout, loading, checkUserStatus]
+    [user, firebaseUser, login, register, logout, loading, checkUserStatus]
   );
 
   return (

@@ -128,7 +128,11 @@ export default function EmployeeDashboard() {
 
   // Effect for fetching all settings and history
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+        setIsLoadingSettings(false);
+        setLoadingHistory(false);
+        return;
+    }
 
     const fetchAllSettings = async () => {
         setIsLoadingSettings(true);

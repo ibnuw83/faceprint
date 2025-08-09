@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from './ui/skeleton';
 
@@ -21,28 +21,29 @@ export function Logo({ className, showTitle = true }: LogoProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const brandingRef = doc(db, 'settings', 'branding');
-    
-    // Use onSnapshot for real-time updates, but getDoc is also fine for one-time fetch
-    const unsubscribe = onSnapshot(brandingRef, (docSnap) => {
+    const fetchBranding = async () => {
         setLoading(true);
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            setLogoUrl(data.logoUrl || null);
-            setAppName(data.appName || 'VisageID');
-        } else {
+        try {
+            const brandingRef = doc(db, 'settings', 'branding');
+            const docSnap = await getDoc(brandingRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setLogoUrl(data.logoUrl || null);
+                setAppName(data.appName || 'VisageID');
+            } else {
+                setLogoUrl(null);
+                setAppName('VisageID');
+            }
+        } catch (error) {
+            console.error("Failed to fetch branding settings:", error);
             setLogoUrl(null);
             setAppName('VisageID');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
-    }, (error) => {
-        console.error("Failed to fetch branding settings:", error);
-        setLogoUrl(null);
-        setAppName('VisageID');
-        setLoading(false);
-    });
-
-    return () => unsubscribe();
+    };
+    
+    fetchBranding();
   }, []);
 
 

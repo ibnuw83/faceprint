@@ -106,14 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setFirebaseUser(null);
   }, []);
 
-  const checkUserStatus = useCallback(async () => {
-    setLoading(true);
+  // Renamed from checkUserStatus to avoid conflicts, this is now the main source of truth
+  const refreshUserData = useCallback(async () => {
     const fbUser = auth.currentUser;
     if (fbUser) {
-        const appUser = await fetchUserData(fbUser);
-        setUser(appUser);
+      setLoading(true);
+      const appUser = await fetchUserData(fbUser);
+      setUser(appUser);
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
 
@@ -213,9 +214,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       isAuthenticated: !!user && !!firebaseUser,
       loading,
-      checkUserStatus
+      checkUserStatus: refreshUserData
     }),
-    [user, firebaseUser, login, register, logout, loading, checkUserStatus]
+    [user, firebaseUser, login, register, logout, loading, refreshUserData]
   );
 
   return (

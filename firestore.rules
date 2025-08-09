@@ -4,44 +4,47 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check for admin role
+    // Helper Functions
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // IMPLICIT DENY: By default, no one can access anything.
     
-    // PUBLIC ACCESS: Settings can be read by anyone for the public pages.
-    // WRITE ACCESS: Only admins can change settings.
-    match /settings/{settingId} {
-      allow read: if true;
-      allow write: if request.auth != null && isAdmin();
-    }
-    
     // Users: Users can read/update their own data. Admins can do anything.
     match /users/{userId} {
       allow get, update: if request.auth.uid == userId || isAdmin();
-      allow list, create, delete: if isAdmin();
+      allow create: if request.auth.uid == userId || isAdmin();
+      allow list, delete: if isAdmin();
     }
     
-    // Departments: Any logged-in user can read the list, but only admins can change them.
+    // Departments: Logged-in users can read, admins can do anything.
     match /departments/{departmentId} {
-      allow get, list: if request.auth != null || isAdmin();
+      allow get, list: if request.auth != null;
       allow create, update, delete: if isAdmin();
     }
     
-    // Attendance: Users can create their own records and read them. Admins can do anything.
+    // Attendance: Users can create/read their own records. Admins can do anything.
     match /attendance/{attendanceId} {
       allow read: if request.auth.uid == resource.data.uid || isAdmin();
       allow create: if request.auth.uid == request.resource.data.uid;
       allow update, delete: if isAdmin();
     }
 
-    // Leave Requests: Users can create/read their own. Admins can do anything.
-    match /leaveRequests/{leaveId} {
-        allow read: if request.auth.uid == resource.data.uid || isAdmin();
-        allow create: if request.auth.uid == request.resource.data.uid;
-        allow update, delete: if isAdmin();
+    // Leave Requests: Users can create/read their own. Admins can read all and update status.
+    match /leaveRequests/{requestId} {
+      allow create: if request.auth.uid == request.resource.data.uid;
+      allow read: if request.auth.uid == resource.data.uid || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+    
+    // PUBLIC ACCESS: Settings can be read by anyone for the public pages.
+    // WRITE ACCESS: Only admins can change settings.
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
+
+    

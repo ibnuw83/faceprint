@@ -20,11 +20,13 @@ service cloud.firestore {
         allow create, update, delete: if isAdmin();
     }
     
-    // Users: Users can read/update their own data. Admins can do anything.
+    // Users: Logged-in users can attempt to read any single profile (needed for checks).
+    // They can only create/update their OWN profile.
+    // Admins can list/delete anyone.
     match /users/{userId} {
-      allow get, update: if request.auth.uid == userId || isAdmin();
-      allow create: if request.auth.uid == userId || isAdmin();
+      allow get: if request.auth != null; // Allow any logged-in user to check for a document
       allow list, delete: if isAdmin();
+      allow create, update: if request.auth.uid == userId || isAdmin();
     }
 
     // Attendance: Users can create/read their own records. Admins can do anything.

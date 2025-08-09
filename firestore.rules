@@ -1,57 +1,56 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isAdmin() {
-      // Safely check for the 'admin' role. This will not throw a permission error if the document does not exist.
-      // It will simply return false, which is the correct behavior for a non-existent or non-admin user.
+    
+    // --- Helper Functions ---
+    // Checks if the user making the request is an admin based on their existing document.
+    function isRequestingUserAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // --- Collections ---
+
     // Settings: Publicly readable for all users. Only admins can write.
     match /settings/{settingId} {
-      allow get: if true;
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isRequestingUserAdmin();
     }
     
     // Departments: All logged-in users can read. Only admins can write.
     match /departments/{departmentId} {
-        allow get, list: if request.auth != null;
-        allow create, update, delete: if isAdmin();
+        allow read: if request.auth != null;
+        allow write: if isRequestingUserAdmin();
     }
     
     // Users:
-    // - Any authenticated user can TRY to get a user document (crucial for checking if a profile exists).
-    // - A user can only create or update THEIR OWN document.
-    // - Only an admin can list all users or delete a user.
+    // - Any logged-in user can check if a profile exists (get).
+    // - Users can only create or update their own profile.
+    // - Admins can do anything except create a profile for someone else (users must create their own).
     match /users/{userId} {
       allow get: if request.auth != null;
-      allow list, delete: if isAdmin();
-      allow create, update: if request.auth.uid == userId || isAdmin();
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId || isRequestingUserAdmin();
+      allow list, delete: if isRequestingUserAdmin();
     }
 
-    // Attendance:
-    // - A user can read THEIR OWN attendance records.
-    // - An admin can read ALL attendance records.
-    // - A user can only create records for THEMSELVES.
-    // - Only an admin can delete records.
+    // Attendance: 
+    // - Users can create their own records.
+    // - They can read their own records.
+    // - Admins can read all records and delete any record.
     match /attendance/{attendanceId} {
-      allow read: if request.auth.uid == resource.data.uid || isAdmin();
+      allow read: if request.auth.uid == resource.data.uid || isRequestingUserAdmin();
       allow create: if request.auth.uid == request.resource.data.uid;
-      allow update, delete: if isAdmin();
+      allow update, delete: if isRequestingUserAdmin();
     }
 
     // Leave Requests:
-    // - A user can read or update THEIR OWN requests.
-    // - An admin can read ALL requests.
-    // - A user can only create requests for THEMSELVES.
-    // - Only an admin can delete requests.
+    // - Users can create/read/update their own requests.
+    // - Admins can do anything.
     match /leaveRequests/{requestId} {
-      allow read: if request.auth.uid == resource.data.uid || isAdmin();
-      allow create, update: if request.auth.uid == request.resource.data.uid || isAdmin();
-      allow delete: if isAdmin();
+      allow read: if request.auth.uid == resource.data.uid || isRequestingUserAdmin();
+      allow create, update: if request.auth.uid == request.resource.data.uid || isRequestingUserAdmin();
+      allow delete: if isRequestingUserAdmin();
     }
   }
 }

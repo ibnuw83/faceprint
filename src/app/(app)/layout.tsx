@@ -141,8 +141,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     if (!loading) {
       if (!isAuthenticated) {
         router.replace('/login');
-      } else if (user && user.role === 'employee' && !user.isProfileComplete && pathname !== '/employees/new') {
-        router.replace('/employees/new');
+      } else if (user && user.role === 'employee' && !user.isProfileComplete && pathname !== '/profile') {
+        router.replace('/profile');
       }
     }
   }, [isAuthenticated, user, loading, router, pathname]);
@@ -158,9 +158,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   // If user is employee but profile is not complete, show only the completion page.
   // This check is primarily for users who register themselves.
   if (user.role === 'employee' && !user.isProfileComplete) {
-    // We render the children, which should be the NewEmployeePage in this specific redirect case.
-    // However, since an employee can't access this page, we show a loading/message state or handle it inside the page itself.
-    // For now, rendering children is the expected behavior based on the redirect.
+    // We render the children, which should be the Profile page in this specific redirect case.
     return <main>{children}</main>;
   }
 

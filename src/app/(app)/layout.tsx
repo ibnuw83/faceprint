@@ -155,10 +155,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // If user is employee but profile is not complete, show only the completion page
+  // If user is employee but profile is not complete, show only the completion page.
+  // This check is primarily for users who register themselves.
   if (user.role === 'employee' && !user.isProfileComplete) {
+    // We render the children, which should be the NewEmployeePage in this specific redirect case.
+    // However, since an employee can't access this page, we show a loading/message state or handle it inside the page itself.
+    // For now, rendering children is the expected behavior based on the redirect.
     return <main>{children}</main>;
   }
+
 
   return (
     <div className="flex min-h-screen w-full flex-col">
@@ -171,3 +176,5 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+    

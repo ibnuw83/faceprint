@@ -234,7 +234,7 @@ export default function NewEmployeePage() {
         department: department,
         isProfileComplete: true, // Profile is complete upon creation by admin
         faceprint: faceprintDataUrl,
-        role: email.includes('admin') ? 'admin' : 'employee', // Assign role
+        role: email.includes('admin@') ? 'admin' : 'employee', // Assign role
       };
 
       if (selectedDepartmentData?.latitude && selectedDepartmentData?.longitude) {
@@ -414,3 +414,5 @@ export default function NewEmployeePage() {
     </div>
   );
 }
+
+    

@@ -69,6 +69,7 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
   const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const { uid } = params;
   
   const [userData, setUserData] = useState<UserData | null>(null);
   const [allAttendanceRecords, setAllAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -78,7 +79,6 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
   
 
   const fetchAttendanceAndSettings = useCallback(async () => {
-    const { uid } = params;
     if (!uid || !user) return;
     setLoading(true);
     let targetUser: UserData | null = null;
@@ -126,7 +126,7 @@ export default function UserAttendancePage({ params }: { params: { uid: string }
     } finally {
         setLoading(false);
     }
-  }, [toast, params, router, user]);
+  }, [toast, uid, router, user]);
 
   useEffect(() => {
     if (user?.role !== 'admin') {

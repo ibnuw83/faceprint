@@ -44,13 +44,13 @@ const daysOfWeek = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Mingg
 export default function UserProfilePage({ params }: { params: { uid: string } }) {
   const { user: authUser, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { uid } = params;
 
   const [targetUser, setTargetUser] = useState<UserData | null>(null);
   const [attendanceHistory, setAttendanceHistory] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchUserDataAndHistory = useCallback(async () => {
-    const { uid } = params;
     if (!uid || !authUser) {
         setLoading(false);
         return;
@@ -83,7 +83,7 @@ export default function UserProfilePage({ params }: { params: { uid: string } })
     } finally {
       setLoading(false);
     }
-  }, [params, router, authUser]);
+  }, [uid, router, authUser]);
 
   useEffect(() => {
     if (!authLoading) {

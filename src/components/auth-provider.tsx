@@ -3,7 +3,7 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useState, useMemo, useCallback, useEffect, useContext } from 'react';
-import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateProfile, User as FirebaseUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
 import { doc, setDoc, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { ToastProps } from '@/components/ui/toast';
@@ -36,8 +36,8 @@ export type User = {
 interface AuthContextType {
   user: User | null;
   firebaseUser: FirebaseUser | null;
-  login: (email: string, pass: string) => Promise<void>;
-  register: (email: string, pass: string, name: string) => Promise<void>;
+  login: (email: string, pass: string) => Promise<any>;
+  register: (email: string, pass: string, name: string) => Promise<any>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   loading: boolean;
@@ -180,15 +180,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
   const login = useCallback(async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
+    return signInWithEmailAndPassword(auth, email, pass);
   }, []);
 
   const register = useCallback(async (email: string, pass: string, name: string) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const fbUser = userCredential.user;
-    
-    await updateProfile(fbUser, { displayName: name });
-    
+        
     const role = email.toLowerCase().includes('admin') ? 'admin' : 'employee';
     
     // Create the user document in the top-level 'users' collection
@@ -202,7 +200,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createdAt: serverTimestamp(),
       faceprint: null,
     });
-
+    
+    return userCredential;
   }, []);
 
   const authContextValue = useMemo(

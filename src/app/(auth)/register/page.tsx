@@ -60,19 +60,20 @@ export default function RegisterPage() {
       router.push('/login');
     } catch (error: any) {
       console.error(error);
-      if (error.code === 'auth/email-already-in-use') {
-         toast({
-          title: 'Email Sudah Terdaftar',
-          description: 'Email yang Anda masukkan sudah digunakan. Silakan gunakan email lain atau masuk.',
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-            title: 'Pendaftaran Gagal',
-            description: error.message || 'Terjadi kesalahan tak terduga.',
-            variant: 'destructive',
-        });
+      let description = 'Terjadi kesalahan tak terduga. Silakan coba lagi.';
+      if (error?.code === 'auth/email-already-in-use') {
+          description = 'Email yang Anda masukkan sudah digunakan. Silakan gunakan email lain atau masuk.';
+      } else if (error?.code === 'auth/weak-password') {
+          description = 'Kata sandi terlalu lemah. Harap gunakan minimal 6 karakter.';
+      } else if (error?.code === 'permission-denied' || error?.code === 'missing-permission') {
+          description = 'Izin ditolak oleh server. Mungkin ada masalah konfigurasi keamanan. Hubungi admin.';
       }
+
+      toast({
+          title: 'Pendaftaran Gagal',
+          description: description,
+          variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
